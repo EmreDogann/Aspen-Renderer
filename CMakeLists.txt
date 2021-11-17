@@ -28,6 +28,7 @@ target_sources(${PROJECT_NAME} PRIVATE src/first_app.hpp src/first_app.cpp)
 target_sources(${PROJECT_NAME} PRIVATE src/aspen_pipeline.hpp src/aspen_pipeline.cpp)
 target_sources(${PROJECT_NAME} PRIVATE src/aspen_device.hpp src/aspen_device.cpp)
 target_sources(${PROJECT_NAME} PRIVATE src/aspen_swap_chain.hpp src/aspen_swap_chain.cpp)
+target_sources(${PROJECT_NAME} PRIVATE src/aspen_model.hpp src/aspen_model.cpp)
 
 # Compile vertex shader
 add_custom_target(simple_shader.vert

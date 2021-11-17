@@ -1,5 +1,6 @@
 #pragma once
 #include "aspen_device.hpp"
+#include "aspen_model.hpp"
 #include "aspen_pipeline.hpp"
 #include "aspen_swap_chain.hpp"
 #include "aspen_window.hpp"
@@ -22,6 +23,7 @@ namespace Aspen {
         void run();
 
     private:
+        void loadModels();
         void createPipelineLayout();
         void createPipeline();
         void createCommandBuffers();
@@ -33,5 +35,6 @@ namespace Aspen {
         std::unique_ptr<AspenPipeline> aspenPipeline;
         VkPipelineLayout pipelineLayout;
         std::vector<VkCommandBuffer> commandBuffers;
+        std::unique_ptr<AspenModel> aspenModel;
     };
 }

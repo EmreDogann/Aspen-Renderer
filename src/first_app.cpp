@@ -6,10 +6,12 @@
 #include <memory>
 #include <stdexcept>
 #include <stdint.h>
+#include <vector>
 #include <vulkan/vulkan_core.h>
 
 namespace Aspen {
     FirstApp::FirstApp() {
+        loadModels();
         createPipelineLayout();
         createPipeline();
         createCommandBuffers();
@@ -27,6 +29,16 @@ namespace Aspen {
         }
 
         vkDeviceWaitIdle(aspenDevice.device()); // Block CPU until all GPU operations have completed.
+    }
+
+    void FirstApp::loadModels() {
+        std::vector<AspenModel::Vertex> vertices{
+            {{0.0f, -0.5f}},
+            {{0.5f, 0.5f}},
+            {{-0.5f, 0.5f}},
+        };
+
+        aspenModel = std::make_unique<AspenModel>(aspenDevice, vertices);
     }
 
     // For now the pipeline layout is empty.
@@ -98,7 +110,8 @@ namespace Aspen {
             vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
             aspenPipeline->bind(commandBuffers[i]);
-            vkCmdDraw(commandBuffers[i], 3, 1, 0, 0); // Draw 3 verticies and only 1 instance.
+            aspenModel->bind(commandBuffers[i]);
+            aspenModel->draw(commandBuffers[i]);
 
             // Stop recording.
             vkCmdEndRenderPass(commandBuffers[i]);
