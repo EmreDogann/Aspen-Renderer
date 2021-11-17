@@ -25,6 +25,8 @@ namespace Aspen {
             glfwPollEvents(); // Process window level events.
             drawFrame();
         }
+
+        vkDeviceWaitIdle(aspenDevice.device()); // Block CPU until all GPU operations have completed.
     }
 
     // For now the pipeline layout is empty.
@@ -41,6 +43,7 @@ namespace Aspen {
         }
     }
 
+    // Create the graphics pipeline defined in aspen_pipeline.cpp
     void FirstApp::createPipeline() {
         PipelineConfigInfo pipelineConfig{};
         AspenPipeline::defaultPipelineConfigInfo(pipelineConfig, aspenSwapChain.width(), aspenSwapChain.height());
@@ -63,7 +66,7 @@ namespace Aspen {
             throw std::runtime_error("Failed to allocate command buffers.");
         }
 
-        // Index represents the current frame buffer.
+        // Index represents the current frame/command buffer.
         for (int i = 0; i < commandBuffers.size(); i++) {
             VkCommandBufferBeginInfo beginInfo{};
             beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -113,6 +116,7 @@ namespace Aspen {
             throw std::runtime_error("Failed to acquire swap chain image.");
         }
 
+        // Vulkan is going to go off and execute the commands in this command buffer to output that information to the selected frame buffer.
         result = aspenSwapChain.submitCommandBuffers(&commandBuffers[imageIndex], &imageIndex);
         if (result != VK_SUCCESS) {
             throw std::runtime_error("Failed to present swap chain image.");
