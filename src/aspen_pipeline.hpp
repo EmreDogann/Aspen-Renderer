@@ -31,7 +31,8 @@ namespace Aspen {
         ~AspenPipeline();
 
         AspenPipeline(const AspenPipeline &) = delete;
-        void operator=(const AspenPipeline &) = delete;
+        AspenPipeline &operator=(const AspenPipeline &) = delete;
+        AspenPipeline() = default;
 
         void bind(VkCommandBuffer commandBuffer);
         static void defaultPipelineConfigInfo(PipelineConfigInfo &configInfo, uint32_t width, uint32_t height);

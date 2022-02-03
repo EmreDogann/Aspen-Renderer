@@ -35,7 +35,7 @@ namespace Aspen {
 
         // Not copyable or movable
         AspenDevice(const AspenDevice &) = delete;
-        void operator=(const AspenDevice &) = delete;
+        AspenDevice &operator=(const AspenDevice &) = delete;
         AspenDevice(AspenDevice &&) = delete;
         AspenDevice &operator=(AspenDevice &&) = delete;
 

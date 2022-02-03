@@ -16,6 +16,7 @@ namespace Aspen {
     public:
         struct Vertex {
             glm::vec2 position;
+            glm::vec3 color;
 
             static std::vector<VkVertexInputBindingDescription> getBindingDescriptions();
             static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions();
@@ -25,7 +26,7 @@ namespace Aspen {
         ~AspenModel();
 
         AspenModel(const AspenModel &) = delete;
-        AspenModel &operator-(const AspenModel &) = delete;
+        AspenModel &operator=(const AspenModel &) = delete;
 
         void bind(VkCommandBuffer commandBuffer);
         void draw(VkCommandBuffer commandBuffer);

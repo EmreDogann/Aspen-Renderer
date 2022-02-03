@@ -29,10 +29,12 @@ namespace Aspen {
         void createPipeline();
         void createCommandBuffers();
         void drawFrame();
+        void recreateSwapChain();
+        void recordCommandBuffer(int imageIndex);
 
         AspenWindow aspenWindow{WIDTH, HEIGHT, "Hello Vulkan!"};
         AspenDevice aspenDevice{aspenWindow};
-        AspenSwapChain aspenSwapChain{aspenDevice, aspenWindow.getExtent()};
+        std::unique_ptr<AspenSwapChain> aspenSwapChain;
         std::unique_ptr<AspenPipeline> aspenPipeline;
         VkPipelineLayout pipelineLayout;
         std::vector<VkCommandBuffer> commandBuffers;

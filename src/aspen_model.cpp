@@ -59,12 +59,17 @@ namespace Aspen {
 
     // Defines the properties of each vertex inside the vertex buffer.
     std::vector<VkVertexInputAttributeDescription> AspenModel::Vertex::getAttributeDescriptions() {
-        std::vector<VkVertexInputAttributeDescription> attributeDescriptions(1);
+        std::vector<VkVertexInputAttributeDescription> attributeDescriptions(2);
 
         attributeDescriptions[0].binding = 0;  // The vertex buffer the attribute is located in.
         attributeDescriptions[0].location = 0; // The location value for input in the vertex shader.
         attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
-        attributeDescriptions[0].offset = 0;
+        attributeDescriptions[0].offset = offsetof(Vertex, position); // Calculate the byte offset for the position attribute.
+
+        attributeDescriptions[1].binding = 0;  // The vertex buffer the attribute is located in.
+        attributeDescriptions[1].location = 1; // The location value for input in the vertex shader.
+        attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+        attributeDescriptions[1].offset = offsetof(Vertex, color); // Calculate the byte offset for the color attribute.
         return attributeDescriptions;
     }
 }

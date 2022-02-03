@@ -19,7 +19,7 @@ namespace Aspen {
         ~AspenSwapChain();
 
         AspenSwapChain(const AspenSwapChain &) = delete;
-        void operator=(const AspenSwapChain &) = delete;
+        AspenSwapChain &operator=(const AspenSwapChain &) = delete;
 
         VkFramebuffer getFrameBuffer(int index) { return swapChainFramebuffers[index]; }
         VkRenderPass getRenderPass() { return renderPass; }
