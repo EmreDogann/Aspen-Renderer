@@ -23,7 +23,14 @@ namespace Aspen {
     }
 
     void FirstApp::run() {
+        // Subscribe lambda function to recreate swapchain when resizing window and draw a frame with the updated swapchain. This is done to enable smooth resizing.
+        aspenWindow.windowResizeSubscribe([this]() {
+            this->aspenWindow.resetWindowResizedFlag();
+            this->recreateSwapChain();
+            this->drawFrame();
+        });
 
+        // Game Loop
         while (!aspenWindow.shouldClose()) {
             glfwPollEvents(); // Process window level events (such as keystrokes).
             drawFrame();
@@ -164,8 +171,8 @@ namespace Aspen {
             glfwWaitEvents(); // While one of the windows dimensions is 0 (e.g. during minimization), wait until otherwise.
         }
 
-        vkDeviceWaitIdle(aspenDevice.device()); // Wait until the current swapchain is no longer being used.
-        aspenSwapChain = nullptr;
+        vkDeviceWaitIdle(aspenDevice.device());                                 // Wait until the current swapchain is no longer being used.
+        aspenSwapChain = nullptr;                                               // Temporary fix as some systems do not allow the existsence of more than one swapchain. So by setting this smart point to null it will automatically destroy this swapchain.
         aspenSwapChain = std::make_unique<AspenSwapChain>(aspenDevice, extent); // Create new swapchain with new extents.
         createPipeline();                                                       // Pipeline can also depend on the swapchain, so we have to create that here as well.
     }

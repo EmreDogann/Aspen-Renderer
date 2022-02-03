@@ -2,6 +2,7 @@
 #include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <functional>
 #include <string>
 
 namespace Aspen {
@@ -23,6 +24,9 @@ namespace Aspen {
         bool wasWindowResized() { return framebufferResized; };
         void resetWindowResizedFlag() { framebufferResized = false; };
 
+        void windowResizeSubscribe(std::function<void()> subscriber) { windowResizeSubscribers.push_back(subscriber); };
+        void notifySubscribers();
+
     private:
         static void framebufferResizedCallback(GLFWwindow *window, int width, int height);
         void initWindow();
@@ -33,6 +37,8 @@ namespace Aspen {
 
         std::string windowName;
         GLFWwindow *window;
+
+        std::vector<std::function<void()>> windowResizeSubscribers;
     };
 
 } // namespace Aspen

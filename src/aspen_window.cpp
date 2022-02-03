@@ -37,6 +37,14 @@ namespace Aspen {
         aspenWindow->framebufferResized = true;
         aspenWindow->width = width;
         aspenWindow->height = height;
+
+        aspenWindow->notifySubscribers(); // Notify subscribers when window has been resized.
     }
 
+    // Call all subscriber functions on an event occuring (e.g. window resize).
+    void AspenWindow::notifySubscribers() {
+        for (auto function : windowResizeSubscribers) {
+            function();
+        }
+    }
 }
