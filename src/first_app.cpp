@@ -5,6 +5,7 @@
 #define GLM_FORCE_RADIANS           // Ensures that GLM will expect angles to be specified in radians, not degrees.
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE // Tells GLM to expect depth values in the range 0-1 instead of -1 to 1.
 #include <glm/glm.hpp>
+#include <glm/gtc/constants.hpp>
 
 // std
 #include <array>
@@ -17,12 +18,13 @@
 
 namespace Aspen {
     struct SimplePushConstantData {
+        glm::mat2 transform{1.f};
         glm::vec2 offset;
         alignas(16) glm::vec3 color;
     };
 
     FirstApp::FirstApp() {
-        loadModels();
+        loadGameObjects();
         createPipelineLayout();
         recreateSwapChain();
         createCommandBuffers();
@@ -51,7 +53,7 @@ namespace Aspen {
         vkDeviceWaitIdle(aspenDevice.device()); // Block CPU until all GPU operations have completed.
     }
 
-    void FirstApp::loadModels() {
+    void FirstApp::loadGameObjects() {
         std::vector<AspenModel::Vertex> vertices{
             {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
             {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
@@ -60,7 +62,30 @@ namespace Aspen {
 
         // vertices = sierpinskiTriangle(vertices, 5);
 
-        aspenModel = std::make_unique<AspenModel>(aspenDevice, vertices);
+        auto aspenModel = std::make_shared<AspenModel>(aspenDevice, vertices);
+
+        // https://www.color-hex.com/color-palette/5361
+        std::vector<glm::vec3> colors{
+            {1.0f, 0.7f, 0.73f},
+            {1.0f, 0.87f, 0.73f},
+            {1.0f, 1.0f, 0.73f},
+            {0.73f, 1.0f, 0.8f},
+            {0.73, 0.88f, 1.0f}};
+
+        // Need to gamma correct the colors otherwise they will turn out to be too bright.
+        for (auto &color : colors) {
+            color = glm::pow(color, glm::vec3{2.2f});
+        }
+
+        // Create 40 different triangle game objects with incrementally different scales, rotations, and colors.
+        for (int i = 0; i < 40; i++) {
+            auto triangle = AspenGameObject::createGameObject();
+            triangle.model = aspenModel;
+            triangle.transform2d.scale = glm::vec2(0.5f) + i * 0.025f;
+            triangle.transform2d.rotation = i * glm::pi<float>() * 0.025f;
+            triangle.color = colors[i % colors.size()];
+            gameObjects.push_back(std::move(triangle));
+        }
     }
 
     std::vector<AspenModel::Vertex> FirstApp::sierpinskiTriangle(std::vector<AspenModel::Vertex> vertices, const uint32_t depth) {
@@ -146,9 +171,6 @@ namespace Aspen {
     }
 
     void FirstApp::recordCommandBuffer(int imageIndex) {
-        static int frame = 0;
-        frame = (frame + 1) % 1000;
-
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -193,22 +215,37 @@ namespace Aspen {
         vkCmdSetViewport(commandBuffers[imageIndex], 0, 1, &viewport);
         vkCmdSetScissor(commandBuffers[imageIndex], 0, 1, &scissor);
 
-        aspenPipeline->bind(commandBuffers[imageIndex]);
-        aspenModel->bind(commandBuffers[imageIndex]);
-
-        for (int i = 0; i < 4; i++) {
-            SimplePushConstantData push{};
-            push.offset = {-0.5f + frame * 0.001f, -0.4f + i * 0.25f};
-            push.color = {0.0f, 0.0f, 0.2f + 0.2f * i};
-
-            vkCmdPushConstants(commandBuffers[imageIndex], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);
-            aspenModel->draw(commandBuffers[imageIndex]);
-        }
+        // Render all game objects
+        renderGameObjects(commandBuffers[imageIndex]);
 
         // Stop recording.
         vkCmdEndRenderPass(commandBuffers[imageIndex]);
         if (vkEndCommandBuffer(commandBuffers[imageIndex]) != VK_SUCCESS) {
             throw std::runtime_error("Failed to record command buffer.");
+        }
+    }
+
+    void FirstApp::renderGameObjects(VkCommandBuffer commandBuffer) {
+        // Update the game object properties.
+        int i = 0;
+        for (auto &obj : gameObjects) {
+            i += 1;
+            obj.transform2d.rotation =
+                glm::mod<float>(obj.transform2d.rotation + 0.00001f * i, 2.0f * glm::pi<float>()); // Slowly rotate game objects.
+        }
+
+        // Render the game objects.
+        aspenPipeline->bind(commandBuffer);
+
+        for (auto &obj : gameObjects) {
+            SimplePushConstantData push{};
+            push.transform = obj.transform2d.mat2();
+            push.offset = obj.transform2d.translation;
+            push.color = obj.color;
+
+            vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);
+            obj.model->bind(commandBuffer);
+            obj.model->draw(commandBuffer);
         }
     }
 

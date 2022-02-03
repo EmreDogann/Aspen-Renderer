@@ -1,5 +1,6 @@
 #pragma once
 #include "aspen_device.hpp"
+#include "aspen_game_object.hpp"
 #include "aspen_model.hpp"
 #include "aspen_pipeline.hpp"
 #include "aspen_swap_chain.hpp"
@@ -8,6 +9,7 @@
 // std
 #include <memory>
 #include <vector>
+#include <vulkan/vulkan_core.h>
 
 namespace Aspen {
     class FirstApp {
@@ -23,7 +25,7 @@ namespace Aspen {
         void run();
 
     private:
-        void loadModels();
+        void loadGameObjects();
         std::vector<AspenModel::Vertex> sierpinskiTriangle(std::vector<AspenModel::Vertex> vertices, const uint32_t depth);
         void createPipelineLayout();
         void createPipeline();
@@ -32,6 +34,7 @@ namespace Aspen {
         void drawFrame();
         void recreateSwapChain();
         void recordCommandBuffer(int imageIndex);
+        void renderGameObjects(VkCommandBuffer commandBuffer);
 
         AspenWindow aspenWindow{WIDTH, HEIGHT, "Hello Vulkan!"};
         AspenDevice aspenDevice{aspenWindow};
@@ -39,6 +42,6 @@ namespace Aspen {
         std::unique_ptr<AspenPipeline> aspenPipeline;
         VkPipelineLayout pipelineLayout;
         std::vector<VkCommandBuffer> commandBuffers;
-        std::unique_ptr<AspenModel> aspenModel;
+        std::vector<AspenGameObject> gameObjects;
     };
 }
