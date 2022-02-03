@@ -1,6 +1,11 @@
 #include "first_app.hpp"
 #include <GLFW/glfw3.h>
 
+// GLM Libs
+#define GLM_FORCE_RADIANS           // Ensures that GLM will expect angles to be specified in radians, not degrees.
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE // Tells GLM to expect depth values in the range 0-1 instead of -1 to 1.
+#include <glm/glm.hpp>
+
 // std
 #include <array>
 #include <iostream>
@@ -11,6 +16,11 @@
 #include <vulkan/vulkan_core.h>
 
 namespace Aspen {
+    struct SimplePushConstantData {
+        glm::vec2 offset;
+        alignas(16) glm::vec3 color;
+    };
+
     FirstApp::FirstApp() {
         loadModels();
         createPipelineLayout();
@@ -23,6 +33,8 @@ namespace Aspen {
     }
 
     void FirstApp::run() {
+        std::cout << "maxPushConstantSize = " << aspenDevice.properties.limits.maxPushConstantsSize << "\n";
+
         // Subscribe lambda function to recreate swapchain when resizing window and draw a frame with the updated swapchain. This is done to enable smooth resizing.
         aspenWindow.windowResizeSubscribe([this]() {
             this->aspenWindow.resetWindowResizedFlag();
@@ -81,12 +93,17 @@ namespace Aspen {
 
     // For now the pipeline layout is empty.
     void FirstApp::createPipelineLayout() {
+        VkPushConstantRange pushConstantRange{};
+        pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; // Which shaders will have access to this push constant range?
+        pushConstantRange.offset = 0;                                                             // To be used if you are using separate ranges for the vertex and fragment shaders.
+        pushConstantRange.size = sizeof(SimplePushConstantData);
+
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pipelineLayoutInfo.setLayoutCount = 0;
         pipelineLayoutInfo.pSetLayouts = nullptr;
-        pipelineLayoutInfo.pushConstantRangeCount = 0;
-        pipelineLayoutInfo.pPushConstantRanges = nullptr;
+        pipelineLayoutInfo.pushConstantRangeCount = 1;
+        pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 
         if (vkCreatePipelineLayout(aspenDevice.device(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
             throw std::runtime_error("Failed to create pipeline layout!");
@@ -129,6 +146,9 @@ namespace Aspen {
     }
 
     void FirstApp::recordCommandBuffer(int imageIndex) {
+        static int frame = 0;
+        frame = (frame + 1) % 1000;
+
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -150,7 +170,7 @@ namespace Aspen {
         // What inital values we want our frame buffer attatchments to be cleared to.
         // This corresponds to how we've structured our render pass: Index 0 = color attatchment, Index 1 = Depth Attatchment.
         std::array<VkClearValue, 2> clearValues{};
-        clearValues[0].color = {0.1f, 0.1f, 0.1f, 1.0f}; // RGBA
+        clearValues[0].color = {0.01f, 0.01f, 0.01f, 1.0f}; // RGBA
         clearValues[1].depthStencil = {1.0f, 0};
         renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
         renderPassInfo.pClearValues = clearValues.data();
@@ -175,7 +195,15 @@ namespace Aspen {
 
         aspenPipeline->bind(commandBuffers[imageIndex]);
         aspenModel->bind(commandBuffers[imageIndex]);
-        aspenModel->draw(commandBuffers[imageIndex]);
+
+        for (int i = 0; i < 4; i++) {
+            SimplePushConstantData push{};
+            push.offset = {-0.5f + frame * 0.001f, -0.4f + i * 0.25f};
+            push.color = {0.0f, 0.0f, 0.2f + 0.2f * i};
+
+            vkCmdPushConstants(commandBuffers[imageIndex], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);
+            aspenModel->draw(commandBuffers[imageIndex]);
+        }
 
         // Stop recording.
         vkCmdEndRenderPass(commandBuffers[imageIndex]);

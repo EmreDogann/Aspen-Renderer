@@ -23,6 +23,7 @@ namespace Aspen {
 
         PipelineConfigInfo(const PipelineConfigInfo &) = delete;
         PipelineConfigInfo &operator=(const PipelineConfigInfo &) = delete;
+        PipelineConfigInfo() = default;
     };
 
     class AspenPipeline {
@@ -32,7 +33,6 @@ namespace Aspen {
 
         AspenPipeline(const AspenPipeline &) = delete;
         AspenPipeline &operator=(const AspenPipeline &) = delete;
-        AspenPipeline() = default;
 
         void bind(VkCommandBuffer commandBuffer);
         static void defaultPipelineConfigInfo(PipelineConfigInfo &configInfo);
