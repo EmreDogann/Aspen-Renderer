@@ -47,8 +47,8 @@ namespace Aspen {
 
     void AspenPipeline::createGraphicsPipeline(const std::string &vertFilepath, const std::string &fragFilepath, const PipelineConfigInfo &configInfo) {
 
-        assert(configInfo.pipelineLayout != VK_NULL_HANDLE && "Cannot create grpahics pipeline:: No pipelineLayout provided in configInfo");
-        assert(configInfo.renderPass != VK_NULL_HANDLE && "Cannot create grpahics pipeline:: No renderPass provided in configInfo");
+        assert(configInfo.pipelineLayout != VK_NULL_HANDLE && "Cannot create graphics pipeline:: No pipelineLayout provided in configInfo");
+        assert(configInfo.renderPass != VK_NULL_HANDLE && "Cannot create graphics pipeline:: No renderPass provided in configInfo");
         auto vertCode = readFile(vertFilepath);
         auto fragCode = readFile(fragFilepath);
 
@@ -124,7 +124,11 @@ namespace Aspen {
         }
     }
 
+    // Bind a command buffer to a graphics pipeline.
     void AspenPipeline::bind(VkCommandBuffer commandBuffer) {
+        // VK_PIPELINE_BIND_POINT_GRAPHICS signals that this is a graphics pipeline we are binding this command buffer to.
+        // VK_PIPELINE_BIND_POINT_COMPUTE signals that this is a compute pipeline.
+        // VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR signals that this is a ray tracing pipeline.
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
     }
 
@@ -132,7 +136,7 @@ namespace Aspen {
 
         configInfo.inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
         configInfo.inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST; // Triangle_List = Every 3 verticies are grouped into a triangle.
-        configInfo.inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;              // If set to VK_TRUE when using a strip type topology, we can specify a special index value into an index buffer into order to breakup a strip and create disconnected geometry.
+        configInfo.inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;              // If set to VK_TRUE when using a strip type topology, we can specify a special index value in an index buffer in order to breakup a strip and create disconnected geometry.
 
         // Configure viewport - Describes the transformation between the pipeline output and our target image.
         // Transform from range -1 to 1 to range 0 to 1.

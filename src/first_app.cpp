@@ -3,6 +3,7 @@
 
 // std
 #include <array>
+#include <iostream>
 #include <memory>
 #include <stdexcept>
 #include <stdint.h>
@@ -24,7 +25,7 @@ namespace Aspen {
     void FirstApp::run() {
 
         while (!aspenWindow.shouldClose()) {
-            glfwPollEvents(); // Process window level events.
+            glfwPollEvents(); // Process window level events (such as keystrokes).
             drawFrame();
         }
 
@@ -38,7 +39,37 @@ namespace Aspen {
             {{-0.5f, 0.5f}},
         };
 
+        vertices = sierpinskiTriangle(vertices, 7);
+
         aspenModel = std::make_unique<AspenModel>(aspenDevice, vertices);
+    }
+
+    std::vector<AspenModel::Vertex> FirstApp::sierpinskiTriangle(std::vector<AspenModel::Vertex> vertices, const uint32_t depth) {
+        // Base case.
+        if (depth == 0) {
+            return vertices;
+        }
+
+        std::vector<AspenModel::Vertex> newVertices;
+        uint32_t counter = 0;
+        // Get middle vertices.
+        for (auto it = vertices.begin(); it != vertices.end(); ++it, ++counter) {
+            newVertices.push_back(AspenModel::Vertex{it->position});
+            newVertices.push_back({{(it->position.x + vertices[(counter + 1) % vertices.size()].position.x) / 2,
+                                    (it->position.y + vertices[(counter + 1) % vertices.size()].position.y) / 2}});
+            newVertices.push_back({{(it->position.x + vertices[(counter + 2) % vertices.size()].position.x) / 2,
+                                    (it->position.y + vertices[(counter + 2) % vertices.size()].position.y) / 2}});
+        }
+
+        std::vector<AspenModel::Vertex> finalVertices;
+        // Recursively compute smaller triangles.
+        for (uint32_t i = 0; i < newVertices.size(); i += 3) {
+            std::vector<AspenModel::Vertex> triangle{newVertices[i], newVertices[i + 1], newVertices[i + 2]};
+            auto result = sierpinskiTriangle(triangle, depth - 1);
+            finalVertices.insert(finalVertices.end(), result.begin(), result.end());
+        }
+
+        return finalVertices;
     }
 
     // For now the pipeline layout is empty.
@@ -70,6 +101,9 @@ namespace Aspen {
 
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+
+        // Primary Command Buffers (VK_COMMAND_BUFFER_LEVEL_PRIMARY) can be submitted to a queue to then be executed by the GPU. However, it cannot be called by other command buffers.
+        // Secondary Command Buffers (VK_COMMAND_BUFFER_LEVEL_SECONDARY) cannot be submitted to a queue for execution. But, it can be called by other command buffers.
         allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         allocInfo.commandPool = aspenDevice.getCommandPool();
         allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
@@ -107,6 +141,9 @@ namespace Aspen {
             renderPassInfo.pClearValues = clearValues.data();
 
             // Start recording commands to command buffer.
+            // VK_SUBPASS_CONTENTS_INLINE signifies that all the commands we want to execute will be embedded directly into this primary command buffer.
+            // VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS signifies that all the commands we want to execute will come from secondary command buffers.
+            // This means we cannot mix command types and have a primary command buffer that has both inline commands and secondary command buffers.
             vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
             aspenPipeline->bind(commandBuffers[i]);
@@ -125,6 +162,7 @@ namespace Aspen {
         uint32_t imageIndex;
         auto result = aspenSwapChain.acquireNextImage(&imageIndex); // Get the index of the frame buffer to render to next.
 
+        // VK_SUBOPTIMAL_KHR may be returned if the swapchain no longer matches the surface properties exactly (e.g. if the window was resized).
         if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
             throw std::runtime_error("Failed to acquire swap chain image.");
         }

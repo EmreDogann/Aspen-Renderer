@@ -24,6 +24,7 @@ namespace Aspen {
 
     private:
         void loadModels();
+        std::vector<AspenModel::Vertex> sierpinskiTriangle(std::vector<AspenModel::Vertex> vertices, const uint32_t depth);
         void createPipelineLayout();
         void createPipeline();
         void createCommandBuffers();

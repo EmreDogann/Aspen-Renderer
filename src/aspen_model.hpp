@@ -1,12 +1,12 @@
 #pragma once
 #include "aspen_device.hpp"
-#include <glm/glm.hpp>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
-// libs
-#define GLM_FORCE_RADIANS
+// GLM Libs
+#define GLM_FORCE_RADIANS           // Ensures that GLM will expect angles to be specified in radians, not degrees.
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE // Tells GLM to expect depth values in the range 0-1 instead of -1 to 1.
+#include <glm/glm.hpp>
 
 // std
 #include <vector>
