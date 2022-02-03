@@ -96,7 +96,7 @@ namespace Aspen {
         pipelineInfo.pMultisampleState = &configInfo.multisampleInfo;
         pipelineInfo.pColorBlendState = &configInfo.colorBlendInfo;
         pipelineInfo.pDepthStencilState = &configInfo.depthStencilInfo;
-        pipelineInfo.pDynamicState = nullptr; // Optional - Can use this to change pipeline functionality without having to recreate the pipeline.
+        pipelineInfo.pDynamicState = &configInfo.dynamicStateInfo; // Optional - Can use this to change pipeline functionality without having to recreate the pipeline.
 
         pipelineInfo.layout = configInfo.pipelineLayout;
         pipelineInfo.renderPass = configInfo.renderPass;
@@ -132,33 +132,33 @@ namespace Aspen {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
     }
 
-    void AspenPipeline::defaultPipelineConfigInfo(PipelineConfigInfo &configInfo, uint32_t width, uint32_t height) {
+    void AspenPipeline::defaultPipelineConfigInfo(PipelineConfigInfo &configInfo) {
 
         configInfo.inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
         configInfo.inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST; // Triangle_List = Every 3 verticies are grouped into a triangle.
         configInfo.inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;              // If set to VK_TRUE when using a strip type topology, we can specify a special index value in an index buffer in order to breakup a strip and create disconnected geometry.
 
-        // Configure viewport - Describes the transformation between the pipeline output and our target image.
-        // Transform from range -1 to 1 to range 0 to 1.
-        configInfo.viewport.x = 0.0f;
-        configInfo.viewport.y = 0.0f;
-        configInfo.viewport.width = static_cast<float>(width);
-        configInfo.viewport.height = static_cast<float>(height);
+        // // Configure viewport - Describes the transformation between the pipeline output and our target image.
+        // // Transform from range -1 to 1 to range 0 to 1.
+        // configInfo.viewport.x = 0.0f;
+        // configInfo.viewport.y = 0.0f;
+        // configInfo.viewport.width = static_cast<float>(width);
+        // configInfo.viewport.height = static_cast<float>(height);
 
-        // Used to transform the z component from our shaders.
-        configInfo.viewport.minDepth = 0.0f;
-        configInfo.viewport.maxDepth = 1.0f;
+        // // Used to transform the z component from our shaders.
+        // configInfo.viewport.minDepth = 0.0f;
+        // configInfo.viewport.maxDepth = 1.0f;
 
-        // Any pixels outside the scissor rectangle will be discarded, instead of squished like with configInfo.viewport
-        configInfo.scissor.offset = {0, 0};
-        configInfo.scissor.extent = {width, height};
+        // // Any pixels outside the scissor rectangle will be discarded, instead of squished like with configInfo.viewport
+        // configInfo.scissor.offset = {0, 0};
+        // configInfo.scissor.extent = {width, height};
 
         // Combine viewport and scissor into a single create state variable.
         configInfo.viewportInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
         configInfo.viewportInfo.viewportCount = 1;
-        configInfo.viewportInfo.pViewports = &configInfo.viewport;
+        configInfo.viewportInfo.pViewports = nullptr;
         configInfo.viewportInfo.scissorCount = 1;
-        configInfo.viewportInfo.pScissors = &configInfo.scissor;
+        configInfo.viewportInfo.pScissors = nullptr;
 
         // Setup the rasterizer.
         configInfo.rasterizationInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
@@ -216,5 +216,12 @@ namespace Aspen {
         configInfo.depthStencilInfo.stencilTestEnable = VK_FALSE;
         configInfo.depthStencilInfo.front = {}; // Optional
         configInfo.depthStencilInfo.back = {};  // Optional
+
+        // Configues pipeline to expect a dynamic viewport and scissor to be provided later.
+        configInfo.dynamicStateEnables = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+        configInfo.dynamicStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+        configInfo.dynamicStateInfo.pDynamicStates = configInfo.dynamicStateEnables.data();
+        configInfo.dynamicStateInfo.dynamicStateCount = static_cast<uint32_t>(configInfo.dynamicStateEnables.size());
+        configInfo.dynamicStateInfo.flags = 0;
     }
 }

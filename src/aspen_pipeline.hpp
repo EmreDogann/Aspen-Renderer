@@ -8,8 +8,6 @@
 namespace Aspen {
     // Data specifying how we want to configure our pipeline.
     struct PipelineConfigInfo {
-        VkViewport viewport;
-        VkRect2D scissor;
         VkPipelineViewportStateCreateInfo viewportInfo;
         VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo;
         VkPipelineRasterizationStateCreateInfo rasterizationInfo;
@@ -17,6 +15,8 @@ namespace Aspen {
         VkPipelineColorBlendAttachmentState colorBlendAttachment;
         VkPipelineColorBlendStateCreateInfo colorBlendInfo;
         VkPipelineDepthStencilStateCreateInfo depthStencilInfo;
+        std::vector<VkDynamicState> dynamicStateEnables;
+        VkPipelineDynamicStateCreateInfo dynamicStateInfo;
         VkPipelineLayout pipelineLayout = nullptr;
         VkRenderPass renderPass = nullptr;
         uint32_t subpass = 0;
@@ -35,7 +35,7 @@ namespace Aspen {
         AspenPipeline() = default;
 
         void bind(VkCommandBuffer commandBuffer);
-        static void defaultPipelineConfigInfo(PipelineConfigInfo &configInfo, uint32_t width, uint32_t height);
+        static void defaultPipelineConfigInfo(PipelineConfigInfo &configInfo);
 
     private:
         static std::vector<char> readFile(const std::string &filepath);

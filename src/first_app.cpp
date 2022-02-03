@@ -95,8 +95,11 @@ namespace Aspen {
 
     // Create the graphics pipeline defined in aspen_pipeline.cpp
     void FirstApp::createPipeline() {
+        assert(aspenSwapChain != nullptr && "Cannot create pipeline before swap chain!");
+        assert(pipelineLayout != nullptr && "Cannot create pipeline before pipeline layout!");
+
         PipelineConfigInfo pipelineConfig{};
-        AspenPipeline::defaultPipelineConfigInfo(pipelineConfig, aspenSwapChain->width(), aspenSwapChain->height());
+        AspenPipeline::defaultPipelineConfigInfo(pipelineConfig);
         pipelineConfig.renderPass = aspenSwapChain->getRenderPass();
         pipelineConfig.pipelineLayout = pipelineLayout;
         aspenPipeline = std::make_unique<AspenPipeline>(aspenDevice, "shaders/simple_shader.vert.spv", "shaders/simple_shader.frag.spv", pipelineConfig);
@@ -118,6 +121,11 @@ namespace Aspen {
         if (vkAllocateCommandBuffers(aspenDevice.device(), &allocInfo, commandBuffers.data()) != VK_SUCCESS) {
             throw std::runtime_error("Failed to allocate command buffers.");
         }
+    }
+
+    void FirstApp::freeCommandBuffers() {
+        vkFreeCommandBuffers(aspenDevice.device(), aspenDevice.getCommandPool(), static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
+        commandBuffers.clear();
     }
 
     void FirstApp::recordCommandBuffer(int imageIndex) {
@@ -153,6 +161,18 @@ namespace Aspen {
         // This means we cannot mix command types and have a primary command buffer that has both inline commands and secondary command buffers.
         vkCmdBeginRenderPass(commandBuffers[imageIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
+        // Setup viewport and scissor.
+        VkViewport viewport{};
+        viewport.x = 0.0f;
+        viewport.y = 0.0f;
+        viewport.width = static_cast<float>(aspenSwapChain->getSwapChainExtent().width);
+        viewport.height = static_cast<float>(aspenSwapChain->getSwapChainExtent().height);
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+        VkRect2D scissor{{0, 0}, aspenSwapChain->getSwapChainExtent()};
+        vkCmdSetViewport(commandBuffers[imageIndex], 0, 1, &viewport);
+        vkCmdSetScissor(commandBuffers[imageIndex], 0, 1, &scissor);
+
         aspenPipeline->bind(commandBuffers[imageIndex]);
         aspenModel->bind(commandBuffers[imageIndex]);
         aspenModel->draw(commandBuffers[imageIndex]);
@@ -171,10 +191,23 @@ namespace Aspen {
             glfwWaitEvents(); // While one of the windows dimensions is 0 (e.g. during minimization), wait until otherwise.
         }
 
-        vkDeviceWaitIdle(aspenDevice.device());                                 // Wait until the current swapchain is no longer being used.
-        aspenSwapChain = nullptr;                                               // Temporary fix as some systems do not allow the existsence of more than one swapchain. So by setting this smart point to null it will automatically destroy this swapchain.
-        aspenSwapChain = std::make_unique<AspenSwapChain>(aspenDevice, extent); // Create new swapchain with new extents.
-        createPipeline();                                                       // Pipeline can also depend on the swapchain, so we have to create that here as well.
+        vkDeviceWaitIdle(aspenDevice.device()); // Wait until the current swapchain is no longer being used.
+
+        if (aspenSwapChain == nullptr) {
+            aspenSwapChain = std::make_unique<AspenSwapChain>(aspenDevice, extent); // Create new swapchain with new extents.
+        } else {
+            aspenSwapChain = std::make_unique<AspenSwapChain>(aspenDevice, extent, std::move(aspenSwapChain)); // Create new swapchain with new extents and pass through the old swap chain if it exists.
+
+            // Because we have a 1:1 relationship between the number of command buffers and the number of frame buffers, if the counts differ, we need to recreate the command buffers.
+            if (aspenSwapChain->imageCount() != commandBuffers.size()) {
+                freeCommandBuffers();
+                createCommandBuffers();
+            }
+        }
+
+        // If Render Pass is compatible there is no need to create a new pipeline.
+        // TODO: Check if new and old render passes are compatible.
+        createPipeline(); // Pipeline can also depend on the swapchain, so we have to create that here as well.
     }
 
     void FirstApp::drawFrame() {
