@@ -4,6 +4,7 @@
 #include <GLFW/glfw3.h>
 #include <functional>
 #include <string>
+#include <vector>
 
 namespace Aspen {
 

@@ -3,7 +3,7 @@
 #include "aspen_game_object.hpp"
 #include "aspen_model.hpp"
 #include "aspen_pipeline.hpp"
-#include "aspen_swap_chain.hpp"
+#include "aspen_renderer.hpp"
 #include "aspen_window.hpp"
 
 // std
@@ -29,19 +29,14 @@ namespace Aspen {
         std::vector<AspenModel::Vertex> sierpinskiTriangle(std::vector<AspenModel::Vertex> vertices, const uint32_t depth);
         void createPipelineLayout();
         void createPipeline();
-        void createCommandBuffers();
-        void freeCommandBuffers();
-        void drawFrame();
-        void recreateSwapChain();
-        void recordCommandBuffer(int imageIndex);
         void renderGameObjects(VkCommandBuffer commandBuffer);
 
         AspenWindow aspenWindow{WIDTH, HEIGHT, "Hello Vulkan!"};
         AspenDevice aspenDevice{aspenWindow};
-        std::unique_ptr<AspenSwapChain> aspenSwapChain;
+        AspenRenderer aspenRenderer{aspenWindow, aspenDevice};
+
         std::unique_ptr<AspenPipeline> aspenPipeline;
         VkPipelineLayout pipelineLayout;
-        std::vector<VkCommandBuffer> commandBuffers;
         std::vector<AspenGameObject> gameObjects;
     };
 }

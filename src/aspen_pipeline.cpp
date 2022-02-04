@@ -11,6 +11,10 @@
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
+// #ifndef ENGINE_DIR
+// #define ENGINE_DIR "../"
+// #endif
+
 namespace Aspen {
 
     AspenPipeline::AspenPipeline(AspenDevice &device, const std::string &vertFilepath, const std::string &fragFilepath, const PipelineConfigInfo &configInfo) : aspenDevice(device) {
@@ -24,6 +28,7 @@ namespace Aspen {
     }
 
     std::vector<char> AspenPipeline::readFile(const std::string &filepath) {
+        // std::string enginePath = ENGINE_DIR + filepath;
         // ate = Bit flag to make sure we seek to the end of a file when it is opened.
         // binary = Bit flag to set it to read in the file as a binary to prevent any unwanted text transformations.
         std::ifstream file{filepath, std::ios::ate | std::ios::binary};

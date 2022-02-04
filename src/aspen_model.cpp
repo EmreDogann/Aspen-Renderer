@@ -5,6 +5,10 @@
 #include <cstring>
 #include <vulkan/vulkan_core.h>
 
+// #ifndef ENGINE_DIR
+// #define ENGINE_DIR "../"
+// #endif
+
 namespace Aspen {
     AspenModel::AspenModel(AspenDevice &device, const std::vector<Vertex> &vertices) : aspenDevice(device) {
         createVertexBuffers(vertices);

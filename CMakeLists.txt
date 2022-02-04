@@ -1,67 +1,157 @@
+include(./.env.cmake OPTIONAL RESULT_VARIABLE LOCAL_ENV)
+message(STATUS "Local .env.cmake: ${LOCAL_ENV}")
+
 cmake_minimum_required(VERSION 3.16)
 
-project(aspen-vulkan-renderer LANGUAGES CXX)
+set(NAME aspen-vulkan-renderer)
 
-list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+message(STATUS "using ${CMAKE_GENERATOR}")
+if (CMAKE_GENERATOR STREQUAL "MinGW Makefiles")
+    if (NOT MINGW_PATH) 
+      message(FATAL_ERROR "MINGW_PATH not set in .env.cmake")
+    endif()
+    set(USE_MINGW "True")
+    set(CMAKE_C_COMPILER ${MINGW_PATH}/bin/gcc.exe)
+    set(CMAKE_CXX_COMPILER  ${MINGW_PATH}/bin/g++.exe)
+endif()
 
-set(CMAKE_PREFIX_PATH "C:/Libraries/glm/cmake/glm;C:/Libraries/glfw-3.3.5")
+project(${NAME} VERSION 0.10.0)
 
-# Enable C++17 standard
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
+# 1. Set VULKAN_SDK_PATH in .env.cmake to target specific vulkan version
+if (DEFINED VULKAN_SDK_PATH)
+  set(Vulkan_INCLUDE_DIRS "${VULKAN_SDK_PATH}/Include") # 1.1 Make sure this include path is correct
+  set(Vulkan_LIBRARIES "${VULKAN_SDK_PATH}/Lib") # 1.2 Make sure lib path is correct
+  set(Vulkan_FOUND "True")
+else()
+  find_package(Vulkan REQUIRED) # throws error if could not find Vulkan
+  message(STATUS "Found Vulkan: $ENV{VULKAN_SDK}")
+endif()
+if (NOT Vulkan_FOUND)
+	message(FATAL_ERROR "Could not find Vulkan library!")
+else()
+	message(STATUS "Using vulkan lib at: ${Vulkan_LIBRARIES}")
+endif()
 
-find_package(Vulkan REQUIRED)
-find_package(GLFW REQUIRED)
-find_package(glm REQUIRED)
 
-# Not recommended by the creators of CMake: https://stackoverflow.com/questions/1027247/is-it-better-to-specify-source-files-with-glob-or-each-file-individually-in-cmak/1060061#1060061
-# file(GLOB SOURCES
-#     *.h
-#     *.cpp
-# )
+# 2. Set GLFW_PATH in .env.cmake to target specific glfw
+if (DEFINED GLFW_PATH)
+  message(STATUS "Using GLFW path specified in .env")
+  set(GLFW_INCLUDE_DIRS "${GLFW_PATH}/include")
+  if (MSVC)
+    set(GLFW_LIB "${GLFW_PATH}/lib-vc2019") # 2.1 Update lib-vc2019 to use same version as your visual studio
+  elseif (CMAKE_GENERATOR STREQUAL "MinGW Makefiles")
+    message(STATUS "USING MINGW")
+    set(GLFW_LIB "${GLFW_PATH}/lib-mingw-w64") # 2.1 make sure matches glfw mingw subdirectory
+  endif()
+else()
+  find_package(glfw3 3.3 REQUIRED)
+  set(GLFW_LIB glfw)
+  message(STATUS "Found GLFW")
+endif()
+if (NOT GLFW_LIB)
+	message(FATAL_ERROR "Could not find glfw library!")
+else()
+	message(STATUS "Using glfw lib at: ${GLFW_LIB}")
+endif()
 
-# Many sources instead recommend listing each file explicitly.
-add_executable(${PROJECT_NAME})
-target_sources(${PROJECT_NAME} PRIVATE src/main.cpp)
-target_sources(${PROJECT_NAME} PRIVATE src/aspen_window.hpp src/aspen_window.cpp)
-target_sources(${PROJECT_NAME} PRIVATE src/first_app.hpp src/first_app.cpp)
-target_sources(${PROJECT_NAME} PRIVATE src/aspen_pipeline.hpp src/aspen_pipeline.cpp)
-target_sources(${PROJECT_NAME} PRIVATE src/aspen_device.hpp src/aspen_device.cpp)
-target_sources(${PROJECT_NAME} PRIVATE src/aspen_swap_chain.hpp src/aspen_swap_chain.cpp)
-target_sources(${PROJECT_NAME} PRIVATE src/aspen_model.hpp src/aspen_model.cpp)
+include_directories(external)
 
-# Compile vertex shader
-add_custom_target(simple_shader.vert
-    COMMAND glslc shaders/simple_shader.vert -o shaders/simple_shader.vert.spv
-    BYPRODUCTS ${PROJECT_SOURCE_DIR}/shaders/simple_shader.vert.spv
-    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+# If TINYOBJ_PATH not specified in .env.cmake, try fetching from git repo
+if (NOT TINYOBJ_PATH)
+  message(STATUS "TINYOBJ_PATH not specified in .env.cmake, using external/tinyobjloader")
+  set(TINYOBJ_PATH external/tinyobjloader)
+endif()
 
-# Compile fragment shader
-# If this step fails, compilation fails
-add_custom_target(simple_shader.frag 
-    COMMAND glslc shaders/simple_shader.frag -o shaders/simple_shader.frag.spv
-    BYPRODUCTS ${PROJECT_SOURCE_DIR}/shaders/simple_shader.frag.spv
-    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+# Find all .cpp files in source directory (including those inside subdirectories).
+file(GLOB_RECURSE SOURCES ${PROJECT_SOURCE_DIR}/src/*.cpp)
 
-# Delete ./build/shaders folder before build 
-# Allows shaders to exist only after successful build
-# Does not allow stale shaders to exist after unsuccessful build
-add_custom_command(TARGET ${PROJECT_NAME} PRE_BUILD
-    COMMAND ${CMAKE_COMMAND} -E rm -rf
-    $<TARGET_FILE_DIR:${PROJECT_NAME}>/shaders)
+add_executable(${PROJECT_NAME} ${SOURCES})
 
-# Copy shaders from ./shaders to ./build/shaders
-# Allows clean shaders after successful build
-# Allows nice file paths in source code
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-    ${CMAKE_SOURCE_DIR}/shaders $<TARGET_FILE_DIR:${PROJECT_NAME}>/shaders)
+target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
 
-add_dependencies(${PROJECT_NAME} simple_shader.vert)
-add_dependencies(${PROJECT_NAME} simple_shader.frag)
+set_property(TARGET ${PROJECT_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/build")
 
-target_link_libraries(${PROJECT_NAME} PRIVATE
-Vulkan::Vulkan
-GLFW::GLFW
-glm::glm
+if (WIN32)
+  message(STATUS "CREATING BUILD FOR WINDOWS")
+  
+  # Include all external dependencies' header files and tell cmake where their link libraries are located.
+  if (USE_MINGW)
+    target_include_directories(${PROJECT_NAME} PUBLIC
+      ${MINGW_PATH}/include
+    )
+    target_link_directories(${PROJECT_NAME} PUBLIC
+      ${MINGW_PATH}/lib
+    )
+  endif()
+
+  # Include target source as a include directory because that is where all our header files are located.
+  target_include_directories(${PROJECT_NAME} PUBLIC
+    ${PROJECT_SOURCE_DIR}/src
+    ${Vulkan_INCLUDE_DIRS}
+    ${TINYOBJ_PATH}
+    ${GLFW_INCLUDE_DIRS}
+    ${GLM_PATH}
+    )
+  
+  # Link the Vulkan and GLFW libraries to our project.
+  target_link_directories(${PROJECT_NAME} PUBLIC
+    ${Vulkan_LIBRARIES}
+    ${GLFW_LIB}
+  )
+
+  target_link_libraries(${PROJECT_NAME} glfw3 vulkan-1)
+elseif (UNIX)
+    message(STATUS "CREATING BUILD FOR UNIX")
+    target_include_directories(${PROJECT_NAME} PUBLIC
+      ${PROJECT_SOURCE_DIR}/src
+      ${TINYOBJ_PATH}
+    )
+    target_link_libraries(${PROJECT_NAME} glfw ${Vulkan_LIBRARIES})
+endif()
+
+
+############## Build SHADERS #######################
+
+# Find all vertex and fragment sources within shaders directory
+# taken from VBlancos vulkan tutorial
+# https://github.com/vblanco20-1/vulkan-guide/blob/all-chapters/CMakeLists.txt
+find_program(GLSL_VALIDATOR glslangValidator HINTS 
+  ${Vulkan_GLSLANG_VALIDATOR_EXECUTABLE} 
+  /usr/bin 
+  /usr/local/bin 
+  ${VULKAN_SDK_PATH}/Bin
+  ${VULKAN_SDK_PATH}/Bin32
+  $ENV{VULKAN_SDK}/Bin/ 
+  $ENV{VULKAN_SDK}/Bin32/
 )
+
+# Create ./build/shaders folder
+add_custom_target(make_shader_folder
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_SOURCE_DIR}/build/shaders")
+
+# get all .vert and .frag files in shaders directory
+file(GLOB_RECURSE GLSL_SOURCE_FILES
+  "${PROJECT_SOURCE_DIR}/shaders/*.frag"
+  "${PROJECT_SOURCE_DIR}/shaders/*.vert"
+)
+
+# Build all shader files.
+foreach(GLSL ${GLSL_SOURCE_FILES})
+  get_filename_component(FILE_NAME ${GLSL} NAME)
+  set(SPIRV "${PROJECT_SOURCE_DIR}/build/shaders/${FILE_NAME}.spv")
+  add_custom_command(
+    OUTPUT ${SPIRV}
+    COMMAND ${GLSL_VALIDATOR} -V ${GLSL} -o ${SPIRV}
+    DEPENDS ${GLSL})
+  list(APPEND SPIRV_BINARY_FILES ${SPIRV})
+endforeach(GLSL)
+
+# Add this target to the ALL target which will make sure that it is executed when build the ALL target.
+add_custom_target(
+    Shaders
+    ALL
+    DEPENDS ${SPIRV_BINARY_FILES}
+)
+
+# Ensures that the shader folder is created before the shaders are built.
+add_dependencies(Shaders make_shader_folder)

@@ -169,6 +169,8 @@ namespace Aspen {
 
         VkPhysicalDeviceFeatures deviceFeatures = {};
         deviceFeatures.samplerAnisotropy = VK_TRUE;
+        // deviceFeatures.fillModeNonSolid = true;
+        // deviceFeatures.wideLines = true;
 
         VkDeviceCreateInfo createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
