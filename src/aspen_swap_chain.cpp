@@ -303,6 +303,7 @@ namespace Aspen {
 
     void AspenSwapChain::createDepthResources() {
         VkFormat depthFormat = findDepthFormat();
+        swapChainDepthFormat = depthFormat;
         VkExtent2D swapChainExtent = getSwapChainExtent();
 
         depthImages.resize(imageCount());
