@@ -59,67 +59,73 @@ namespace Aspen {
         vkDeviceWaitIdle(aspenDevice.device()); // Block CPU until all GPU operations have completed.
     }
 
-    void FirstApp::loadGameObjects() {
-        // Vec2 Position, Vec3 Color
+    // Temporary helper function, creates a 1x1x1 cube centered at offset
+    std::unique_ptr<AspenModel> createCubeModel(AspenDevice &device, glm::vec3 offset) {
         std::vector<AspenModel::Vertex> vertices{
-            {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-            {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-            {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+
+            // Left face (white)
+            {{-.5f, -.5f, -.5f}, {.9f, .9f, .9f}},
+            {{-.5f, .5f, .5f}, {.9f, .9f, .9f}},
+            {{-.5f, -.5f, .5f}, {.9f, .9f, .9f}},
+            {{-.5f, -.5f, -.5f}, {.9f, .9f, .9f}},
+            {{-.5f, .5f, -.5f}, {.9f, .9f, .9f}},
+            {{-.5f, .5f, .5f}, {.9f, .9f, .9f}},
+
+            // Right face (yellow)
+            {{.5f, -.5f, -.5f}, {.8f, .8f, .1f}},
+            {{.5f, .5f, .5f}, {.8f, .8f, .1f}},
+            {{.5f, -.5f, .5f}, {.8f, .8f, .1f}},
+            {{.5f, -.5f, -.5f}, {.8f, .8f, .1f}},
+            {{.5f, .5f, -.5f}, {.8f, .8f, .1f}},
+            {{.5f, .5f, .5f}, {.8f, .8f, .1f}},
+
+            // Top face (orange, remember y axis points down)
+            {{-.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
+            {{.5f, -.5f, .5f}, {.9f, .6f, .1f}},
+            {{-.5f, -.5f, .5f}, {.9f, .6f, .1f}},
+            {{-.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
+            {{.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
+            {{.5f, -.5f, .5f}, {.9f, .6f, .1f}},
+
+            // Bottom face (red)
+            {{-.5f, .5f, -.5f}, {.8f, .1f, .1f}},
+            {{.5f, .5f, .5f}, {.8f, .1f, .1f}},
+            {{-.5f, .5f, .5f}, {.8f, .1f, .1f}},
+            {{-.5f, .5f, -.5f}, {.8f, .1f, .1f}},
+            {{.5f, .5f, -.5f}, {.8f, .1f, .1f}},
+            {{.5f, .5f, .5f}, {.8f, .1f, .1f}},
+
+            // Nose face (blue)
+            {{-.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
+            {{.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
+            {{-.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
+            {{-.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
+            {{.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
+            {{.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
+
+            // Tail face (green)
+            {{-.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
+            {{.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
+            {{-.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
+            {{-.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
+            {{.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
+            {{.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
+
         };
 
-        // vertices = sierpinskiTriangle(vertices, 7);
-
-        auto aspenModel = std::make_shared<AspenModel>(aspenDevice, vertices);
-
-        // https://www.color-hex.com/color-palette/5361
-        std::vector<glm::vec3> colors{
-            {1.0f, 0.7f, 0.73f},
-            {1.0f, 0.87f, 0.73f},
-            {1.0f, 1.0f, 0.73f},
-            {0.73f, 1.0f, 0.8f},
-            {0.73, 0.88f, 1.0f}};
-
-        // Need to gamma correct the colors otherwise they will turn out to be too bright.
-        for (auto &color : colors) {
-            color = glm::pow(color, glm::vec3{2.2f});
+        for (auto &v : vertices) {
+            v.position += offset;
         }
-
-        // Create 40 different triangle game objects with incrementally different scales, rotations, and colors.
-        for (int i = 0; i < 40; i++) {
-            auto triangle = AspenGameObject::createGameObject();
-            triangle.model = aspenModel;
-            triangle.transform2d.scale = glm::vec2(0.5f) + i * 0.025f;
-            triangle.transform2d.rotation = i * glm::pi<float>() * 0.025f;
-            triangle.color = colors[i % colors.size()];
-            gameObjects.push_back(std::move(triangle));
-        }
+        return std::make_unique<AspenModel>(device, vertices);
     }
 
-    std::vector<AspenModel::Vertex> FirstApp::sierpinskiTriangle(std::vector<AspenModel::Vertex> vertices, const uint32_t depth) {
-        // Base case.
-        if (depth == 0) {
-            return vertices;
-        }
+    void FirstApp::loadGameObjects() {
+        std::shared_ptr<AspenModel> aspenModel = createCubeModel(aspenDevice, {0.0f, 0.0f, 0.0f}); // Converts the unique pointer returned from the function to a shared pointer.
 
-        std::vector<AspenModel::Vertex> newVertices;
-        uint32_t counter = 0;
-        // Get middle vertices.
-        for (auto it = vertices.begin(); it != vertices.end(); ++it, ++counter) {
-            newVertices.push_back(AspenModel::Vertex{it->position});
-            newVertices.push_back({{(it->position.x + vertices[(counter + 1) % vertices.size()].position.x) / 2,
-                                    (it->position.y + vertices[(counter + 1) % vertices.size()].position.y) / 2}});
-            newVertices.push_back({{(it->position.x + vertices[(counter + 2) % vertices.size()].position.x) / 2,
-                                    (it->position.y + vertices[(counter + 2) % vertices.size()].position.y) / 2}});
-        }
-
-        std::vector<AspenModel::Vertex> finalVertices;
-        // Recursively compute smaller triangles.
-        for (uint32_t i = 0; i < newVertices.size(); i += 3) {
-            std::vector<AspenModel::Vertex> triangle{newVertices[i], newVertices[i + 1], newVertices[i + 2]};
-            auto result = sierpinskiTriangle(triangle, depth - 1);
-            finalVertices.insert(finalVertices.end(), result.begin(), result.end());
-        }
-
-        return finalVertices;
+        auto cube = AspenGameObject::createGameObject();
+        cube.model = aspenModel;
+        cube.transform.translation = {0.0f, 0.0f, 0.5f};
+        cube.transform.scale = {0.5f, 0.5f, 0.5f};
+        gameObjects.push_back(std::move(cube));
     }
 }

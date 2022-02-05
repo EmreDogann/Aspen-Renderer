@@ -19,8 +19,7 @@
 
 namespace Aspen {
     struct SimplePushConstantData {
-        glm::mat2 transform{1.f};
-        glm::vec2 offset;
+        glm::mat4 transform{1.f};
         alignas(16) glm::vec3 color;
     };
 
@@ -64,21 +63,15 @@ namespace Aspen {
     }
 
     void SimpleRenderSystem::renderGameObjects(VkCommandBuffer commandBuffer, std::vector<AspenGameObject> &gameObjects) {
-        // Update the game object properties.
-        int i = 0;
-        for (auto &obj : gameObjects) {
-            i += 1;
-            obj.transform2d.rotation =
-                glm::mod<float>(obj.transform2d.rotation + 0.00001f * i, 2.0f * glm::pi<float>()); // Slowly rotate game objects.
-        }
-
-        // Render the game objects.
+        // Bind the graphics pipieline.
         aspenPipeline->bind(commandBuffer);
 
         for (auto &obj : gameObjects) {
+            obj.transform.rotation.y = glm::mod(obj.transform.rotation.y + 0.0001f, glm::two_pi<float>());  // Slowly rotate game objects.
+            obj.transform.rotation.x = glm::mod(obj.transform.rotation.x + 0.00005f, glm::two_pi<float>()); // Slowly rotate game objects.
+
             SimplePushConstantData push{};
-            push.transform = obj.transform2d.mat2();
-            push.offset = obj.transform2d.translation;
+            push.transform = obj.transform.mat4();
             push.color = obj.color;
 
             vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);

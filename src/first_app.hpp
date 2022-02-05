@@ -25,7 +25,6 @@ namespace Aspen {
 
     private:
         void loadGameObjects();
-        std::vector<AspenModel::Vertex> sierpinskiTriangle(std::vector<AspenModel::Vertex> vertices, const uint32_t depth);
 
         AspenWindow aspenWindow{WIDTH, HEIGHT, "Hello Vulkan!"};
         AspenDevice aspenDevice{aspenWindow};

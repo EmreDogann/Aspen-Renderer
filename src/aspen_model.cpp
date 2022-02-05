@@ -67,7 +67,7 @@ namespace Aspen {
 
         attributeDescriptions[0].binding = 0;  // The vertex buffer the attribute is located in.
         attributeDescriptions[0].location = 0; // The location value for input in the vertex shader.
-        attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+        attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
         attributeDescriptions[0].offset = offsetof(Vertex, position); // Calculate the byte offset for the position attribute.
 
         attributeDescriptions[1].binding = 0;  // The vertex buffer the attribute is located in.

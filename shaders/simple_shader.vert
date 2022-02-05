@@ -1,19 +1,21 @@
 #version 450 // GLSL version 4.50
 
-layout(location = 0) in vec2 position;
+layout(location = 0) in vec3 position;
 layout(location = 1) in vec3 color;
 
-// layout(location = 0) out vec3 fragColor;
+layout(location = 0) out vec3 fragColor;
 
 layout(push_constant) uniform Push {
-    mat2 transform;
-    vec2 offset;
+    mat4 transform;
     vec3 color;
 } push;
 
 // gl_Positions is the default output variable.
 // gl_VertexIndex contains the current vertex index for everytime the main() function is executed.
 void main() {
-    gl_Position = vec4(push.transform * position + push.offset, 0.0, 1.0);    // x, y, z, w
-    // fragColor = color;
+    // Note: The last component for the homogenous coordinate determines if this is a position or a direction.
+    // w = 1 refers to a position.
+    // w = 0 refers to a direction.
+    gl_Position = push.transform * vec4(position, 1.0);
+    fragColor = color;
 }

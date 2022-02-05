@@ -1,24 +1,65 @@
 #pragma once
-
 #include "aspen_model.hpp"
+#include "glm/ext/matrix_transform.hpp"
+
+// GLM
+#include <glm/fwd.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 // Std
 #include <memory>
 
 namespace Aspen {
-    struct Transform2dComponent {
-        glm::vec2 translation{}; // Position offset.
-        glm::vec2 scale{1.0f, 1.0f};
-        float rotation;
+    struct TransformComponent {
+        glm::vec3 translation{}; // Position offset.
+        glm::vec3 scale{1.0f, 1.0f, 1.0f};
+        glm::vec3 rotation{};
 
-        glm::mat2 mat2() {
-            const float s = glm::sin(rotation);
-            const float c = glm::cos(rotation);
-            glm::mat2 rotMatrix{{c, s}, {-s, c}};
-
-            glm::mat2 scaleMat{{scale.x, 0.0f}, {0.0f, scale.y}}; // NOTE: The GLM mat constructor takes each argument as a COLUMN and not a row.
-            return rotMatrix * scaleMat;
+        /*
+            The function below forms an affine transformation matrix in the form: translate * Ry & Rx * Rz & scale.
+            The rotation convention follows tait-bryan euler angles with the extrinsic axis order Y(1), X(2), Z(3).
+            Depending on the order you read the rotations, they can be interpreted as either extrinsic or intrinsic rotations.
+            Reading Left-to-Right is Intrinsic.
+            Reading Right-to-Left is Extrinsic.
+            https://en.wikipedia.org/wiki/Euler_angles#Rotation_matrix
+        */
+        glm::mat4 mat4() {
+            const float c3 = glm::cos(rotation.z);
+            const float s3 = glm::sin(rotation.z);
+            const float c2 = glm::cos(rotation.x);
+            const float s2 = glm::sin(rotation.x);
+            const float c1 = glm::cos(rotation.y);
+            const float s1 = glm::sin(rotation.y);
+            return glm::mat4{
+                // Column 1
+                {
+                    scale.x * (c1 * c3 + s1 * s2 * s3),
+                    scale.x * (c2 * s3),
+                    scale.x * (c1 * s2 * s3 - c3 * s1),
+                    0.0f,
+                },
+                // Column 2
+                {
+                    scale.y * (c3 * s1 * s2 - c1 * s3),
+                    scale.y * (c2 * c3),
+                    scale.y * (c1 * c3 * s2 + s1 * s3),
+                    0.0f,
+                },
+                // Column 3
+                {
+                    scale.z * (c2 * s1),
+                    scale.z * (-s2),
+                    scale.z * (c1 * c2),
+                    0.0f,
+                },
+                // Column 4
+                {translation.x, translation.y, translation.z, 1.0f}};
         }
+    };
+
+    struct RigidBody2dComponent {
+        glm::vec2 velocity;
+        float mass{1.0f};
     };
 
     class AspenGameObject {
@@ -39,7 +80,8 @@ namespace Aspen {
 
         std::shared_ptr<AspenModel> model{};
         glm::vec3 color{};
-        Transform2dComponent transform2d{};
+        TransformComponent transform{};
+        RigidBody2dComponent rigidBody2d{};
 
     private:
         AspenGameObject(id_t objId) : id{objId} {}
