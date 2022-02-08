@@ -13,8 +13,8 @@ The project mainly follows the work of [Brendan Galea's Vulkan Game Engine Serie
 This project uses CMake to build with GCC through MinGW. I have only tested this using MinGW and the CMakeLists.txt is only set-up for GCC/G++ so I cannot guarantee that it will work on MSVC or clang.
 
 The following must be installed:
-- [CMake (v3.16+)](https://cmake.org/download/) - I recommend the Windows x64 Installer as it can automatically add its /bin folder to the system PATH environment variable, otherwise you will have to do this manually with the .zip version
-- [Vulkan SDK (v1.2.189.2+)](https://vulkan.lunarg.com/) - Recommended to install in the default location
+- [CMake (v3.21+)](https://cmake.org/download/) - I recommend the Windows x64 Installer as it can automatically add its /bin folder to the system PATH environment variable, otherwise you will have to do this manually with the .zip version
+- [Vulkan SDK (v1.2.189.2+)](https://vulkan.lunarg.com/) - Recommended to install in the default location. Use the `SDK Installer` instead of the runtime/zip file.
 - MinGW-w64 (Read Below)
 
 There are two different ways to download MinGW-w64:
@@ -24,16 +24,18 @@ This is a standalone build created by Brecht Sanders. This is the easier/quicker
 
 OR
 
-2. [MinGW-w64 through MSYS2 (My Recommendation)](https://www.msys2.org/)
+1. [MinGW-w64 through MSYS2](https://www.msys2.org/)
 
-This is my recommendation as this provides you with an up-to-date version of GCC for Windows. The process to install it is slightly more involved than the first option, but this method can act as a package manager for keeping GCC up-to-date along with other packages you decide to install through it.
+This provides you with an up-to-date version of GCC for Windows. The process to install it is slightly more involved than the first option, but this method can act as a package manager for keeping GCC up-to-date along with other packages you decide to install through it.
 
 **Once again, after following all the installation instructions, don't forget to add the path to the `msys64/mingw64/bin` folder to your environment variables.**
 
 # Usage
-To build this project, once all the above requirements have been met, perform the following:
+To build this project, once all the above requirements have been met, go through the following:
 
-First of all, open up `example.env.cmake` and fill in the required variable paths. Once done, remove the `example` from the file name, leaving only `.env.cmake`
+First of all, open up `example.env.cmake` and fill in the required variable paths. By default, you do not need to define a Vulkan SDK path as the CMakeLists will try to automatically find the SDK folder based on your environment variables, however if you encounter issues with this, you can optionally enter the path manually. The MinGW path however, is required.
+
+Once done, remove the `example` from the file name, leaving only `.env.cmake`
 
 Next, run the following commands:
 

@@ -1,7 +1,7 @@
 include(./.env.cmake OPTIONAL RESULT_VARIABLE LOCAL_ENV)
 message(STATUS "Local .env.cmake: ${LOCAL_ENV}")
 
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.7)
 
 set(NAME aspen-vulkan-renderer)
 
@@ -25,38 +25,18 @@ if (DEFINED VULKAN_SDK_PATH)
   set(Vulkan_LIBRARIES "${VULKAN_SDK_PATH}/Lib") # 1.2 Make sure lib path is correct
   set(Vulkan_FOUND "True")
 else()
-  find_package(Vulkan REQUIRED) # throws error if could not find Vulkan
-  message(STATUS "Found Vulkan: $ENV{VULKAN_SDK}")
+  find_package(Vulkan REQUIRED FATAL_ERROR) # throws error if could not find Vulkan
+
+  # Extract the root directory of the Vulkan SDK.
+  set(Vulkan_ROOT_PATH ${Vulkan_INCLUDE_DIRS})
+	STRING(REGEX REPLACE "/Include" "" Vulkan_ROOT_PATH ${Vulkan_ROOT_PATH})
+  message(STATUS "Found Vulkan: ${Vulkan_ROOT_PATH}")
 endif()
 if (NOT Vulkan_FOUND)
 	message(FATAL_ERROR "Could not find Vulkan library!")
 else()
-	message(STATUS "Using vulkan lib at: ${Vulkan_LIBRARIES}")
+	message(STATUS "Using vulkan lib at: ${Vulkan_ROOT_PATH}/Lib")
 endif()
-
-
-# # 2. Set GLFW_PATH in .env.cmake to target specific glfw
-# if (DEFINED GLFW_PATH)
-#   message(STATUS "Using GLFW path specified in .env")
-#   set(GLFW_INCLUDE_DIRS "${GLFW_PATH}/include")
-#   if (MSVC)
-#     set(GLFW_LIB "${GLFW_PATH}/lib-vc2019") # 2.1 Update lib-vc2019 to use same version as your visual studio
-#   elseif (CMAKE_GENERATOR STREQUAL "MinGW Makefiles")
-#     message(STATUS "USING MINGW")
-#     set(GLFW_LIB "${GLFW_PATH}/lib-mingw-w64") # 2.1 make sure matches glfw mingw subdirectory
-#   endif()
-# else()
-#   find_package(glfw3 3.3 REQUIRED)
-#   set(GLFW_LIB glfw)
-#   message(STATUS "Found GLFW")
-# endif()
-# if (NOT GLFW_LIB)
-# 	message(FATAL_ERROR "Could not find glfw library!")
-# else()
-# 	message(STATUS "Using glfw lib at: ${GLFW_LIB}")
-# endif()
-
-# include_directories(external)
 
 FetchContent_Declare(
   glfw
@@ -130,7 +110,7 @@ if (WIN32)
   
   # Link the Vulkan and GLFW libraries to our project.
   target_link_directories(${PROJECT_NAME} PUBLIC
-    ${Vulkan_LIBRARIES}
+    ${Vulkan_ROOT_PATH}/Lib
   )
 
   target_link_libraries(${PROJECT_NAME} glfw glm vulkan-1)
