@@ -43,3 +43,6 @@ CMakeScripts
 # Other Misc Files
 .cache
 .vscode
+
+# CMake Environment Variable
+.env.cmake
