@@ -63,6 +63,8 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/glfw/glfw.git
 )
 
+message(STATUS "Downloading GLFW...")
+
 FetchContent_GetProperties(glfw)
 if(NOT glfw_POPULATED)
 	FetchContent_Populate(glfw)
@@ -72,11 +74,15 @@ if(NOT glfw_POPULATED)
 	add_subdirectory(${glfw_SOURCE_DIR} ${glfw_BINARY_DIR})
 endif()
 
+message(STATUS "GLFW Fetched!")
+
 
 FetchContent_Declare(
 	glm
 	GIT_REPOSITORY https://github.com/g-truc/glm.git
 )
+
+message(STATUS "Downloading GLM...")
 
 FetchContent_GetProperties(glm)
 if(NOT glm_POPULATED)
@@ -84,6 +90,8 @@ if(NOT glm_POPULATED)
 	set(GLM_TEST_ENABLE OFF CACHE BOOL "" FORCE)
 	add_subdirectory(${glm_SOURCE_DIR} ${glm_BINARY_DIR})
 endif()
+
+message(STATUS "GLM Fetched!")
 
 # If TINYOBJ_PATH not specified in .env.cmake, try fetching from git repo
 if (NOT TINYOBJ_PATH)

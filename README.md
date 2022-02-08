@@ -50,7 +50,9 @@ mkdir ./build
 
 cd ./build/
 
-cmake ..
+cmake .. -G "MinGW Makefiles"           # Configure Makefile
+
+cmake --build . --config Release -j 8   # Build Executable
 ```
 
 After this there should be a `aspen-vulkan-renderer.exe` executable in the `/builds` folder. Running that executable will start up renderer.
