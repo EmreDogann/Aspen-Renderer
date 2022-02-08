@@ -17,6 +17,8 @@ endif()
 
 project(${NAME} VERSION 0.10.0)
 
+include(FetchContent)
+
 # 1. Set VULKAN_SDK_PATH in .env.cmake to target specific vulkan version
 if (DEFINED VULKAN_SDK_PATH)
   set(Vulkan_INCLUDE_DIRS "${VULKAN_SDK_PATH}/Include") # 1.1 Make sure this include path is correct
@@ -33,28 +35,55 @@ else()
 endif()
 
 
-# 2. Set GLFW_PATH in .env.cmake to target specific glfw
-if (DEFINED GLFW_PATH)
-  message(STATUS "Using GLFW path specified in .env")
-  set(GLFW_INCLUDE_DIRS "${GLFW_PATH}/include")
-  if (MSVC)
-    set(GLFW_LIB "${GLFW_PATH}/lib-vc2019") # 2.1 Update lib-vc2019 to use same version as your visual studio
-  elseif (CMAKE_GENERATOR STREQUAL "MinGW Makefiles")
-    message(STATUS "USING MINGW")
-    set(GLFW_LIB "${GLFW_PATH}/lib-mingw-w64") # 2.1 make sure matches glfw mingw subdirectory
-  endif()
-else()
-  find_package(glfw3 3.3 REQUIRED)
-  set(GLFW_LIB glfw)
-  message(STATUS "Found GLFW")
-endif()
-if (NOT GLFW_LIB)
-	message(FATAL_ERROR "Could not find glfw library!")
-else()
-	message(STATUS "Using glfw lib at: ${GLFW_LIB}")
+# # 2. Set GLFW_PATH in .env.cmake to target specific glfw
+# if (DEFINED GLFW_PATH)
+#   message(STATUS "Using GLFW path specified in .env")
+#   set(GLFW_INCLUDE_DIRS "${GLFW_PATH}/include")
+#   if (MSVC)
+#     set(GLFW_LIB "${GLFW_PATH}/lib-vc2019") # 2.1 Update lib-vc2019 to use same version as your visual studio
+#   elseif (CMAKE_GENERATOR STREQUAL "MinGW Makefiles")
+#     message(STATUS "USING MINGW")
+#     set(GLFW_LIB "${GLFW_PATH}/lib-mingw-w64") # 2.1 make sure matches glfw mingw subdirectory
+#   endif()
+# else()
+#   find_package(glfw3 3.3 REQUIRED)
+#   set(GLFW_LIB glfw)
+#   message(STATUS "Found GLFW")
+# endif()
+# if (NOT GLFW_LIB)
+# 	message(FATAL_ERROR "Could not find glfw library!")
+# else()
+# 	message(STATUS "Using glfw lib at: ${GLFW_LIB}")
+# endif()
+
+# include_directories(external)
+
+FetchContent_Declare(
+  glfw
+  GIT_REPOSITORY https://github.com/glfw/glfw.git
+)
+
+FetchContent_GetProperties(glfw)
+if(NOT glfw_POPULATED)
+	FetchContent_Populate(glfw)
+	set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+	set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+	set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+	add_subdirectory(${glfw_SOURCE_DIR} ${glfw_BINARY_DIR})
 endif()
 
-include_directories(external)
+
+FetchContent_Declare(
+	glm
+	GIT_REPOSITORY https://github.com/g-truc/glm.git
+)
+
+FetchContent_GetProperties(glm)
+if(NOT glm_POPULATED)
+	FetchContent_Populate(glm)
+	set(GLM_TEST_ENABLE OFF CACHE BOOL "" FORCE)
+	add_subdirectory(${glm_SOURCE_DIR} ${glm_BINARY_DIR})
+endif()
 
 # If TINYOBJ_PATH not specified in .env.cmake, try fetching from git repo
 if (NOT TINYOBJ_PATH)
@@ -89,17 +118,14 @@ if (WIN32)
     ${PROJECT_SOURCE_DIR}/src
     ${Vulkan_INCLUDE_DIRS}
     ${TINYOBJ_PATH}
-    ${GLFW_INCLUDE_DIRS}
-    ${GLM_PATH}
     )
   
   # Link the Vulkan and GLFW libraries to our project.
   target_link_directories(${PROJECT_NAME} PUBLIC
     ${Vulkan_LIBRARIES}
-    ${GLFW_LIB}
   )
 
-  target_link_libraries(${PROJECT_NAME} glfw3 vulkan-1)
+  target_link_libraries(${PROJECT_NAME} glfw glm vulkan-1)
 elseif (UNIX)
     message(STATUS "CREATING BUILD FOR UNIX")
     target_include_directories(${PROJECT_NAME} PUBLIC
@@ -155,3 +181,5 @@ add_custom_target(
 
 # Ensures that the shader folder is created before the shaders are built.
 add_dependencies(Shaders make_shader_folder)
+
+message(STATUS "${CMAKE_CXX_COMPILER_ID}")

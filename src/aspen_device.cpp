@@ -81,6 +81,8 @@ namespace Aspen {
         vkDestroyInstance(instance, nullptr);
     }
 
+    // This is setting up the application runtime's connection with the Vulkan runtime.
+    // Essentially, this is what allows our CPU to communicate with the GPU.
     void AspenDevice::createInstance() {
         // Chech all validation layers that are requested are available.
         if (enableValidationLayers && !checkValidationLayerSupport()) {
@@ -300,6 +302,7 @@ namespace Aspen {
         return extensions;
     }
 
+    // Print out the available extensions from GLFW and which ones were required by the application.
     void AspenDevice::hasGflwRequiredInstanceExtensions() {
         uint32_t extensionCount = 0;
         vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
@@ -557,4 +560,4 @@ namespace Aspen {
         }
     }
 
-} // namespace Aspen
+}
