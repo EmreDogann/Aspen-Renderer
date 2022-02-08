@@ -33,7 +33,7 @@ This is my recommendation as this provides you with an up-to-date version of GCC
 # Usage
 To build this project, once all the above requirements have been met, perform the following:
 
-First of all, open up example.env.cmake and fill in the required variable paths. Once done, remove the `example` from the file name, leaving only `.env.cmake`
+First of all, open up `example.env.cmake` and fill in the required variable paths. Once done, remove the `example` from the file name, leaving only `.env.cmake`
 
 Next, run the following commands:
 
