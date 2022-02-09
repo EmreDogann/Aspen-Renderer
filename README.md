@@ -24,7 +24,7 @@ This is a standalone build created by Brecht Sanders. This is the easier/quicker
 
 OR
 
-1. [MinGW-w64 through MSYS2](https://www.msys2.org/)
+2. [MinGW-w64 through MSYS2](https://www.msys2.org/)
 
 This provides you with an up-to-date version of GCC for Windows. The process to install it is slightly more involved than the first option, but this method can act as a package manager for keeping GCC up-to-date along with other packages you decide to install through it.
 
