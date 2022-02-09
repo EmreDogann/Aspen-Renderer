@@ -1,6 +1,6 @@
 # Aspen Renderer (WIP)
 
-Apsen is a cross-platform 3D graphics renderer written in C++ using Vulkan.
+Apsen is a 3D graphics renderer written in C++ using the Vulkan Graphics API.
 
 ## About 
 The objective of this project is to explore the Vulkan API and learn more about the underlying graphics hardware and pipeline systems in place to perform rasterization and ray tracing (on more recent GPUs) rendering.
