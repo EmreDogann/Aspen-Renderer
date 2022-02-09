@@ -10,7 +10,7 @@ The project mainly follows the work of [Brendan Galea's Vulkan Game Engine Serie
 # Getting Started
 **Note: This project is currently targeting Windows platforms only.**
 
-This project uses CMake to build with MinGW's GCC runtime. I have only tested this using MinGW and the CMakeLists.txt is only set-up for compilation with GCC/G++ so I cannot guarantee that it will work on MSVC or clang.
+This project uses CMake to build with MinGW's GCC runtime. I have only tested this using MinGW and the CMakeLists.txt is only set-up for compilation with GCC/G++ so I cannot guarantee that it will work with MSVC or clang.
 
 The following must be installed:
 - [CMake (v3.21+)](https://cmake.org/download/) - I recommend the `Windows x64 Installer` as it can automatically add its /bin folder to the system PATH environment variable, otherwise you will have to do this manually with the .zip version
@@ -46,9 +46,9 @@ mkdir ./build
 
 cd ./build/
 
-cmake .. -G "MinGW Makefiles"           # Configure Makefile
+cmake .. -G "MinGW Makefiles"
 
-cmake --build . --config Release -j 8   # Build Executable
+cmake --build . --config Release -j 8
 ```
 
 After this there should be a `aspen-vulkan-renderer.exe` executable in the `/builds` folder. Running that executable will start up the renderer.
