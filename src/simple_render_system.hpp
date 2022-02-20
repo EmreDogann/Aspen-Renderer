@@ -4,29 +4,46 @@
 #include "aspen_model.hpp"
 #include "aspen_pipeline.hpp"
 
-// std
-#include <memory>
-#include <vector>
+// Libs
+#include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/constants.hpp>
 #include <vulkan/vulkan_core.h>
 
+// Lib Defines
+#define GLM_FORCE_RADIANS           // Ensures that GLM will expect angles to be specified in radians, not degrees.
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE // Tells GLM to expect depth values in the range 0-1 instead of -1 to 1.
+
+// std
+#include <array>
+#include <cstdint>
+#include <iostream>
+#include <memory>
+#include <ostream>
+#include <stdexcept>
+#include <vector>
+
 namespace Aspen {
-    class SimpleRenderSystem {
-    public:
-        SimpleRenderSystem(AspenDevice &device, VkRenderPass renderPass);
-        ~SimpleRenderSystem();
+	class SimpleRenderSystem {
+	public:
+		SimpleRenderSystem(AspenDevice &device, VkRenderPass renderPass);
+		~SimpleRenderSystem();
 
-        SimpleRenderSystem(const SimpleRenderSystem &) = delete;
-        SimpleRenderSystem &operator=(const SimpleRenderSystem &);
+		SimpleRenderSystem(const SimpleRenderSystem &) = delete;
+		SimpleRenderSystem &operator=(const SimpleRenderSystem &) = delete;
 
-        void renderGameObjects(VkCommandBuffer commandBuffer, std::vector<AspenGameObject> &gameObjects);
+		SimpleRenderSystem(SimpleRenderSystem &&) = delete;            // Move Constructor
+		SimpleRenderSystem &operator=(SimpleRenderSystem &&) = delete; // Move Assignment Operator
 
-    private:
-        void createPipelineLayout();
-        void createPipeline(VkRenderPass renderPass);
+		void renderGameObjects(VkCommandBuffer commandBuffer, std::vector<AspenGameObject> &gameObjects);
 
-        AspenDevice &aspenDevice;
+	private:
+		void createPipelineLayout();
+		void createPipeline(VkRenderPass renderPass);
 
-        std::unique_ptr<AspenPipeline> aspenPipeline;
-        VkPipelineLayout pipelineLayout;
-    };
-}
+		AspenDevice &aspenDevice;
+
+		std::unique_ptr<AspenPipeline> aspenPipeline;
+		VkPipelineLayout pipelineLayout{};
+	};
+} // namespace Aspen

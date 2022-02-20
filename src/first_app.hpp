@@ -4,32 +4,49 @@
 #include "aspen_model.hpp"
 #include "aspen_renderer.hpp"
 #include "aspen_window.hpp"
+#include "simple_render_system.hpp"
 
-// std
-#include <memory>
-#include <vector>
+// Libs
+#include <GLFW/glfw3.h>
 #include <vulkan/vulkan_core.h>
 
+#define GLM_FORCE_RADIANS           // Ensures that GLM will expect angles to be specified in radians, not degrees.
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE // Tells GLM to expect depth values in the range 0-1 instead of -1 to 1.
+#include <glm/glm.hpp>
+#include <glm/gtc/constants.hpp>
+
+// std
+#include <array>
+#include <cstdint>
+#include <iostream>
+#include <memory>
+#include <ostream>
+#include <stdexcept>
+#include <vector>
+
 namespace Aspen {
-    class FirstApp {
-    public:
-        static constexpr int WIDTH = 1024;
-        static constexpr int HEIGHT = 768;
+	class FirstApp {
+	public:
+		static constexpr int WIDTH = 1024;
+		static constexpr int HEIGHT = 768;
 
-        FirstApp();
-        ~FirstApp();
+		FirstApp();
+		~FirstApp();
 
-        FirstApp(const FirstApp &) = delete;
-        FirstApp &operator=(const FirstApp &);
-        void run();
+		FirstApp(const FirstApp &) = delete;
+		FirstApp &operator=(const FirstApp &) = delete;
+		FirstApp(const FirstApp &&) = delete;
+		FirstApp &operator=(const FirstApp &&) = delete;
 
-    private:
-        void loadGameObjects();
+		void run();
 
-        AspenWindow aspenWindow{WIDTH, HEIGHT, "Hello Vulkan!"};
-        AspenDevice aspenDevice{aspenWindow};
-        AspenRenderer aspenRenderer{aspenWindow, aspenDevice};
+	private:
+		void loadGameObjects();
 
-        std::vector<AspenGameObject> gameObjects;
-    };
-}
+		AspenWindow aspenWindow{WIDTH, HEIGHT, "Hello Vulkan!"};
+		AspenDevice aspenDevice{aspenWindow};
+		AspenRenderer aspenRenderer{aspenWindow, aspenDevice};
+
+		std::vector<AspenGameObject> gameObjects;
+	};
+} // namespace Aspen

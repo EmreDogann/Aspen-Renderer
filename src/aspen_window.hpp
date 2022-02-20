@@ -1,45 +1,64 @@
 #pragma once
-#include <vulkan/vulkan_core.h>
+
+// Libs & defines
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <vulkan/vulkan_core.h>
+
+// std
 #include <functional>
+#include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace Aspen {
 
-    class AspenWindow {
-    public:
-        AspenWindow(int x, int h, std::string name);
-        ~AspenWindow();
+	class AspenWindow {
+	public:
+		AspenWindow(int w, int h, std::string name);
+		~AspenWindow();
 
-        // Remove copy constructor and operator to prevent accidental copy creation of window, possibly leading to a dangling pointer.
-        AspenWindow(const AspenWindow &) = delete;
-        AspenWindow &operator=(const AspenWindow &);
+		// Remove copy constructor and operator to prevent accidental copy creation of window, possibly leading to a dangling pointer.
+		AspenWindow(const AspenWindow &) = delete;
+		AspenWindow &operator=(const AspenWindow &);
 
-        bool shouldClose() { return glfwWindowShouldClose(window); }
-        VkExtent2D getExtent() { return {static_cast<uint32_t>(width), static_cast<uint32_t>(height)}; }
+		AspenWindow(const AspenWindow &&) = delete;
+		AspenWindow &operator=(const AspenWindow &&) = delete;
 
-        void createWindowSurface(VkInstance instance, VkSurfaceKHR *surface);
+		bool shouldClose() {
+			return glfwWindowShouldClose(window);
+		}
+		VkExtent2D getExtent() const {
+			return {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
+		}
 
-        bool wasWindowResized() { return framebufferResized; };
-        void resetWindowResizedFlag() { framebufferResized = false; };
+		void createWindowSurface(VkInstance instance, VkSurfaceKHR *surface);
 
-        void windowResizeSubscribe(std::function<void()> subscriber) { windowResizeSubscribers.push_back(subscriber); };
-        void notifySubscribers();
+		bool wasWindowResized() const {
+			return framebufferResized;
+		};
+		void resetWindowResizedFlag() {
+			framebufferResized = false;
+		};
 
-    private:
-        static void framebufferResizedCallback(GLFWwindow *window, int width, int height);
-        void initWindow();
+		void windowResizeSubscribe(const std::function<void()> &subscriber) {
+			windowResizeSubscribers.push_back(subscriber);
+		};
+		void notifySubscribers();
 
-        int width;
-        int height;
-        bool framebufferResized = false;
+	private:
+		static void framebufferResizedCallback(GLFWwindow *window, int width, int height);
+		void initWindow();
 
-        std::string windowName;
-        GLFWwindow *window;
+		int width;
+		int height;
+		bool framebufferResized = false;
 
-        std::vector<std::function<void()>> windowResizeSubscribers;
-    };
+		std::string windowName;
+		GLFWwindow *window{};
+
+		std::vector<std::function<void()>> windowResizeSubscribers;
+	};
 
 } // namespace Aspen
