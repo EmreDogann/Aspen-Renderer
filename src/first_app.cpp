@@ -12,7 +12,7 @@ namespace Aspen {
 
 		SimpleRenderSystem simpleRenderSystem{aspenDevice, aspenRenderer.getSwapChainRenderPass()};
 		AspenCamera camera{};
-		camera.setViewDirection(glm::vec3(0.0f), glm::vec3(0.5f, 0.0f, 1.0f));
+		camera.setViewDirection(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 		// camera.setViewTarget(glm::vec3(-1.0f, -2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 2.5f));
 
 		// Subscribe lambda function to recreate swapchain when resizing window and draw a frame with the updated swapchain. This is done to enable smooth resizing.
@@ -22,7 +22,8 @@ namespace Aspen {
 			// this->createPipeline(); // Right now this is not required as the new render pass will be compatible with the old one but is put here for future proofing.
 
 			float aspect = aspenRenderer.getAspectRatio();
-			// camera.setOrthographicProjection(-aspect, aspect, -1, 1, -1, 1);
+			// camera.setOrthographicProjection(-1, 1, -1, 1, -1, 1, aspect);
+
 			camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 10.0f);
 			if (auto *commandBuffer = this->aspenRenderer.beginFrame()) {
 				this->aspenRenderer.beginSwapChainRenderPass(commandBuffer);
@@ -37,7 +38,8 @@ namespace Aspen {
 			glfwPollEvents(); // Process window level events (such as keystrokes).
 
 			float aspect = aspenRenderer.getAspectRatio();
-			// camera.setOrthographicProjection(-aspect, aspect, -1, 1, -1, 1);
+			// camera.setOrthographicProjection(-1, 1, -1, 1, -1, 1, aspect);
+
 			camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 10.0f);
 			if (auto *commandBuffer = aspenRenderer.beginFrame()) {
 				aspenRenderer.beginSwapChainRenderPass(commandBuffer);

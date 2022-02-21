@@ -1,7 +1,7 @@
 #pragma once
 #include "aspen_model.hpp"
 
-// GLM
+// Libs
 #include "glm/ext/matrix_transform.hpp"
 #include <glm/fwd.hpp>
 #include <glm/gtc/matrix_transform.hpp>
