@@ -6,7 +6,7 @@
 #include <glm/fwd.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-// Std
+// std
 #include <memory>
 
 namespace Aspen {
@@ -16,6 +16,7 @@ namespace Aspen {
 		glm::vec3 rotation{};
 
 		/*
+		    This function calculates and returns the game object's model transformation matrix.
 		    The function below forms an affine transformation matrix in the form: translate * Ry & Rx * Rz & scale.
 		    The rotation convention follows tait-bryan euler angles with the extrinsic axis order Y(1), X(2), Z(3).
 		    Depending on the order you read the rotations, they can be interpreted as either extrinsic or intrinsic rotations.

@@ -29,6 +29,11 @@ namespace Aspen {
 		VkRenderPass getSwapChainRenderPass() const {
 			return aspenSwapChain->getRenderPass();
 		}
+
+		float getAspectRatio() const {
+			return aspenSwapChain->extentAspectRatio();
+		}
+
 		bool isFrameInProgress() const {
 			return isFrameStarted;
 		}

@@ -68,16 +68,20 @@ namespace Aspen {
 		aspenPipeline = std::make_unique<AspenPipeline>(aspenDevice, "shaders/simple_shader.vert.spv", "shaders/simple_shader.frag.spv", pipelineConfig);
 	}
 
-	void SimpleRenderSystem::renderGameObjects(VkCommandBuffer commandBuffer, std::vector<AspenGameObject> &gameObjects) {
+	void SimpleRenderSystem::renderGameObjects(VkCommandBuffer commandBuffer, std::vector<AspenGameObject> &gameObjects, const AspenCamera &camera) {
 		// Bind the graphics pipieline.
 		aspenPipeline->bind(commandBuffer);
+
+		// Calculate the projection view transformation matrix.
+		auto projectionView = camera.getProjection() * camera.getView();
 
 		for (auto &obj : gameObjects) {
 			obj.transform.rotation.y = glm::mod(obj.transform.rotation.y + 0.0001f, glm::two_pi<float>());  // Slowly rotate game objects.
 			obj.transform.rotation.x = glm::mod(obj.transform.rotation.x + 0.00003f, glm::two_pi<float>()); // Slowly rotate game objects.
 
 			SimplePushConstantData push{};
-			push.transform = obj.transform.mat4();
+			// Projection, View, Model Transformation matrix.
+			push.transform = projectionView * obj.transform.mat4();
 			push.color = obj.color;
 
 			vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);

@@ -11,16 +11,22 @@ namespace Aspen {
 		std::cout << "maxPushConstantSize = " << aspenDevice.properties.limits.maxPushConstantsSize << "\n";
 
 		SimpleRenderSystem simpleRenderSystem{aspenDevice, aspenRenderer.getSwapChainRenderPass()};
+		AspenCamera camera{};
+		camera.setViewDirection(glm::vec3(0.0f), glm::vec3(0.5f, 0.0f, 1.0f));
+		// camera.setViewTarget(glm::vec3(-1.0f, -2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 2.5f));
 
 		// Subscribe lambda function to recreate swapchain when resizing window and draw a frame with the updated swapchain. This is done to enable smooth resizing.
-		aspenWindow.windowResizeSubscribe([this, &simpleRenderSystem]() {
+		aspenWindow.windowResizeSubscribe([this, &camera, &simpleRenderSystem]() {
 			this->aspenWindow.resetWindowResizedFlag();
 			this->aspenRenderer.recreateSwapChain();
 			// this->createPipeline(); // Right now this is not required as the new render pass will be compatible with the old one but is put here for future proofing.
 
+			float aspect = aspenRenderer.getAspectRatio();
+			// camera.setOrthographicProjection(-aspect, aspect, -1, 1, -1, 1);
+			camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 10.0f);
 			if (auto *commandBuffer = this->aspenRenderer.beginFrame()) {
 				this->aspenRenderer.beginSwapChainRenderPass(commandBuffer);
-				simpleRenderSystem.renderGameObjects(commandBuffer, gameObjects);
+				simpleRenderSystem.renderGameObjects(commandBuffer, gameObjects, camera);
 				this->aspenRenderer.endSwapChainRenderPass(commandBuffer);
 				this->aspenRenderer.endFrame();
 			}
@@ -29,9 +35,13 @@ namespace Aspen {
 		// Game Loop
 		while (!aspenWindow.shouldClose()) {
 			glfwPollEvents(); // Process window level events (such as keystrokes).
+
+			float aspect = aspenRenderer.getAspectRatio();
+			// camera.setOrthographicProjection(-aspect, aspect, -1, 1, -1, 1);
+			camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 10.0f);
 			if (auto *commandBuffer = aspenRenderer.beginFrame()) {
 				aspenRenderer.beginSwapChainRenderPass(commandBuffer);
-				simpleRenderSystem.renderGameObjects(commandBuffer, gameObjects);
+				simpleRenderSystem.renderGameObjects(commandBuffer, gameObjects, camera);
 				aspenRenderer.endSwapChainRenderPass(commandBuffer);
 				aspenRenderer.endFrame();
 			}
@@ -95,7 +105,7 @@ namespace Aspen {
 
 		auto cube = AspenGameObject::createGameObject();
 		cube.model = aspenModel;
-		cube.transform.translation = {0.0f, 0.0f, 0.5f};
+		cube.transform.translation = {0.0f, 0.0f, 2.5f};
 		cube.transform.scale = {0.5f, 0.5f, 0.5f};
 		gameObjects.push_back(std::move(cube));
 	}

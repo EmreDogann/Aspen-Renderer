@@ -1,4 +1,5 @@
 #pragma once
+#include "aspen_camera.hpp"
 #include "aspen_device.hpp"
 #include "aspen_game_object.hpp"
 #include "aspen_model.hpp"
@@ -35,7 +36,7 @@ namespace Aspen {
 		SimpleRenderSystem(SimpleRenderSystem &&) = delete;            // Move Constructor
 		SimpleRenderSystem &operator=(SimpleRenderSystem &&) = delete; // Move Assignment Operator
 
-		void renderGameObjects(VkCommandBuffer commandBuffer, std::vector<AspenGameObject> &gameObjects);
+		void renderGameObjects(VkCommandBuffer commandBuffer, std::vector<AspenGameObject> &gameObjects, const AspenCamera &camera);
 
 	private:
 		void createPipelineLayout();
