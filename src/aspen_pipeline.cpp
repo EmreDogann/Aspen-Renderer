@@ -1,4 +1,6 @@
 #include "aspen_pipeline.hpp"
+#include "vulkan/vulkan_core.h"
+#include <stdexcept>
 
 namespace Aspen {
 

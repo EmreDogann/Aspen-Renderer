@@ -24,7 +24,7 @@ namespace Aspen {
 			static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions();
 		};
 
-		AspenModel(AspenDevice &device, const std::vector<Vertex> &vertices);
+		AspenModel(AspenDevice &device, const std::vector<Vertex> &vertices, const std::vector<uint16_t> &indices);
 		~AspenModel();
 
 		AspenModel(const AspenModel &) = delete;
@@ -38,10 +38,14 @@ namespace Aspen {
 
 	private:
 		void createVertexBuffers(const std::vector<Vertex> &vertices);
+		void createIndexBuffers(const std::vector<uint16_t> &indices);
 
 		AspenDevice &aspenDevice;
 		VkBuffer vertexBuffer{};
 		VkDeviceMemory vertexBufferMemory{};
+		VkBuffer indexBuffer{};
+		VkDeviceMemory indexBufferMemory{};
 		uint32_t vertexCount = 0;
+		uint32_t indexCount = 0;
 	};
 } // namespace Aspen

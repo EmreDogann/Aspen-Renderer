@@ -73,6 +73,10 @@ namespace Aspen {
 			return presentQueue_;
 		}
 
+		VkSemaphore transferSemaphore() {
+			return transferSemaphore_;
+		}
+
 		SwapChainSupportDetails getSwapChainSupport() {
 			return querySwapChainSupport(physicalDevice);
 		}
@@ -112,6 +116,7 @@ namespace Aspen {
 		static void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &createInfo);
 		void hasGflwRequiredInstanceExtensions();
 		bool checkDeviceExtensionSupport(VkPhysicalDevice device);
+		void createSyncObjects();
 		SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
 
 		VkInstance instance{};
@@ -121,12 +126,17 @@ namespace Aspen {
 		VkCommandPool graphicsCommandPool{};
 		VkCommandPool transferCommandPool{};
 
+		VkSemaphore transferSemaphore_{};
+
 		VkDevice device_{};
 		VkSurfaceKHR surface_{};
 		VkQueue graphicsQueue_{};
 		VkQueue transferQueue_{};
 		VkQueue presentQueue_{};
 		QueueFamilyIndices queueFamilyIndices{};
+
+		// VkBuffer stagingBuffer{};
+		// VkDeviceMemory stagingBufferMemory{};
 
 		const std::vector<const char *> validationLayers = {"VK_LAYER_KHRONOS_validation"};
 		const std::vector<const char *> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME};

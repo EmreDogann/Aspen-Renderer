@@ -1,4 +1,5 @@
 #include "aspen_swap_chain.hpp"
+#include "vulkan/vulkan_core.h"
 
 namespace Aspen {
 

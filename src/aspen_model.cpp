@@ -1,14 +1,21 @@
 #include "aspen_model.hpp"
 #include "vulkan/vulkan_core.h"
+#include <stdint.h>
 
 namespace Aspen {
-	AspenModel::AspenModel(AspenDevice &device, const std::vector<Vertex> &vertices) : aspenDevice(device) {
+	AspenModel::AspenModel(AspenDevice &device, const std::vector<Vertex> &vertices, const std::vector<uint16_t> &indices) : aspenDevice(device) {
 		createVertexBuffers(vertices);
+		createIndexBuffers(indices);
 	}
 
 	AspenModel::~AspenModel() {
+		// Clean up vertex buffer.
 		vkDestroyBuffer(aspenDevice.device(), vertexBuffer, nullptr);
 		vkFreeMemory(aspenDevice.device(), vertexBufferMemory, nullptr);
+
+		// Clean up index buffer.
+		vkDestroyBuffer(aspenDevice.device(), indexBuffer, nullptr);
+		vkFreeMemory(aspenDevice.device(), indexBufferMemory, nullptr);
 	}
 
 	void AspenModel::createVertexBuffers(const std::vector<Vertex> &vertices) {
@@ -44,7 +51,7 @@ namespace Aspen {
 		memcpy(stagingData, vertices.data(), static_cast<size_t>(bufferSize));
 		vkUnmapMemory(aspenDevice.device(), stagingBufferMemory);
 
-		// Create a diver local vertex buffer.
+		// Create a driver local vertex buffer.
 		aspenDevice.createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
 
 		// Copy contents of staging buffer into device local vertex buffer.
@@ -55,10 +62,40 @@ namespace Aspen {
 		vkFreeMemory(aspenDevice.device(), stagingBufferMemory, nullptr);
 	}
 
+	void AspenModel::createIndexBuffers(const std::vector<uint16_t> &indices) {
+		// Get the number of bytes needed to store indices in memory.
+		indexCount = static_cast<uint32_t>(indices.size());
+		assert(indexCount >= 3 && "Index count must be at least 3");
+		VkDeviceSize bufferSize = sizeof(indices[0]) * indexCount;
+
+		// Create staging buffer and allocate memory for it.
+		VkBuffer stagingBuffer{};
+		VkDeviceMemory stagingBufferMemory{};
+		aspenDevice.createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+		// TODO: Keep the staging buffer mapped and re-use the staging buffers.
+		// Copy the vertices data into the staging buffer.
+		void *stagingData = nullptr;
+		vkMapMemory(aspenDevice.device(), stagingBufferMemory, 0, bufferSize, 0, &stagingData);
+		memcpy(stagingData, indices.data(), static_cast<size_t>(bufferSize));
+		vkUnmapMemory(aspenDevice.device(), stagingBufferMemory);
+
+		// Create a driver local vertex buffer.
+		aspenDevice.createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
+
+		// Copy contents of staging buffer into device local vertex buffer.
+		aspenDevice.copyBuffer(stagingBuffer, indexBuffer, bufferSize);
+
+		// Clean up the staging buffer.
+		vkDestroyBuffer(aspenDevice.device(), stagingBuffer, nullptr);
+		vkFreeMemory(aspenDevice.device(), stagingBufferMemory, nullptr);
+	}
+
 	void AspenModel::bind(VkCommandBuffer commandBuffer) {
-		VkBuffer buffers[] = {vertexBuffer};
-		VkDeviceSize offsets[] = {0};
-		vkCmdBindVertexBuffers(commandBuffer, 0, 1, buffers, offsets); // Record to command buffer to bind one vertex buffer starting at binding 0 (with offset of 0 into the buffer).
+		VkBuffer vertexBuffers[] = {vertexBuffer};
+		VkDeviceSize vertexOffsets[] = {0};
+		vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, vertexOffsets); // Record to command buffer to bind one vertex buffer starting at binding 0 (with offset of 0 into the buffer).
+		vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16); // Record to command buffer to bind the index buffer starting at binding 0 (with offset of 0 into the buffer).
 	}
 
 	void AspenModel::draw(VkCommandBuffer commandBuffer) const {
@@ -67,7 +104,9 @@ namespace Aspen {
 		// 3: Instance count. Used for Instance rendering. Use 1 if instancing is not used.
 		// 4: firstVertex - used as an offset into the vertex buffer. Defines the lowest value of gl_VertexIndex.
 		// 5: firstInstance - used as an offset for instanced rendering. Defines the lowest valye of gl_InstanceIndex.
-		vkCmdDraw(commandBuffer, vertexCount, 1, 0, 0);
+		// vkCmdDraw(commandBuffer, vertexCount, 1, 0, 0);
+
+		vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0);
 	}
 
 	// Defines how the vertex buffer is structured.

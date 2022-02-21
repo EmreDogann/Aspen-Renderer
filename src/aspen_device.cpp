@@ -53,9 +53,19 @@ namespace Aspen {
 
 		// Setup command pool. Useful for command buffer allocations.
 		createCommandPool();
+
+		// Create synchronization objects.
+		// createSyncObjects();
+
+		// 64Mb of memory.
+		// VkDeviceSize stagingBufferSize = sizeof(char) * 64000000;
+		// // Create and allocate one large staging buffer.
+		// createBuffer(stagingBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+		// vkMapMemory(device_, stagingBufferMemory, 0, stagingBufferSize, 0, nullptr);
 	}
 
 	AspenDevice::~AspenDevice() {
+		vkDestroySemaphore(device_, transferSemaphore_, nullptr);
 		vkDestroyCommandPool(device_, graphicsCommandPool, nullptr);
 		vkDestroyCommandPool(device_, transferCommandPool, nullptr);
 		vkDestroyDevice(device_, nullptr);
@@ -233,6 +243,15 @@ namespace Aspen {
 
 		if (vkCreateCommandPool(device_, &poolInfo, nullptr, &transferCommandPool) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create transfer command pool!");
+		}
+	}
+
+	// Create semaphores and fences for transfer operations.
+	void AspenDevice::createSyncObjects() {
+		VkSemaphoreCreateInfo semaphoreInfo = {};
+		semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+		if (vkCreateSemaphore(device_, &semaphoreInfo, nullptr, &transferSemaphore_) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create synchronization objects for transfer operations!");
 		}
 	}
 
@@ -512,7 +531,7 @@ namespace Aspen {
 		VkCommandBufferAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		allocInfo.commandPool = transferCommandPool; // Use the trasnfer command pool to create the command buffer.
+		allocInfo.commandPool = graphicsCommandPool; // Use the trasnfer command pool to create the command buffer.
 		allocInfo.commandBufferCount = 1;
 
 		VkCommandBuffer commandBuffer = nullptr;
@@ -530,17 +549,17 @@ namespace Aspen {
 	// End the temporary command buffer recording, submit it to the queue and wait for submission to complete, then free the command buffer.
 	void AspenDevice::endSingleTimeCommandBuffers(VkCommandBuffer commandBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
 		// TODO: Synchronize queues and transfer ownership from one queue to another.
-		VkBufferMemoryBarrier bufferMemoryBarrier{};
-		bufferMemoryBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-		bufferMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-		bufferMemoryBarrier.dstAccessMask = 0;
-		bufferMemoryBarrier.srcQueueFamilyIndex = queueFamilyIndices.transferFamily;
-		bufferMemoryBarrier.dstQueueFamilyIndex = queueFamilyIndices.graphicsFamily;
-		bufferMemoryBarrier.buffer = dstBuffer;
-		bufferMemoryBarrier.offset = 0;
-		bufferMemoryBarrier.size = size;
+		// VkBufferMemoryBarrier bufferMemoryBarrier{};
+		// bufferMemoryBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+		// bufferMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		// bufferMemoryBarrier.dstAccessMask = 0;
+		// bufferMemoryBarrier.srcQueueFamilyIndex = queueFamilyIndices.transferFamily;
+		// bufferMemoryBarrier.dstQueueFamilyIndex = queueFamilyIndices.graphicsFamily;
+		// bufferMemoryBarrier.buffer = dstBuffer;
+		// bufferMemoryBarrier.offset = 0;
+		// bufferMemoryBarrier.size = size;
 
-		vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 1, &bufferMemoryBarrier, 0, nullptr);
+		// vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 1, &bufferMemoryBarrier, 0, nullptr);
 
 		vkEndCommandBuffer(commandBuffer);
 
@@ -549,57 +568,13 @@ namespace Aspen {
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &commandBuffer;
 		// submitInfo.signalSemaphoreCount = 1;
-		// submitInfo.pSignalSemaphores = ;
+		// submitInfo.pSignalSemaphores = &transferSemaphore_;
 
-		vkQueueSubmit(transferQueue_, 1, &submitInfo, VK_NULL_HANDLE);
-		vkQueueWaitIdle(transferQueue_); // Wait for the transfer operation to finish.
-		                                 // TODO: Use fences and vkWaitForFences in order to allow multiple tranfers simultaneously, instead of executing one at a time.
-
-		// TODO: Put this into its own function.
-		// Create a temporary graphics command buffer.
-		VkCommandBufferAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		allocInfo.commandPool = graphicsCommandPool; // Use the trasnfer command pool to create the command buffer.
-		allocInfo.commandBufferCount = 1;
-
-		VkCommandBuffer graphicsCommandBuffer = nullptr;
-		vkAllocateCommandBuffers(device_, &allocInfo, &graphicsCommandBuffer);
-
-		VkCommandBufferBeginInfo beginInfo{};
-		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-		// Start graphics command buffer recording.
-		vkBeginCommandBuffer(graphicsCommandBuffer, &beginInfo);
-
-		VkBufferMemoryBarrier graphicsBufferMemoryBarrier{};
-		graphicsBufferMemoryBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-		graphicsBufferMemoryBarrier.srcAccessMask = 0;
-		graphicsBufferMemoryBarrier.dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
-		graphicsBufferMemoryBarrier.srcQueueFamilyIndex = queueFamilyIndices.transferFamily;
-		graphicsBufferMemoryBarrier.dstQueueFamilyIndex = queueFamilyIndices.graphicsFamily;
-		graphicsBufferMemoryBarrier.buffer = dstBuffer;
-		graphicsBufferMemoryBarrier.offset = 0;
-		graphicsBufferMemoryBarrier.size = size;
-
-		vkCmdPipelineBarrier(graphicsCommandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, 0, 0, nullptr, 1, &graphicsBufferMemoryBarrier, 0, nullptr);
-
-		vkEndCommandBuffer(graphicsCommandBuffer);
-
-		VkSubmitInfo graphicsSubmitInfo{};
-		graphicsSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-		graphicsSubmitInfo.commandBufferCount = 1;
-		graphicsSubmitInfo.pCommandBuffers = &graphicsCommandBuffer;
-		// submitInfo.signalSemaphoreCount = 1;
-		// submitInfo.pSignalSemaphores = ;
-
-		vkQueueSubmit(graphicsQueue_, 1, &graphicsSubmitInfo, VK_NULL_HANDLE);
+		vkQueueSubmit(graphicsQueue_, 1, &submitInfo, VK_NULL_HANDLE);
 		vkQueueWaitIdle(graphicsQueue_); // Wait for the transfer operation to finish.
 		                                 // TODO: Use fences and vkWaitForFences in order to allow multiple tranfers simultaneously, instead of executing one at a time.
 
-		vkFreeCommandBuffers(device_, transferCommandPool, 1, &commandBuffer);
-		vkFreeCommandBuffers(device_, graphicsCommandPool, 1, &graphicsCommandBuffer);
+		vkFreeCommandBuffers(device_, graphicsCommandPool, 1, &commandBuffer);
 	}
 
 	// Copy the contents of the staging buffer to a device local buffer.

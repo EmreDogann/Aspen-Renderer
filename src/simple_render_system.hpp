@@ -39,11 +39,14 @@ namespace Aspen {
 
 	private:
 		void createPipelineLayout();
+		void createDescriptorSetLayout();
 		void createPipeline(VkRenderPass renderPass);
 
 		AspenDevice &aspenDevice;
 
 		std::unique_ptr<AspenPipeline> aspenPipeline;
 		VkPipelineLayout pipelineLayout{};
+
+		VkDescriptorSetLayout descriptorSetLayout{};
 	};
 } // namespace Aspen
