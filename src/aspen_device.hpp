@@ -21,11 +21,13 @@ namespace Aspen {
 
 	struct QueueFamilyIndices {
 		uint32_t graphicsFamily;
+		uint32_t transferFamily;
 		uint32_t presentFamily;
 		bool graphicsFamilyHasValue = false;
+		bool transferFamilyHasValue = false;
 		bool presentFamilyHasValue = false;
 		bool isComplete() const {
-			return graphicsFamilyHasValue && presentFamilyHasValue;
+			return graphicsFamilyHasValue && transferFamilyHasValue && presentFamilyHasValue;
 		}
 	};
 
@@ -46,17 +48,26 @@ namespace Aspen {
 		AspenDevice(AspenDevice &&) = delete;
 		AspenDevice &operator=(AspenDevice &&) = delete;
 
-		VkCommandPool getCommandPool() {
-			return commandPool;
+		VkCommandPool getGraphicsCommandPool() {
+			return graphicsCommandPool;
 		}
+		VkCommandPool getTransferCommandPool() {
+			return transferCommandPool;
+		}
+
 		VkDevice device() {
 			return device_;
 		}
+
 		VkSurfaceKHR surface() {
 			return surface_;
 		}
+
 		VkQueue graphicsQueue() {
 			return graphicsQueue_;
+		}
+		VkQueue transferQueue() {
+			return transferQueue_;
 		}
 		VkQueue presentQueue() {
 			return presentQueue_;
@@ -65,16 +76,19 @@ namespace Aspen {
 		SwapChainSupportDetails getSwapChainSupport() {
 			return querySwapChainSupport(physicalDevice);
 		}
+
 		uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+
 		QueueFamilyIndices findPhysicalQueueFamilies() {
-			return findQueueFamilies(physicalDevice);
+			queueFamilyIndices = findQueueFamilies(physicalDevice);
+			return queueFamilyIndices;
 		}
 		VkFormat findSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 
 		// Buffer Helper Functions
 		void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer &buffer, VkDeviceMemory &bufferMemory);
-		VkCommandBuffer beginSingleTimeCommands();
-		void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+		VkCommandBuffer beginSingleTimeCommandBuffers();
+		void endSingleTimeCommandBuffers(VkCommandBuffer commandBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 		void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 		void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount);
 
@@ -104,15 +118,18 @@ namespace Aspen {
 		VkDebugUtilsMessengerEXT debugMessenger{};
 		VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 		AspenWindow &window;
-		VkCommandPool commandPool{};
+		VkCommandPool graphicsCommandPool{};
+		VkCommandPool transferCommandPool{};
 
 		VkDevice device_{};
 		VkSurfaceKHR surface_{};
 		VkQueue graphicsQueue_{};
+		VkQueue transferQueue_{};
 		VkQueue presentQueue_{};
+		QueueFamilyIndices queueFamilyIndices{};
 
 		const std::vector<const char *> validationLayers = {"VK_LAYER_KHRONOS_validation"};
-		const std::vector<const char *> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+		const std::vector<const char *> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME};
 	};
 
 } // namespace Aspen

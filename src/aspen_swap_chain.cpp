@@ -200,7 +200,7 @@ namespace Aspen {
 		createInfo.oldSwapchain = oldSwapChain == nullptr ? VK_NULL_HANDLE : oldSwapChain->swapChain;
 
 		if (vkCreateSwapchainKHR(device.device(), &createInfo, nullptr, &swapChain) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create swap chain!");
+			throw std::runtime_error("Failed to create swap chain!");
 		}
 
 		// Get the handles to the swap chain images that were created.
@@ -408,7 +408,7 @@ namespace Aspen {
 			viewInfo.subresourceRange.layerCount = 1;
 
 			if (vkCreateImageView(device.device(), &viewInfo, nullptr, &depthImageViews[i]) != VK_SUCCESS) {
-				throw std::runtime_error("failed to create texture image view!");
+				throw std::runtime_error("Failed to create texture image view!");
 			}
 		}
 	}

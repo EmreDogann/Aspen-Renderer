@@ -1,4 +1,5 @@
 #include "aspen_device.hpp"
+#include "vulkan/vulkan_core.h"
 
 namespace Aspen {
 
@@ -55,7 +56,8 @@ namespace Aspen {
 	}
 
 	AspenDevice::~AspenDevice() {
-		vkDestroyCommandPool(device_, commandPool, nullptr);
+		vkDestroyCommandPool(device_, graphicsCommandPool, nullptr);
+		vkDestroyCommandPool(device_, transferCommandPool, nullptr);
 		vkDestroyDevice(device_, nullptr);
 
 		if (enableValidationLayers) {
@@ -71,7 +73,7 @@ namespace Aspen {
 	void AspenDevice::createInstance() {
 		// Chech all validation layers that are requested are available.
 		if (enableValidationLayers && !checkValidationLayerSupport()) {
-			throw std::runtime_error("validation layers requested, but not available!");
+			throw std::runtime_error("Validation layers requested, but not available!");
 		}
 
 		// Enter information about our application.
@@ -108,7 +110,7 @@ namespace Aspen {
 
 		// Try and create a Vulkan instance using the information we just filled out.
 		if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create instance!");
+			throw std::runtime_error("Failed to create instance!");
 		}
 
 		// Print the available and required extensions.
@@ -143,7 +145,7 @@ namespace Aspen {
 
 		// Get the properties of the selected physical device.
 		vkGetPhysicalDeviceProperties(physicalDevice, &properties);
-		std::cout << "Hhysical device: " << properties.deviceName << std::endl;
+		std::cout << "Physical device: " << properties.deviceName << std::endl;
 	}
 
 	// Create a logical device object using the suitable physical device.
@@ -153,7 +155,7 @@ namespace Aspen {
 
 		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 		// The queue families the application will be utilizing.
-		std::set<uint32_t> uniqueQueueFamilies = {indices.graphicsFamily, indices.presentFamily};
+		std::set<uint32_t> uniqueQueueFamilies = {indices.graphicsFamily, indices.transferFamily, indices.presentFamily};
 
 		// The queue priority will inform Vulkan how to influence the scheduling of command buffer execution.
 		float queuePriority = 1.0f;
@@ -195,10 +197,11 @@ namespace Aspen {
 		}
 
 		if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device_) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create logical device!");
+			throw std::runtime_error("Failed to create logical device!");
 		}
 
 		vkGetDeviceQueue(device_, indices.graphicsFamily, 0, &graphicsQueue_);
+		vkGetDeviceQueue(device_, indices.transferFamily, 0, &transferQueue_);
 		vkGetDeviceQueue(device_, indices.presentFamily, 0, &presentQueue_);
 	}
 
@@ -206,6 +209,7 @@ namespace Aspen {
 	void AspenDevice::createCommandPool() {
 		QueueFamilyIndices queueFamilyIndices = findPhysicalQueueFamilies();
 
+		// Create the graphics command pool.
 		VkCommandPoolCreateInfo poolInfo = {};
 		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 
@@ -217,8 +221,18 @@ namespace Aspen {
 		// VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT: Allow command buffers to be re-recorded individually, without this flag they all have to be reset together.
 		poolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
-		if (vkCreateCommandPool(device_, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create command pool!");
+		if (vkCreateCommandPool(device_, &poolInfo, nullptr, &graphicsCommandPool) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create graphics command pool!");
+		}
+
+		// Create the transfer command pool.
+		poolInfo = {};
+		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		poolInfo.queueFamilyIndex = queueFamilyIndices.transferFamily;
+		poolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+
+		if (vkCreateCommandPool(device_, &poolInfo, nullptr, &transferCommandPool) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create transfer command pool!");
 		}
 	}
 
@@ -267,7 +281,7 @@ namespace Aspen {
 		VkDebugUtilsMessengerCreateInfoEXT createInfo;
 		populateDebugMessengerCreateInfo(createInfo);
 		if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) {
-			throw std::runtime_error("failed to set up debug messenger!");
+			throw std::runtime_error("Failed to set up debug messenger!");
 		}
 	}
 
@@ -323,14 +337,14 @@ namespace Aspen {
 		std::vector<VkExtensionProperties> extensions(extensionCount);
 		vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
 
-		std::cout << "available extensions:" << std::endl;
+		std::cout << "Available extensions:" << std::endl;
 		std::unordered_set<std::string> available;
 		for (const auto &extension : extensions) {
 			std::cout << "\t" << extension.extensionName << std::endl;
 			available.insert(extension.extensionName);
 		}
 
-		std::cout << "required extensions:" << std::endl;
+		std::cout << "Required extensions:" << std::endl;
 		auto requiredExtensions = getRequiredExtensions();
 		for (const auto &required : requiredExtensions) {
 			std::cout << "\t" << required << std::endl;
@@ -372,12 +386,15 @@ namespace Aspen {
 		std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
 		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
 
-		// Look for a queue family that supports graphics and is capable of presenting to a window surface.
+		// Look for a queue family that supports graphics and transfer and is capable of presenting to a window surface.
 		int i = 0;
 		for (const auto &queueFamily : queueFamilies) {
 			if (queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
 				indices.graphicsFamily = i;
 				indices.graphicsFamilyHasValue = true;
+			} else if (queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT) {
+				indices.transferFamily = i;
+				indices.transferFamilyHasValue = true;
 			}
 
 			VkBool32 presentSupport = false;
@@ -438,52 +455,64 @@ namespace Aspen {
 				return format;
 			}
 		}
-		throw std::runtime_error("failed to find supported format!");
+		throw std::runtime_error("Failed to find supported format!");
 	}
 
+	// Find the appropriate memory type based on the requirements of the buffer and our application.
 	uint32_t AspenDevice::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
 		VkPhysicalDeviceMemoryProperties memProperties;
-		vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+		vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties); // Get the available types of memory offered by the physical device.
+
 		for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+			// Use the typeFilter bit field to find the index of the suitable memory type that matches the memory type our buffer needs.
+			// Use properties to check if the current memory type is suitable for our application (e.g. visible to host, has host coherency, etc.).
 			if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
 				return i;
 			}
 		}
 
-		throw std::runtime_error("failed to find suitable memory type!");
+		throw std::runtime_error("Failed to find suitable memory type!");
 	}
 
+	// Create arbitrary buffers.
 	void AspenDevice::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer &buffer, VkDeviceMemory &bufferMemory) {
 		VkBufferCreateInfo bufferInfo{};
 		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		bufferInfo.size = size;
-		bufferInfo.usage = usage;
-		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		bufferInfo.size = size;                             // size of the buffer in bytes.
+		bufferInfo.usage = usage;                           // What the buffer will be used for.
+		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // Read comments on sharingMode in the swap chain creation function.
 
 		if (vkCreateBuffer(device_, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create vertex buffer!");
+			throw std::runtime_error("Failed to create vertex buffer!");
 		}
 
-		VkMemoryRequirements memRequirements;
+		// Get the memory requirements for the buffer based on the buffer info specified.
+		VkMemoryRequirements memRequirements{};
 		vkGetBufferMemoryRequirements(device_, buffer, &memRequirements);
 
+		// Specify the info necessary to allocate the appropriate amount of memory for the buffer.
 		VkMemoryAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 		allocInfo.allocationSize = memRequirements.size;
-		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
+		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties); // Get the memory type suitable for our needs.
 
+		// TODO: Device allocations are limited (as low as 4096 allocations),
+		// and so a custom memory allocator is needed to split up the allocations among many different objects (e.g. VMA).
+		// Allocate the memory for the buffer and return a handle.
 		if (vkAllocateMemory(device_, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
-			throw std::runtime_error("failed to allocate vertex buffer memory!");
+			throw std::runtime_error("Failed to allocate vertex buffer memory!");
 		}
 
-		vkBindBufferMemory(device_, buffer, bufferMemory, 0);
+		// If successful, we can then associate this memory with the buffer.
+		vkBindBufferMemory(device_, buffer, bufferMemory, 0); // Last parameter is offset within the region of memory.
 	}
 
-	VkCommandBuffer AspenDevice::beginSingleTimeCommands() {
+	// Create a temporary command buffer for the purposes of copying from the staging buffer.
+	VkCommandBuffer AspenDevice::beginSingleTimeCommandBuffers() {
 		VkCommandBufferAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		allocInfo.commandPool = commandPool;
+		allocInfo.commandPool = transferCommandPool; // Use the trasnfer command pool to create the command buffer.
 		allocInfo.commandBufferCount = 1;
 
 		VkCommandBuffer commandBuffer = nullptr;
@@ -493,26 +522,89 @@ namespace Aspen {
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
+		// Start command buffer recording.
 		vkBeginCommandBuffer(commandBuffer, &beginInfo);
 		return commandBuffer;
 	}
 
-	void AspenDevice::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
+	// End the temporary command buffer recording, submit it to the queue and wait for submission to complete, then free the command buffer.
+	void AspenDevice::endSingleTimeCommandBuffers(VkCommandBuffer commandBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
+		// TODO: Synchronize queues and transfer ownership from one queue to another.
+		VkBufferMemoryBarrier bufferMemoryBarrier{};
+		bufferMemoryBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+		bufferMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		bufferMemoryBarrier.dstAccessMask = 0;
+		bufferMemoryBarrier.srcQueueFamilyIndex = queueFamilyIndices.transferFamily;
+		bufferMemoryBarrier.dstQueueFamilyIndex = queueFamilyIndices.graphicsFamily;
+		bufferMemoryBarrier.buffer = dstBuffer;
+		bufferMemoryBarrier.offset = 0;
+		bufferMemoryBarrier.size = size;
+
+		vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 1, &bufferMemoryBarrier, 0, nullptr);
+
 		vkEndCommandBuffer(commandBuffer);
 
 		VkSubmitInfo submitInfo{};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &commandBuffer;
+		// submitInfo.signalSemaphoreCount = 1;
+		// submitInfo.pSignalSemaphores = ;
 
-		vkQueueSubmit(graphicsQueue_, 1, &submitInfo, VK_NULL_HANDLE);
-		vkQueueWaitIdle(graphicsQueue_);
+		vkQueueSubmit(transferQueue_, 1, &submitInfo, VK_NULL_HANDLE);
+		vkQueueWaitIdle(transferQueue_); // Wait for the transfer operation to finish.
+		                                 // TODO: Use fences and vkWaitForFences in order to allow multiple tranfers simultaneously, instead of executing one at a time.
 
-		vkFreeCommandBuffers(device_, commandPool, 1, &commandBuffer);
+		// TODO: Put this into its own function.
+		// Create a temporary graphics command buffer.
+		VkCommandBufferAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		allocInfo.commandPool = graphicsCommandPool; // Use the trasnfer command pool to create the command buffer.
+		allocInfo.commandBufferCount = 1;
+
+		VkCommandBuffer graphicsCommandBuffer = nullptr;
+		vkAllocateCommandBuffers(device_, &allocInfo, &graphicsCommandBuffer);
+
+		VkCommandBufferBeginInfo beginInfo{};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+		// Start graphics command buffer recording.
+		vkBeginCommandBuffer(graphicsCommandBuffer, &beginInfo);
+
+		VkBufferMemoryBarrier graphicsBufferMemoryBarrier{};
+		graphicsBufferMemoryBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+		graphicsBufferMemoryBarrier.srcAccessMask = 0;
+		graphicsBufferMemoryBarrier.dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+		graphicsBufferMemoryBarrier.srcQueueFamilyIndex = queueFamilyIndices.transferFamily;
+		graphicsBufferMemoryBarrier.dstQueueFamilyIndex = queueFamilyIndices.graphicsFamily;
+		graphicsBufferMemoryBarrier.buffer = dstBuffer;
+		graphicsBufferMemoryBarrier.offset = 0;
+		graphicsBufferMemoryBarrier.size = size;
+
+		vkCmdPipelineBarrier(graphicsCommandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, 0, 0, nullptr, 1, &graphicsBufferMemoryBarrier, 0, nullptr);
+
+		vkEndCommandBuffer(graphicsCommandBuffer);
+
+		VkSubmitInfo graphicsSubmitInfo{};
+		graphicsSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		graphicsSubmitInfo.commandBufferCount = 1;
+		graphicsSubmitInfo.pCommandBuffers = &graphicsCommandBuffer;
+		// submitInfo.signalSemaphoreCount = 1;
+		// submitInfo.pSignalSemaphores = ;
+
+		vkQueueSubmit(graphicsQueue_, 1, &graphicsSubmitInfo, VK_NULL_HANDLE);
+		vkQueueWaitIdle(graphicsQueue_); // Wait for the transfer operation to finish.
+		                                 // TODO: Use fences and vkWaitForFences in order to allow multiple tranfers simultaneously, instead of executing one at a time.
+
+		vkFreeCommandBuffers(device_, transferCommandPool, 1, &commandBuffer);
+		vkFreeCommandBuffers(device_, graphicsCommandPool, 1, &graphicsCommandBuffer);
 	}
 
+	// Copy the contents of the staging buffer to a device local buffer.
 	void AspenDevice::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
-		VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+		VkCommandBuffer commandBuffer = beginSingleTimeCommandBuffers();
 
 		VkBufferCopy copyRegion{};
 		copyRegion.srcOffset = 0; // Optional
@@ -520,11 +612,11 @@ namespace Aspen {
 		copyRegion.size = size;
 		vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
 
-		endSingleTimeCommands(commandBuffer);
+		endSingleTimeCommandBuffers(commandBuffer, dstBuffer, size);
 	}
 
 	void AspenDevice::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount) {
-		VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+		VkCommandBuffer commandBuffer = beginSingleTimeCommandBuffers();
 
 		VkBufferImageCopy region{};
 		region.bufferOffset = 0;
@@ -540,12 +632,12 @@ namespace Aspen {
 		region.imageExtent = {width, height, 1};
 
 		vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-		endSingleTimeCommands(commandBuffer);
+		// endSingleTimeCommandBuffers(commandBuffer);
 	}
 
 	void AspenDevice::createImageWithInfo(const VkImageCreateInfo &imageInfo, VkMemoryPropertyFlags properties, VkImage &image, VkDeviceMemory &imageMemory) {
 		if (vkCreateImage(device_, &imageInfo, nullptr, &image) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create image!");
+			throw std::runtime_error("Failed to create image!");
 		}
 
 		VkMemoryRequirements memRequirements;
@@ -557,11 +649,11 @@ namespace Aspen {
 		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
 		if (vkAllocateMemory(device_, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
-			throw std::runtime_error("failed to allocate image memory!");
+			throw std::runtime_error("Failed to allocate image memory!");
 		}
 
 		if (vkBindImageMemory(device_, image, imageMemory, 0) != VK_SUCCESS) {
-			throw std::runtime_error("failed to bind image memory!");
+			throw std::runtime_error("Failed to bind image memory!");
 		}
 	}
 

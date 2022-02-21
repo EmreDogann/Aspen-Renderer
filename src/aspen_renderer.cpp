@@ -23,7 +23,7 @@ namespace Aspen {
 		// (VK_COMMAND_BUFFER_LEVEL_SECONDARY) cannot be submitted to a queue for
 		// execution. But, it can be called by other command buffers.
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		allocInfo.commandPool = aspenDevice.getCommandPool();
+		allocInfo.commandPool = aspenDevice.getGraphicsCommandPool();
 		allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
 
 		if (vkAllocateCommandBuffers(aspenDevice.device(), &allocInfo, commandBuffers.data()) != VK_SUCCESS) {
@@ -32,7 +32,7 @@ namespace Aspen {
 	}
 
 	void AspenRenderer::freeCommandBuffers() {
-		vkFreeCommandBuffers(aspenDevice.device(), aspenDevice.getCommandPool(), static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
+		vkFreeCommandBuffers(aspenDevice.device(), aspenDevice.getGraphicsCommandPool(), static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 		commandBuffers.clear();
 	}
 
