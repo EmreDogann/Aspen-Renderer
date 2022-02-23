@@ -1,21 +1,11 @@
-# include(./.env.cmake OPTIONAL RESULT_VARIABLE LOCAL_ENV)
-# message(STATUS "Local .env.cmake: ${LOCAL_ENV}")
-
 cmake_minimum_required(VERSION 3.7)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 set(NAME aspen-vulkan-renderer)
+project(${NAME} VERSION 0.10.0)
 
 message(STATUS "using ${CMAKE_GENERATOR}")
-# if (CMAKE_GENERATOR STREQUAL "MinGW Makefiles")
-#     if (NOT MINGW_PATH) 
-#       message(FATAL_ERROR "MINGW_PATH not set in .env.cmake")
-#     endif()
-#     set(USE_MINGW "True")
-#     set(CMAKE_C_COMPILER ${MINGW_PATH}/bin/gcc.exe)
-#     set(CMAKE_CXX_COMPILER  ${MINGW_PATH}/bin/g++.exe)
-# endif()
-
-project(${NAME} VERSION 0.10.0)
 
 # 1. Set VULKAN_SDK_PATH in .env.cmake to target specific vulkan version
 if (DEFINED VULKAN_SDK_PATH)
@@ -37,10 +27,33 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
 set_property(TARGET ${PROJECT_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/build")
 
+# Download All Git Submodules
+find_package(Git QUIET)
+if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
+  # Update submodules as needed
+  option(GIT_SUBMODULE "Check submodules during build" OFF)
+  if(GIT_SUBMODULE)
+    message(STATUS "Updating Submodules...")
+    execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init --recursive WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} RESULT_VARIABLE GIT_SUBMODULE_RESULT)
+    if (NOT GIT_SUBMODULE_RESULT EQUAL "0")
+      message(FATAL_ERROR "git submodule update --init failed with ${GIT_SUBMODULE_RESULT}, please checkout submodules.")
+    endif()
+  endif()
+endif()
+
+# Check all submodules exist
+if(NOT EXISTS "${PROJECT_SOURCE_DIR}/include/glfw/CMakeLists.txt")
+  message(FATAL_ERROR "The GLFW submodule was not downloaded! GIT_SUBMODULE was turned off or failed.")
+endif()
+if(NOT EXISTS "${PROJECT_SOURCE_DIR}/include/glm/CMakeLists.txt")
+  message(FATAL_ERROR "The GLM submodule was not downloaded! GIT_SUBMODULE was turned off or failed.")
+endif()
+
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 add_subdirectory("include/glfw")
+
 add_subdirectory("include/glm")
 
 if (WIN32)
@@ -90,18 +103,18 @@ find_program(GLSL_VALIDATOR glslangValidator HINTS
 
 # Create ./build/shaders folder
 add_custom_target(make_shader_folder
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_SOURCE_DIR}/build/shaders")
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_SOURCE_DIR}/build/assets/shaders")
 
 # get all .vert and .frag files in shaders directory
 file(GLOB_RECURSE GLSL_SOURCE_FILES
-  "${PROJECT_SOURCE_DIR}/shaders/*.frag"
-  "${PROJECT_SOURCE_DIR}/shaders/*.vert"
+  "${PROJECT_SOURCE_DIR}/assets/shaders/*.frag"
+  "${PROJECT_SOURCE_DIR}/assets/shaders/*.vert"
 )
 
 # Build all shader files.
 foreach(GLSL ${GLSL_SOURCE_FILES})
   get_filename_component(FILE_NAME ${GLSL} NAME)
-  set(SPIRV "${PROJECT_SOURCE_DIR}/build/shaders/${FILE_NAME}.spv")
+  set(SPIRV "${PROJECT_SOURCE_DIR}/build/assets/shaders/${FILE_NAME}.spv")
   add_custom_command(
     OUTPUT ${SPIRV}
     COMMAND ${GLSL_VALIDATOR} -V ${GLSL} -o ${SPIRV}
@@ -118,5 +131,3 @@ add_custom_target(
 
 # Ensures that the shader folder is created before the shaders are built.
 add_dependencies(Shaders make_shader_folder)
-
-message(STATUS "${CMAKE_CXX_COMPILER_ID}")
