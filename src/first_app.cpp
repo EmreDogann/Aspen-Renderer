@@ -11,20 +11,33 @@ namespace Aspen {
 		std::cout << "maxPushConstantSize = " << aspenDevice.properties.limits.maxPushConstantsSize << "\n";
 
 		SimpleRenderSystem simpleRenderSystem{aspenDevice, aspenRenderer.getSwapChainRenderPass()};
-		AspenCamera camera{};
-		camera.setViewDirection(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-		// camera.setViewTarget(glm::vec3(-1.0f, -2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 2.5f));
+		AspenCamera camera{};                                               // Camera instance.
+		AspenGameObject viewerObject = AspenGameObject::createGameObject(); // Empty game object to store the transformation of the camera.
+		CameraController cameraController{};                                // Input handler for the camera.
+
+		auto currentTime = std::chrono::high_resolution_clock::now();
 
 		// Subscribe lambda function to recreate swapchain when resizing window and draw a frame with the updated swapchain. This is done to enable smooth resizing.
-		aspenWindow.windowResizeSubscribe([this, &camera, &simpleRenderSystem]() {
+		aspenWindow.windowResizeSubscribe([this, &currentTime, &camera, &cameraController, &viewerObject, &simpleRenderSystem]() {
 			this->aspenWindow.resetWindowResizedFlag();
 			this->aspenRenderer.recreateSwapChain();
 			// this->createPipeline(); // Right now this is not required as the new render pass will be compatible with the old one but is put here for future proofing.
 
+			glfwPollEvents(); // Process window level events (such as keystrokes).
+
+			auto newTime = std::chrono::high_resolution_clock::now();
+			float frameTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
+			currentTime = newTime;
+			frameTime = glm::min(frameTime, MAX_FRAME_TIME);
+
+			// Update the camera position and rotation.
+			cameraController.moveInPlaneXZ(aspenWindow.getGLFWwindow(), frameTime, viewerObject);
+			camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
+
 			float aspect = aspenRenderer.getAspectRatio();
 			// camera.setOrthographicProjection(-1, 1, -1, 1, -1, 1, aspect);
-
 			camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 10.0f);
+
 			if (auto *commandBuffer = this->aspenRenderer.beginFrame()) {
 				this->aspenRenderer.beginSwapChainRenderPass(commandBuffer);
 				simpleRenderSystem.renderGameObjects(commandBuffer, gameObjects, camera);
@@ -37,10 +50,19 @@ namespace Aspen {
 		while (!aspenWindow.shouldClose()) {
 			glfwPollEvents(); // Process window level events (such as keystrokes).
 
+			auto newTime = std::chrono::high_resolution_clock::now();
+			float frameTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
+			currentTime = newTime;
+			frameTime = glm::min(frameTime, MAX_FRAME_TIME);
+
+			// Update the camera position and rotation.
+			cameraController.moveInPlaneXZ(aspenWindow.getGLFWwindow(), frameTime, viewerObject);
+			camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
+
 			float aspect = aspenRenderer.getAspectRatio();
 			// camera.setOrthographicProjection(-1, 1, -1, 1, -1, 1, aspect);
-
 			camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 10.0f);
+
 			if (auto *commandBuffer = aspenRenderer.beginFrame()) {
 				aspenRenderer.beginSwapChainRenderPass(commandBuffer);
 				simpleRenderSystem.renderGameObjects(commandBuffer, gameObjects, camera);

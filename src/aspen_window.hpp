@@ -33,6 +33,10 @@ namespace Aspen {
 			return {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
 		}
 
+		GLFWwindow *getGLFWwindow() const {
+			return window;
+		}
+
 		void createWindowSurface(VkInstance instance, VkSurfaceKHR *surface);
 
 		bool wasWindowResized() const {

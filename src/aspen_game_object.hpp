@@ -86,7 +86,7 @@ namespace Aspen {
 		std::shared_ptr<AspenModel> model{};
 		glm::vec3 color{};
 		TransformComponent transform{};
-		RigidBody2dComponent rigidBody2d{};
+		// RigidBody2dComponent rigidBody2d{};
 
 	private:
 		explicit AspenGameObject(id_t objId) : id{objId} {}

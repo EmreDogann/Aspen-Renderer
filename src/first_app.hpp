@@ -5,13 +5,12 @@
 #include "aspen_model.hpp"
 #include "aspen_renderer.hpp"
 #include "aspen_window.hpp"
+#include "camera_controller.hpp"
 #include "simple_render_system.hpp"
 
-
-// Libs
+// Libs & defines
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan_core.h>
-
 #define GLM_FORCE_RADIANS           // Ensures that GLM will expect angles to be specified in radians, not degrees.
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE // Tells GLM to expect depth values in the range 0-1 instead of -1 to 1.
 #include <glm/glm.hpp>
@@ -19,6 +18,7 @@
 
 // std
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <iostream>
 #include <memory>
@@ -31,6 +31,7 @@ namespace Aspen {
 	public:
 		static constexpr int WIDTH = 1024;
 		static constexpr int HEIGHT = 768;
+		static constexpr float MAX_FRAME_TIME = 1.0f;
 
 		FirstApp();
 		~FirstApp();
