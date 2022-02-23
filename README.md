@@ -33,12 +33,6 @@ This provides you with an up-to-date version of GCC for Windows. The process to 
 # Usage
 To build this project, once all the above requirements have been met, go through the following:
 
-First of all, open up `example.env.cmake` and fill in the required variable paths. By default, you do not need to define a Vulkan SDK path as CMakeLists will try to automatically find the SDK folder based on your environment variables, however if you encounter issues with this, you can optionally enter the path manually. The MinGW path however, is required.
-
-Once done, remove the `example` from the file name, leaving only `.env.cmake`
-
-Next, run the following commands:
-
 ```bash
 cd ./Aspen-Renderer/
 
@@ -48,7 +42,7 @@ cd ./build/
 
 cmake .. -G "MinGW Makefiles"
 
-cmake --build . --config Release -j 8
+cmake --build . --config Release
 ```
 
 After this there should be a `aspen-vulkan-renderer.exe` executable in the `/builds` folder. Running that executable will start up the renderer.
