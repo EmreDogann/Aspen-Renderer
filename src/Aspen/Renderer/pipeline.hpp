@@ -1,7 +1,7 @@
 #pragma once
 
-#include "aspen_device.hpp"
-#include "aspen_model.hpp"
+#include "Aspen/Core/model.hpp"
+#include "Aspen/Renderer/device.hpp"
 
 // Libs
 #include <vulkan/vulkan_core.h>

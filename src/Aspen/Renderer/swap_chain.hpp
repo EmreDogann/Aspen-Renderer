@@ -1,6 +1,6 @@
 #pragma once
 
-#include "aspen_device.hpp"
+#include "Aspen/Renderer/device.hpp"
 
 // Libs
 #include <vulkan/vulkan.h>

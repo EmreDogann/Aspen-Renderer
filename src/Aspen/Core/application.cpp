@@ -1,4 +1,4 @@
-#include "first_app.hpp"
+#include "Aspen/Core/application.hpp"
 
 namespace Aspen {
 	FirstApp::FirstApp() {

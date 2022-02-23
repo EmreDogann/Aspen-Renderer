@@ -1,8 +1,9 @@
 #pragma once
-#include "aspen_device.hpp"
-#include "aspen_model.hpp"
-#include "aspen_swap_chain.hpp"
-#include "aspen_window.hpp"
+#include "Aspen/Core/model.hpp"
+#include "Aspen/Core/window.hpp"
+#include "Aspen/Renderer/device.hpp"
+#include "Aspen/Renderer/swap_chain.hpp"
+
 
 // Libs
 #include <vulkan/vulkan_core.h>

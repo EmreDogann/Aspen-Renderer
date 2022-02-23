@@ -1,15 +1,15 @@
 #pragma once
-#include "aspen_camera.hpp"
-#include "aspen_device.hpp"
-#include "aspen_game_object.hpp"
-#include "aspen_model.hpp"
-#include "aspen_renderer.hpp"
-#include "aspen_window.hpp"
-#include "camera_controller.hpp"
-#include "simple_render_system.hpp"
+#include "Aspen/Core/model.hpp"
+#include "Aspen/Core/window.hpp"
+#include "Aspen/Renderer/camera.hpp"
+#include "Aspen/Renderer/device.hpp"
+#include "Aspen/Renderer/renderer.hpp"
+#include "Aspen/Renderer/simple_render_system.hpp"
+#include "Aspen/Scene/camera_controller.hpp"
+#include "Aspen/Scene/game_object.hpp"
+
 
 // Libs & defines
-#include <GLFW/glfw3.h>
 #include <vulkan/vulkan_core.h>
 #define GLM_FORCE_RADIANS           // Ensures that GLM will expect angles to be specified in radians, not degrees.
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE // Tells GLM to expect depth values in the range 0-1 instead of -1 to 1.

@@ -1,5 +1,5 @@
 #pragma once
-#include "aspen_model.hpp"
+#include "Aspen/Core/model.hpp"
 
 // Libs
 #include "glm/ext/matrix_transform.hpp"

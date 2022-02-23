@@ -1,4 +1,4 @@
-#include "aspen_camera.hpp"
+#include "Aspen/Renderer/camera.hpp"
 
 namespace Aspen {
 	// Set projection matrix to be the orthographic projection matrix.

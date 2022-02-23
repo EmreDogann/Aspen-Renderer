@@ -1,4 +1,4 @@
-#include "camera_controller.hpp"
+#include "Aspen/Scene/camera_controller.hpp"
 
 namespace Aspen {
 	void CameraController::moveInPlaneXZ(GLFWwindow *window, float dt, AspenGameObject &gameObject) {

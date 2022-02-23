@@ -1,5 +1,4 @@
-#include "aspen_device.hpp"
-#include "vulkan/vulkan_core.h"
+#include "Aspen/Renderer/device.hpp"
 
 namespace Aspen {
 

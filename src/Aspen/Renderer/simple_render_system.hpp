@@ -1,9 +1,10 @@
 #pragma once
-#include "aspen_camera.hpp"
-#include "aspen_device.hpp"
-#include "aspen_game_object.hpp"
-#include "aspen_model.hpp"
-#include "aspen_pipeline.hpp"
+#include "Aspen/Core/model.hpp"
+#include "Aspen/Renderer/camera.hpp"
+#include "Aspen/Renderer/device.hpp"
+#include "Aspen/Renderer/pipeline.hpp"
+#include "Aspen/Scene/game_object.hpp"
+
 
 // Libs
 #include <GLFW/glfw3.h>

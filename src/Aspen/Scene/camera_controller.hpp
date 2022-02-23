@@ -1,7 +1,7 @@
 #pragma once
 
-#include "aspen_game_object.hpp"
-#include "aspen_window.hpp"
+#include "Aspen/Core/window.hpp"
+#include "Aspen/Scene/game_object.hpp"
 
 namespace Aspen {
 	class CameraController {

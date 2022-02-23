@@ -1,6 +1,4 @@
-#include "aspen_model.hpp"
-#include "vulkan/vulkan_core.h"
-#include <stdint.h>
+#include "Aspen/Core/model.hpp"
 
 namespace Aspen {
 	AspenModel::AspenModel(AspenDevice &device, const std::vector<Vertex> &vertices, const std::vector<uint16_t> &indices) : aspenDevice(device) {
