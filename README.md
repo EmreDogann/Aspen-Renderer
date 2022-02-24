@@ -7,8 +7,20 @@ The objective of this project is to explore the Vulkan API and learn more about 
 
 The project mainly follows the work of [Brendan Galea's Vulkan Game Engine Series](https://www.youtube.com/watch?v=Y9U9IE0gVHA&list=PL8327DO66nu9qYVKLDmdLW_84-yE4auCR). However, this series is used as a rough guide and more work is done on this engine external to that series in order to fit my needs.
 
+# What This Project Is Not
+Currently, this is not intended to be an engine but just a graphics renderer using rasterization (and ray tracing as a future goal). With my current vision for this project, it will not be possible to make a full game by the end of it. However, in the future, that could change as the project evolves.
+
 # Getting Started
 **Note: This project is currently targeting Windows platforms only.**
+
+First, clone the repository using:
+```bash
+git clone --recursive https://github.com/EmreDogann/Aspen-Renderer.git
+```
+If you cloned the repository non-recursively before then run the command below to clone the submodules:
+```bash
+git submodule update --init
+```
 
 This project uses CMake to build with MinGW's GCC runtime. I have only tested this using MinGW and the CMakeLists.txt is only set-up for compilation with GCC/G++ so I cannot guarantee that it will work with MSVC or clang.
 
@@ -53,8 +65,9 @@ Other dependencies this project uses that are automatically downloaded and built
 - GLFW - For platform-specific window management.
 - GLM - For Maths computations used for rendering.
 
-# What This Project Is Not
-Currently, this is not intended to be an engine but just a graphics renderer using rasterization (and ray tracing as a future goal). With my current vision for this project, it will not be possible to make a full game by the end of it. However, in the future, that could change as the project evolves.
+# Credit
+Some code samples for this project were adapted from:
+- [The Cherno's Hazle Engine](https://github.com/TheCherno/Hazel) - Event system, Entity Component System
 
 # License
 [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0)
