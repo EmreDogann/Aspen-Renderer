@@ -22,7 +22,7 @@ If you cloned the repository non-recursively before then run the command below t
 git submodule update --init
 ```
 
-This project uses CMake to build with MinGW's GCC runtime. I have only tested this using MinGW and the CMakeLists.txt is only set-up for compilation with GCC/G++ so I cannot guarantee that it will work with MSVC or clang.
+This project uses CMake as a build environment. I have only tested this using MinGW and the CMakeLists.txt is only set-up for compilation with GCC/G++ so I cannot guarantee that it will work with other compilers such as MSVC or clang.
 
 The following must be installed:
 - [CMake (v3.21+)](https://cmake.org/download/) - I recommend the `Windows x64 Installer` as it can automatically add its /bin folder to the system PATH environment variable, otherwise you will have to do this manually with the .zip version
