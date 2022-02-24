@@ -1,22 +1,23 @@
 #pragma once
 
+#include <pch.h>
+
 // Libs & defines
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan_core.h>
 
-// std
-#include <functional>
-#include <stdexcept>
-#include <string>
-#include <utility>
-#include <vector>
+#include "Aspen/Events/application_event.hpp"
+#include "Aspen/Events/key_event.hpp"
+#include "Aspen/Events/mouse_event.hpp"
 
 namespace Aspen {
 
 	class AspenWindow {
 	public:
-		AspenWindow(int w, int h, std::string name);
+		using EventCallbackFn = std::function<void(Event &)>;
+
+		AspenWindow(int width, int height, std::string name);
 		~AspenWindow();
 
 		// Remove copy constructor and operator to prevent accidental copy creation of window, possibly leading to a dangling pointer.
@@ -26,43 +27,45 @@ namespace Aspen {
 		AspenWindow(const AspenWindow &&) = delete;
 		AspenWindow &operator=(const AspenWindow &&) = delete;
 
-		bool shouldClose() {
-			return glfwWindowShouldClose(window);
+		void createWindowSurface(VkInstance instance, VkSurfaceKHR *surface);
+
+		// Process window level events (such as keystrokes).
+		void OnUpdate() {
+			glfwPollEvents();
 		}
+
+		void setEventCallback(const EventCallbackFn &callback) {
+			windowProps.eventCallback = callback;
+		}
+
 		VkExtent2D getExtent() const {
-			return {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
+			return {static_cast<uint32_t>(windowProps.width), static_cast<uint32_t>(windowProps.height)};
 		}
 
 		GLFWwindow *getGLFWwindow() const {
 			return window;
 		}
 
-		void createWindowSurface(VkInstance instance, VkSurfaceKHR *surface);
-
 		bool wasWindowResized() const {
-			return framebufferResized;
+			return windowProps.framebufferResized;
 		};
 		void resetWindowResizedFlag() {
-			framebufferResized = false;
+			windowProps.framebufferResized = false;
 		};
-
-		void windowResizeSubscribe(const std::function<void()> &subscriber) {
-			windowResizeSubscribers.push_back(subscriber);
-		};
-		void notifySubscribers();
 
 	private:
-		static void framebufferResizedCallback(GLFWwindow *window, int width, int height);
 		void initWindow();
 
-		int width;
-		int height;
-		bool framebufferResized = false;
-
-		std::string windowName;
 		GLFWwindow *window{};
 
-		std::vector<std::function<void()>> windowResizeSubscribers;
+		struct WindowProps {
+			WindowProps(int width, int height, std::string name) : width{width}, height{height}, windowName{std::move(name)} {}
+			std::string windowName;
+			int width, height;
+			bool framebufferResized = false;
+
+			EventCallbackFn eventCallback;
+		} windowProps;
 	};
 
 } // namespace Aspen

@@ -1,5 +1,6 @@
 #pragma once
 #include "Aspen/Core/model.hpp"
+#include "Aspen/Core/timer.hpp"
 #include "Aspen/Core/window.hpp"
 #include "Aspen/Renderer/camera.hpp"
 #include "Aspen/Renderer/device.hpp"
@@ -8,7 +9,6 @@
 #include "Aspen/Scene/camera_controller.hpp"
 #include "Aspen/Scene/game_object.hpp"
 
-
 // Libs & defines
 #include <vulkan/vulkan_core.h>
 #define GLM_FORCE_RADIANS           // Ensures that GLM will expect angles to be specified in radians, not degrees.
@@ -16,39 +16,34 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
 
-// std
-#include <array>
-#include <chrono>
-#include <cstdint>
-#include <iostream>
-#include <memory>
-#include <ostream>
-#include <stdexcept>
-#include <vector>
-
 namespace Aspen {
-	class FirstApp {
+	class Application {
 	public:
 		static constexpr int WIDTH = 1024;
 		static constexpr int HEIGHT = 768;
 		static constexpr float MAX_FRAME_TIME = 1.0f;
 
-		FirstApp();
-		~FirstApp();
+		Application();
+		~Application();
 
-		FirstApp(const FirstApp &) = delete;
-		FirstApp &operator=(const FirstApp &) = delete;
-		FirstApp(const FirstApp &&) = delete;
-		FirstApp &operator=(const FirstApp &&) = delete;
+		Application(const Application &) = delete;
+		Application &operator=(const Application &) = delete;
+		Application(const Application &&) = delete;
+		Application &operator=(const Application &&) = delete;
 
 		void run();
+		void OnEvent(Event &e);
 
 	private:
 		void loadGameObjects();
+		bool OnWindowClose(WindowCloseEvent &e);
+		bool OnWindowResize(WindowResizeEvent &e);
 
 		AspenWindow aspenWindow{WIDTH, HEIGHT, "Hello Vulkan!"};
 		AspenDevice aspenDevice{aspenWindow};
 		AspenRenderer aspenRenderer{aspenWindow, aspenDevice};
+
+		bool m_Running = true;
 
 		std::vector<AspenGameObject> gameObjects;
 	};

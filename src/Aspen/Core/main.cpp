@@ -1,13 +1,7 @@
 #include "Aspen/Core/application.hpp"
 
-// std
-#include <cstdlib>
-#include <iostream>
-#include <stdexcept>
-#include <stdlib.h>
-
 int main() {
-	Aspen::FirstApp app{};
+	Aspen::Application app{};
 
 	try {
 		app.run();

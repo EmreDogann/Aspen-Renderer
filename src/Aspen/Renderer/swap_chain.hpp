@@ -6,17 +6,6 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
-// std
-#include <array>
-#include <cstdlib>
-#include <cstring>
-#include <iostream>
-#include <limits>
-#include <memory>
-#include <set>
-#include <stdexcept>
-#include <utility>
-
 namespace Aspen {
 
 	class AspenSwapChain {

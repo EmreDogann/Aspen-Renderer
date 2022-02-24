@@ -1,13 +1,16 @@
 #include "Aspen/Core/application.hpp"
 
+#define BIND_EVENT_FN(x) std::bind(&x, this, std::placeholders::_1)
+
 namespace Aspen {
-	FirstApp::FirstApp() {
+	Application::Application() {
+		aspenWindow.setEventCallback(BIND_EVENT_FN(Application::OnEvent));
 		loadGameObjects();
 	}
 
-	FirstApp::~FirstApp() = default;
+	Application::~Application() = default;
 
-	void FirstApp::run() {
+	void Application::run() {
 		std::cout << "maxPushConstantSize = " << aspenDevice.properties.limits.maxPushConstantsSize << "\n";
 
 		SimpleRenderSystem simpleRenderSystem{aspenDevice, aspenRenderer.getSwapChainRenderPass()};
@@ -15,45 +18,15 @@ namespace Aspen {
 		AspenGameObject viewerObject = AspenGameObject::createGameObject(); // Empty game object to store the transformation of the camera.
 		CameraController cameraController{};                                // Input handler for the camera.
 
-		auto currentTime = std::chrono::high_resolution_clock::now();
-
-		// Subscribe lambda function to recreate swapchain when resizing window and draw a frame with the updated swapchain. This is done to enable smooth resizing.
-		aspenWindow.windowResizeSubscribe([this, &currentTime, &camera, &cameraController, &viewerObject, &simpleRenderSystem]() {
-			this->aspenWindow.resetWindowResizedFlag();
-			this->aspenRenderer.recreateSwapChain();
-			// this->createPipeline(); // Right now this is not required as the new render pass will be compatible with the old one but is put here for future proofing.
-
-			glfwPollEvents(); // Process window level events (such as keystrokes).
-
-			auto newTime = std::chrono::high_resolution_clock::now();
-			float frameTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
-			currentTime = newTime;
-			frameTime = glm::min(frameTime, MAX_FRAME_TIME);
-
-			// Update the camera position and rotation.
-			cameraController.moveInPlaneXZ(aspenWindow.getGLFWwindow(), frameTime, viewerObject);
-			camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
-
-			float aspect = aspenRenderer.getAspectRatio();
-			// camera.setOrthographicProjection(-1, 1, -1, 1, -1, 1, aspect);
-			camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 10.0f);
-
-			if (auto *commandBuffer = this->aspenRenderer.beginFrame()) {
-				this->aspenRenderer.beginSwapChainRenderPass(commandBuffer);
-				simpleRenderSystem.renderGameObjects(commandBuffer, gameObjects, camera);
-				this->aspenRenderer.endSwapChainRenderPass(commandBuffer);
-				this->aspenRenderer.endFrame();
-			}
-		});
+		Timer timer{};
 
 		// Game Loop
-		while (!aspenWindow.shouldClose()) {
-			glfwPollEvents(); // Process window level events (such as keystrokes).
+		while (m_Running) {
+			aspenWindow.OnUpdate(); // Process window level events.
 
-			auto newTime = std::chrono::high_resolution_clock::now();
-			float frameTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
-			currentTime = newTime;
+			auto frameTime = timer.elapsedSeconds();
 			frameTime = glm::min(frameTime, MAX_FRAME_TIME);
+			timer.reset();
 
 			// Update the camera position and rotation.
 			cameraController.moveInPlaneXZ(aspenWindow.getGLFWwindow(), frameTime, viewerObject);
@@ -72,6 +45,24 @@ namespace Aspen {
 		}
 
 		vkDeviceWaitIdle(aspenDevice.device()); // Block CPU until all GPU operations have completed.
+	}
+
+	void Application::OnEvent(Event &e) {
+		EventDispatcher dispatcher(e);
+		dispatcher.Dispatch<WindowCloseEvent>(BIND_EVENT_FN(Application::OnWindowClose));
+		dispatcher.Dispatch<WindowResizeEvent>(BIND_EVENT_FN(Application::OnWindowResize));
+
+		std::cout << e.ToString() << std::endl;
+	}
+
+	bool Application::OnWindowClose(WindowCloseEvent &e) {
+		m_Running = false;
+		return true;
+	}
+
+	bool Application::OnWindowResize(WindowResizeEvent &e) {
+		m_Running = false;
+		return true;
 	}
 
 	// Temporary helper function, creates a 1x1x1 cube centered at offset
@@ -124,7 +115,7 @@ namespace Aspen {
 		return std::make_unique<AspenModel>(device, vertices, indices);
 	}
 
-	void FirstApp::loadGameObjects() {
+	void Application::loadGameObjects() {
 		std::shared_ptr<AspenModel> aspenModel = createCubeModel(aspenDevice, {0.0f, 0.0f, 0.0f}); // Converts the unique pointer returned from the function to a shared pointer.
 
 		auto cube = AspenGameObject::createGameObject();

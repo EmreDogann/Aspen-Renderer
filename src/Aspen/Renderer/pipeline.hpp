@@ -6,15 +6,6 @@
 // Libs
 #include <vulkan/vulkan_core.h>
 
-// std
-#include <cassert>
-#include <corecrt.h>
-#include <cstdint>
-#include <fstream>
-#include <iostream>
-#include <stdexcept>
-#include <vector>
-
 namespace Aspen {
 	// Data specifying how we want to configure our pipeline.
 	struct PipelineConfigInfo {

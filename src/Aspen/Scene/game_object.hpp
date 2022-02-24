@@ -6,9 +6,6 @@
 #include <glm/fwd.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-// std
-#include <memory>
-
 namespace Aspen {
 	struct TransformComponent {
 		glm::vec3 translation{}; // Position offset.

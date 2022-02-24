@@ -1,20 +1,12 @@
 #pragma once
+
 #include "Aspen/Core/model.hpp"
 #include "Aspen/Core/window.hpp"
 #include "Aspen/Renderer/device.hpp"
 #include "Aspen/Renderer/swap_chain.hpp"
 
-
 // Libs
 #include <vulkan/vulkan_core.h>
-
-// std
-#include <array>
-#include <cstdint>
-#include <iostream>
-#include <memory>
-#include <stdexcept>
-#include <vector>
 
 namespace Aspen {
 	class AspenRenderer {

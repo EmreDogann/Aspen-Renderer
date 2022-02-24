@@ -1,15 +1,9 @@
 #pragma once
 
-#include "Aspen/Core/window.hpp"
-
 // Libs
 #include "vulkan/vulkan_core.h"
 
-// std
-#include <cstring>
-#include <iostream>
-#include <set>
-#include <unordered_set>
+#include "Aspen/Core/window.hpp"
 
 namespace Aspen {
 
