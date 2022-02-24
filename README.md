@@ -1,6 +1,6 @@
 # Aspen Renderer [![License](https://img.shields.io/github/license/EmreDogann/Aspen-Renderer)](https://github.com/EmreDogann/Aspen-Renderer/blob/master/LICENSE)
 
-Apsen is a 3D graphics renderer written in C++ using the Vulkan Graphics API.
+Apsen is a 3D Real-Time Ray Traced graphics renderer written in C++ using the Vulkan Graphics API.
 
 ## About 
 The objective of this project is to explore the Vulkan API and learn more about the underlying graphics hardware and pipeline systems in place to perform rasterization and ray tracing (on more recent GPUs) rendering.
