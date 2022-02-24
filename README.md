@@ -1,4 +1,4 @@
-# Aspen Renderer ![](https://img.shields.io/github/license/EmreDogann/Aspen-Renderer)
+# Aspen Renderer [![License](https://img.shields.io/github/license/EmreDogann/Aspen-Renderer)](https://github.com/EmreDogann/Aspen-Renderer/blob/master/LICENSE)
 
 Apsen is a 3D graphics renderer written in C++ using the Vulkan Graphics API.
 
@@ -70,4 +70,4 @@ Some code samples for this project were adapted from:
 - [The Cherno's Hazle Engine](https://github.com/TheCherno/Hazel) - Event system, Entity Component System
 
 # License
-[Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0)
+[Apache 2.0](https://github.com/EmreDogann/Aspen-Renderer/blob/master/LICENSE)
