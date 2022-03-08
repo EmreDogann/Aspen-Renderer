@@ -51,6 +51,9 @@ endif()
 if(NOT EXISTS "${PROJECT_SOURCE_DIR}/include/glm/CMakeLists.txt")
   message(FATAL_ERROR "The GLM submodule was not downloaded! GIT_SUBMODULE was turned off or failed.")
 endif()
+if(NOT EXISTS "${PROJECT_SOURCE_DIR}/include/entt/CMakeLists.txt")
+  message(FATAL_ERROR "The entt submodule was not downloaded! GIT_SUBMODULE was turned off or failed.")
+endif()
 
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -58,6 +61,8 @@ set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 add_subdirectory("include/glfw")
 
 add_subdirectory("include/glm")
+
+add_subdirectory("include/entt")
 
 if (WIN32)
   message(STATUS "CREATING BUILD FOR WINDOWS")
