@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Aspen/Core/model.hpp"
+#include "Aspen/Core/buffer.hpp"
 #include "Aspen/Core/window.hpp"
 #include "Aspen/Renderer/device.hpp"
 #include "Aspen/Renderer/swap_chain.hpp"
@@ -11,13 +11,13 @@
 namespace Aspen {
 	class AspenRenderer {
 	public:
-		AspenRenderer(AspenWindow &window, AspenDevice &aspenDevice);
+		AspenRenderer(AspenWindow& window, AspenDevice& aspenDevice);
 		~AspenRenderer();
 
-		AspenRenderer(const AspenRenderer &) = delete;
-		AspenRenderer &operator=(const AspenRenderer &);
-		AspenRenderer(AspenRenderer &&) = default;
-		AspenRenderer &operator=(AspenRenderer &&) noexcept;
+		AspenRenderer(const AspenRenderer&) = delete;
+		AspenRenderer& operator=(const AspenRenderer&);
+		AspenRenderer(AspenRenderer&&) = default;
+		AspenRenderer& operator=(AspenRenderer&&) noexcept;
 
 		VkRenderPass getSwapChainRenderPass() const {
 			return aspenSwapChain->getRenderPass();
@@ -51,8 +51,8 @@ namespace Aspen {
 		void createCommandBuffers();
 		void freeCommandBuffers();
 
-		AspenWindow &aspenWindow;
-		AspenDevice &aspenDevice;
+		AspenWindow& aspenWindow;
+		AspenDevice& aspenDevice;
 		std::unique_ptr<AspenSwapChain> aspenSwapChain;
 		std::vector<VkCommandBuffer> commandBuffers;
 

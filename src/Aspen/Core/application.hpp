@@ -1,5 +1,7 @@
 #pragma once
-#include "Aspen/Core/model.hpp"
+#include "pch.h"
+
+#include "Aspen/Core/buffer.hpp"
 #include "Aspen/Core/timer.hpp"
 #include "Aspen/Core/window.hpp"
 #include "Aspen/Renderer/camera.hpp"
@@ -7,7 +9,9 @@
 #include "Aspen/Renderer/renderer.hpp"
 #include "Aspen/Renderer/simple_render_system.hpp"
 #include "Aspen/Scene/camera_controller.hpp"
-#include "Aspen/Scene/game_object.hpp"
+#include "Aspen/Scene/components.hpp"
+#include "Aspen/Scene/entity.hpp"
+#include "Aspen/Scene/scene.hpp"
 
 // Libs & defines
 #include <vulkan/vulkan_core.h>
@@ -21,30 +25,36 @@ namespace Aspen {
 	public:
 		static constexpr int WIDTH = 1024;
 		static constexpr int HEIGHT = 768;
-		static constexpr float MAX_FRAME_TIME = 1.0f;
+		static constexpr float MAX_FRAME_TIME = 0.1f;
 
 		Application();
-		~Application();
+		~Application() = default;
 
-		Application(const Application &) = delete;
-		Application &operator=(const Application &) = delete;
-		Application(const Application &&) = delete;
-		Application &operator=(const Application &&) = delete;
+		Application(const Application&) = delete;
+		Application& operator=(const Application&) = delete;
+		Application(const Application&&) = delete;
+		Application& operator=(const Application&&) = delete;
 
 		void run();
-		void OnEvent(Event &e);
+		void OnEvent(Event& e);
 
 	private:
 		void loadGameObjects();
-		bool OnWindowClose(WindowCloseEvent &e);
-		bool OnWindowResize(WindowResizeEvent &e);
+		bool OnWindowClose(WindowCloseEvent& e);
+		bool OnWindowResize(WindowResizeEvent& e);
 
 		AspenWindow aspenWindow{WIDTH, HEIGHT, "Hello Vulkan!"};
 		AspenDevice aspenDevice{aspenWindow};
 		AspenRenderer aspenRenderer{aspenWindow, aspenDevice};
+		Buffer bufferManager{aspenDevice};
+		SimpleRenderSystem simpleRenderSystem{aspenDevice, bufferManager, aspenRenderer.getSwapChainRenderPass()};
+		Timer timer{};
+
+		Entity cameraEntity{};               // Empty entity to store the transformation of the camera.
+		CameraController cameraController{}; // Input handler for the camera.
 
 		bool m_Running = true;
 
-		std::vector<AspenGameObject> gameObjects;
+		std::shared_ptr<Scene> m_Scene;
 	};
 } // namespace Aspen

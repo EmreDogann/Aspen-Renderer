@@ -3,10 +3,12 @@ UseTab: ForIndentation
 IndentWidth: 4
 TabWidth: 4
 BreakBeforeBraces: Attach
+PointerAlignment: Left
 AllowShortIfStatementsOnASingleLine: Never
 AllowShortBlocksOnASingleLine: Empty
 AllowShortFunctionsOnASingleLine: Empty
 AlwaysBreakAfterReturnType: None
+AlwaysBreakTemplateDeclarations: Yes
 IndentCaseLabels: true
 ColumnLimit: 200
 AccessModifierOffset: -4

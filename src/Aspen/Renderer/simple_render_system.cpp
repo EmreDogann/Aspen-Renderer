@@ -1,5 +1,5 @@
-#include "simple_render_system.hpp"
-#include "vulkan/vulkan_core.h"
+#include "Aspen/Renderer/simple_render_system.hpp"
+#include <iostream>
 
 namespace Aspen {
 	struct SimplePushConstantData {
@@ -7,7 +7,7 @@ namespace Aspen {
 		alignas(16) glm::vec3 color;
 	};
 
-	SimpleRenderSystem::SimpleRenderSystem(AspenDevice &device, VkRenderPass renderPass) : aspenDevice(device) {
+	SimpleRenderSystem::SimpleRenderSystem(AspenDevice& device, Buffer& bufferManager, VkRenderPass renderPass) : aspenDevice(device), bufferManager(bufferManager) {
 		createPipelineLayout();
 		createPipeline(renderPass);
 	}
@@ -68,25 +68,26 @@ namespace Aspen {
 		aspenPipeline = std::make_unique<AspenPipeline>(aspenDevice, "assets/shaders/simple_shader.vert.spv", "assets/shaders/simple_shader.frag.spv", pipelineConfig);
 	}
 
-	void SimpleRenderSystem::renderGameObjects(VkCommandBuffer commandBuffer, std::vector<AspenGameObject> &gameObjects, const AspenCamera &camera) {
+	void SimpleRenderSystem::renderGameObjects(VkCommandBuffer commandBuffer, std::shared_ptr<Scene>& scene, const AspenCamera& camera) {
 		// Bind the graphics pipieline.
 		aspenPipeline->bind(commandBuffer);
 
 		// Calculate the projection view transformation matrix.
 		auto projectionView = camera.getProjection() * camera.getView();
 
-		for (auto &obj : gameObjects) {
-			obj.transform.rotation.y = glm::mod(obj.transform.rotation.y + 0.0001f, glm::two_pi<float>());  // Slowly rotate game objects.
-			obj.transform.rotation.x = glm::mod(obj.transform.rotation.x + 0.00003f, glm::two_pi<float>()); // Slowly rotate game objects.
+		auto group = scene->getRenderComponents();
+		for (auto entity : group) {
+			auto [transform, mesh] = group.get<TransformComponent, MeshComponent>(entity);
+			transform.rotation.y = glm::mod(transform.rotation.y + 0.0001f, glm::two_pi<float>());  // Slowly rotate game objects.
+			transform.rotation.x = glm::mod(transform.rotation.x + 0.00003f, glm::two_pi<float>()); // Slowly rotate game objects.
 
 			SimplePushConstantData push{};
 			// Projection, View, Model Transformation matrix.
-			push.transform = projectionView * obj.transform.mat4();
-			push.color = obj.color;
+			push.transform = projectionView * transform.transform();
 
 			vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);
-			obj.model->bind(commandBuffer);
-			obj.model->draw(commandBuffer);
+			bufferManager.bind(commandBuffer, mesh.vertexMemory);
+			bufferManager.draw(commandBuffer, static_cast<uint32_t>(mesh.indices.size()));
 		}
 	}
 } // namespace Aspen

@@ -1,7 +1,7 @@
 #include "Aspen/Scene/camera_controller.hpp"
 
 namespace Aspen {
-	void CameraController::moveInPlaneXZ(GLFWwindow *window, float dt, AspenGameObject &gameObject) {
+	void CameraController::moveInPlaneXZ(GLFWwindow* window, float dt, TransformComponent& transform) {
 		glm::vec3 rotate{0};
 		if (glfwGetKey(window, keys.lookRight) == GLFW_PRESS) {
 			rotate.y += 1.0f;
@@ -21,14 +21,14 @@ namespace Aspen {
 		// Epsilon is the smallest possible value of a float (but not zero). By comparing, to epsilon instead of 0, we can account for minor rounding errors with floating point numbers.
 		if (glm::dot(rotate, rotate) > glm::epsilon<float>()) {
 			// The rotate object is normalized so that the object doesn't rotate faster diagonally than in just the horizontal or vertical direction.
-			gameObject.transform.rotation += lookSpeed * dt * glm::normalize(rotate);
+			transform.rotation += lookSpeed * dt * glm::normalize(rotate);
 		}
 
-		gameObject.transform.rotation.x = glm::clamp(gameObject.transform.rotation.x, -1.5f, 1.5f);        // Limit pitch values between roughly +/- 85ish degrees.
-		gameObject.transform.rotation.y = glm::mod(gameObject.transform.rotation.y, glm::two_pi<float>()); // Prevent yaw from going over 360 degrees.
+		transform.rotation.x = glm::clamp(transform.rotation.x, -1.5f, 1.5f);        // Limit pitch values between roughly +/- 85ish degrees.
+		transform.rotation.y = glm::mod(transform.rotation.y, glm::two_pi<float>()); // Prevent yaw from going over 360 degrees.
 
-		float pitch = gameObject.transform.rotation.x;
-		float yaw = gameObject.transform.rotation.y;
+		float pitch = transform.rotation.x;
+		float yaw = transform.rotation.y;
 		const glm::vec3 forwardDir{sin(yaw), -sin(pitch), cos(yaw)};
 		const glm::vec3 rightDir{forwardDir.z, 0.0f, -forwardDir.x};
 		const glm::vec3 upDir = glm::cross(forwardDir, rightDir);
@@ -58,7 +58,7 @@ namespace Aspen {
 
 		if (glm::dot(moveDir, moveDir) > glm::epsilon<float>()) {
 			// The rotate object is normalized so that the object doesn't rotate faster diagonally than in just the horizontal or vertical direction.
-			gameObject.transform.translation += moveSpeed * dt * glm::normalize(moveDir);
+			transform.translation += moveSpeed * dt * glm::normalize(moveDir);
 		}
 	}
 } // namespace Aspen

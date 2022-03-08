@@ -1,9 +1,11 @@
 #pragma once
-#include "Aspen/Core/model.hpp"
+#include "Aspen/Core/buffer.hpp"
 #include "Aspen/Renderer/camera.hpp"
 #include "Aspen/Renderer/device.hpp"
 #include "Aspen/Renderer/pipeline.hpp"
-#include "Aspen/Scene/game_object.hpp"
+#include "Aspen/Scene/scene.hpp"
+
+class AspenGameObject;
 
 // Libs & defines
 #include <GLFW/glfw3.h>
@@ -16,23 +18,24 @@
 namespace Aspen {
 	class SimpleRenderSystem {
 	public:
-		SimpleRenderSystem(AspenDevice &device, VkRenderPass renderPass);
+		SimpleRenderSystem(AspenDevice& device, Buffer& bufferManager, VkRenderPass renderPass);
 		~SimpleRenderSystem();
 
-		SimpleRenderSystem(const SimpleRenderSystem &) = delete;
-		SimpleRenderSystem &operator=(const SimpleRenderSystem &) = delete;
+		SimpleRenderSystem(const SimpleRenderSystem&) = delete;
+		SimpleRenderSystem& operator=(const SimpleRenderSystem&) = delete;
 
-		SimpleRenderSystem(SimpleRenderSystem &&) = delete;            // Move Constructor
-		SimpleRenderSystem &operator=(SimpleRenderSystem &&) = delete; // Move Assignment Operator
+		SimpleRenderSystem(SimpleRenderSystem&&) = delete;            // Move Constructor
+		SimpleRenderSystem& operator=(SimpleRenderSystem&&) = delete; // Move Assignment Operator
 
-		void renderGameObjects(VkCommandBuffer commandBuffer, std::vector<AspenGameObject> &gameObjects, const AspenCamera &camera);
+		void renderGameObjects(VkCommandBuffer commandBuffer, std::shared_ptr<Scene>& scene, const AspenCamera& camera);
 
 	private:
 		void createPipelineLayout();
 		void createDescriptorSetLayout();
 		void createPipeline(VkRenderPass renderPass);
 
-		AspenDevice &aspenDevice;
+		AspenDevice& aspenDevice;
+		Buffer& bufferManager;
 
 		std::unique_ptr<AspenPipeline> aspenPipeline;
 		VkPipelineLayout pipelineLayout{};

@@ -2,7 +2,7 @@
 
 namespace Aspen {
 
-	AspenPipeline::AspenPipeline(AspenDevice &device, const std::string &vertFilepath, const std::string &fragFilepath, const PipelineConfigInfo &configInfo) : aspenDevice(device) {
+	AspenPipeline::AspenPipeline(AspenDevice& device, const std::string& vertFilepath, const std::string& fragFilepath, const PipelineConfigInfo& configInfo) : aspenDevice(device) {
 		createGraphicsPipeline(vertFilepath, fragFilepath, configInfo);
 	}
 
@@ -12,7 +12,7 @@ namespace Aspen {
 		vkDestroyPipeline(aspenDevice.device(), graphicsPipeline, nullptr);
 	}
 
-	std::vector<char> AspenPipeline::readFile(const std::string &filepath) {
+	std::vector<char> AspenPipeline::readFile(const std::string& filepath) {
 		// std::string enginePath = ENGINE_DIR + filepath;
 		// ate = Bit flag to make sure we seek to the end of a file when it is opened.
 		// binary = Bit flag to set it to read in the file as a binary to prevent any unwanted text transformations.
@@ -35,7 +35,7 @@ namespace Aspen {
 		return buffer;
 	}
 
-	void AspenPipeline::createGraphicsPipeline(const std::string &vertFilepath, const std::string &fragFilepath, const PipelineConfigInfo &configInfo) {
+	void AspenPipeline::createGraphicsPipeline(const std::string& vertFilepath, const std::string& fragFilepath, const PipelineConfigInfo& configInfo) {
 
 		assert(configInfo.pipelineLayout != VK_NULL_HANDLE && "Cannot create graphics pipeline:: No pipelineLayout provided in configInfo");
 		assert(configInfo.renderPass != VK_NULL_HANDLE && "Cannot create graphics pipeline:: No renderPass provided in configInfo");
@@ -72,8 +72,8 @@ namespace Aspen {
 		// How to interpret the vertex buffer data.
 		// Bindings - The spacing between data and whether the data is per-vertex or per-instance.
 		// Attribute Descriptions - Type of the attributes passed to the veretx shader, which binding to load them from and at which offset.
-		auto bindingDescriptions = AspenModel::Vertex::getBindingDescriptions();
-		auto attributeDescriptions = AspenModel::Vertex::getAttributeDescriptions();
+		auto bindingDescriptions = Buffer::Vertex::getBindingDescriptions();
+		auto attributeDescriptions = Buffer::Vertex::getAttributeDescriptions();
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 		vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
@@ -109,11 +109,11 @@ namespace Aspen {
 		}
 	}
 
-	void AspenPipeline::createShaderModule(const std::vector<char> &code, VkShaderModule *shaderModule) {
+	void AspenPipeline::createShaderModule(const std::vector<char>& code, VkShaderModule* shaderModule) {
 		VkShaderModuleCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
 		createInfo.codeSize = code.size();
-		createInfo.pCode = reinterpret_cast<const uint32_t *>(code.data());
+		createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
 
 		if (vkCreateShaderModule(aspenDevice.device(), &createInfo, nullptr, shaderModule) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create shader module.");
@@ -128,7 +128,7 @@ namespace Aspen {
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 	}
 
-	void AspenPipeline::defaultPipelineConfigInfo(PipelineConfigInfo &configInfo) {
+	void AspenPipeline::defaultPipelineConfigInfo(PipelineConfigInfo& configInfo) {
 
 		configInfo.inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 		configInfo.inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST; // Triangle_List = Every 3 verticies are grouped into a triangle.

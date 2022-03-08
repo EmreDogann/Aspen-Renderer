@@ -2,7 +2,7 @@
 
 namespace Aspen {
 
-	AspenRenderer::AspenRenderer(AspenWindow &window, AspenDevice &device) : aspenWindow{window}, aspenDevice{device} {
+	AspenRenderer::AspenRenderer(AspenWindow& window, AspenDevice& device) : aspenWindow{window}, aspenDevice{device} {
 		recreateSwapChain();
 		createCommandBuffers();
 	}
@@ -83,7 +83,7 @@ namespace Aspen {
 		isFrameStarted = true;
 
 		// Start command buffer recording.
-		auto *commandBuffer = getCurrentCommandBuffer();
+		auto* commandBuffer = getCurrentCommandBuffer();
 		VkCommandBufferBeginInfo beginInfo{};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 		beginInfo.flags = 0;                  // Optional
@@ -101,7 +101,7 @@ namespace Aspen {
 		assert(isFrameStarted && "Can't call endFrame while frame is not in progress!");
 
 		// Stop command buffer recording.
-		auto *commandBuffer = getCurrentCommandBuffer();
+		auto* commandBuffer = getCurrentCommandBuffer();
 
 		if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to record command buffer.");

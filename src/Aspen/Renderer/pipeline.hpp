@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Aspen/Core/model.hpp"
+#include "Aspen/Core/buffer.hpp"
 #include "Aspen/Renderer/device.hpp"
 
 // Libs
@@ -22,10 +22,10 @@ namespace Aspen {
 		VkRenderPass renderPass = nullptr;
 		uint32_t subpass = 0; // This is an index, not a count.
 
-		PipelineConfigInfo(const PipelineConfigInfo &) = delete;
-		PipelineConfigInfo &operator=(const PipelineConfigInfo &) = delete;
-		PipelineConfigInfo(PipelineConfigInfo &&) = delete;            // Move Constructor
-		PipelineConfigInfo &operator=(PipelineConfigInfo &&) = delete; // Move Assignment Operator
+		PipelineConfigInfo(const PipelineConfigInfo&) = delete;
+		PipelineConfigInfo& operator=(const PipelineConfigInfo&) = delete;
+		PipelineConfigInfo(PipelineConfigInfo&&) = delete;            // Move Constructor
+		PipelineConfigInfo& operator=(PipelineConfigInfo&&) = delete; // Move Assignment Operator
 
 		PipelineConfigInfo() = default;
 		~PipelineConfigInfo() = default;
@@ -33,26 +33,26 @@ namespace Aspen {
 
 	class AspenPipeline {
 	public:
-		AspenPipeline(AspenDevice &device, const std::string &vertFilepath, const std::string &fragFilepath, const PipelineConfigInfo &configInfo);
+		AspenPipeline(AspenDevice& device, const std::string& vertFilepath, const std::string& fragFilepath, const PipelineConfigInfo& configInfo);
 		~AspenPipeline();
 
-		AspenPipeline(const AspenPipeline &) = delete;
-		AspenPipeline &operator=(const AspenPipeline &) = delete;
+		AspenPipeline(const AspenPipeline&) = delete;
+		AspenPipeline& operator=(const AspenPipeline&) = delete;
 
-		AspenPipeline(AspenPipeline &&) = delete;            // Move Constructor
-		AspenPipeline &operator=(AspenPipeline &&) = delete; // Move Assignment Operator
+		AspenPipeline(AspenPipeline&&) = delete;            // Move Constructor
+		AspenPipeline& operator=(AspenPipeline&&) = delete; // Move Assignment Operator
 
 		void bind(VkCommandBuffer commandBuffer);
-		static void defaultPipelineConfigInfo(PipelineConfigInfo &configInfo);
+		static void defaultPipelineConfigInfo(PipelineConfigInfo& configInfo);
 
 	private:
-		static std::vector<char> readFile(const std::string &filepath);
+		static std::vector<char> readFile(const std::string& filepath);
 
-		void createGraphicsPipeline(const std::string &vertFilepath, const std::string &fragFilepath, const PipelineConfigInfo &configInfo);
+		void createGraphicsPipeline(const std::string& vertFilepath, const std::string& fragFilepath, const PipelineConfigInfo& configInfo);
 
-		void createShaderModule(const std::vector<char> &code, VkShaderModule *shaderModule);
+		void createShaderModule(const std::vector<char>& code, VkShaderModule* shaderModule);
 
-		AspenDevice &aspenDevice;
+		AspenDevice& aspenDevice;
 		VkPipeline graphicsPipeline{};
 		VkShaderModule vertShaderModule{};
 		VkShaderModule fragShaderModule{};

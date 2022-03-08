@@ -24,7 +24,7 @@ endif()
 file(GLOB_RECURSE SOURCES ${PROJECT_SOURCE_DIR}/src/*.cpp)
 
 add_executable(${PROJECT_NAME} ${SOURCES})
-target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
+target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
 set_property(TARGET ${PROJECT_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/build")
 
 # Precompiled Header
@@ -83,14 +83,14 @@ if (WIN32)
     ${Vulkan_INCLUDE_DIRS}
     )
 
-  target_link_libraries(${PROJECT_NAME} glfw glm::glm ${Vulkan_LIBRARIES})
+  target_link_libraries(${PROJECT_NAME} glfw glm EnTT ${Vulkan_LIBRARIES})
 elseif (UNIX)
     message(STATUS "CREATING BUILD FOR UNIX")
     target_include_directories(${PROJECT_NAME} PUBLIC
       ${PROJECT_SOURCE_DIR}/src
       ${Vulkan_INCLUDE_DIRS}
     )
-    target_link_libraries(${PROJECT_NAME} glfw glm::glm ${Vulkan_LIBRARIES})
+    target_link_libraries(${PROJECT_NAME} glfw glm EnTT ${Vulkan_LIBRARIES})
 endif()
 
 

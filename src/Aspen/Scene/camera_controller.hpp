@@ -1,7 +1,9 @@
 #pragma once
 
 #include "Aspen/Core/window.hpp"
-#include "Aspen/Scene/game_object.hpp"
+#include "Aspen/Scene/components.hpp"
+
+class AspenGameObject;
 
 namespace Aspen {
 	class CameraController {
@@ -19,7 +21,7 @@ namespace Aspen {
 			int lookDown = GLFW_KEY_DOWN;
 		};
 
-		void moveInPlaneXZ(GLFWwindow *window, float dt, AspenGameObject &gameObject);
+		void moveInPlaneXZ(GLFWwindow* window, float dt, TransformComponent& transform);
 
 		KeyMappings keys{};
 		float moveSpeed{3.0f};
