@@ -2,6 +2,11 @@ cmake_minimum_required(VERSION 3.7)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+find_program(CCACHE_FOUND ccache)
+if(CCACHE_FOUND)
+  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
+endif(CCACHE_FOUND)
+
 set(NAME aspen-vulkan-renderer)
 project(${NAME} VERSION 0.10.0)
 
@@ -64,6 +69,22 @@ add_subdirectory("include/glm")
 
 add_subdirectory("include/entt")
 
+# Compile ImGui as a static library
+file(GLOB IMGUI_SOURCES "include/imgui/*.cpp")
+add_library(ImGui STATIC ${IMGUI_SOURCES})
+
+target_sources(ImGui PRIVATE
+  "include/imgui/backends/imgui_impl_glfw.cpp"
+  "include/imgui/backends/imgui_impl_vulkan.cpp"
+)
+
+target_include_directories(ImGui PUBLIC
+  "include/imgui"
+  "include/imgui/backends"
+  "include/glfw/include"
+  ${Vulkan_INCLUDE_DIRS}
+)
+
 if (WIN32)
   message(STATUS "CREATING BUILD FOR WINDOWS")
   
@@ -83,7 +104,7 @@ if (WIN32)
     ${Vulkan_INCLUDE_DIRS}
     )
 
-  target_link_libraries(${PROJECT_NAME} glfw glm EnTT ${Vulkan_LIBRARIES})
+  target_link_libraries(${PROJECT_NAME} glfw glm EnTT ImGui ${Vulkan_LIBRARIES})
 elseif (UNIX)
     message(STATUS "CREATING BUILD FOR UNIX")
     target_include_directories(${PROJECT_NAME} PUBLIC
