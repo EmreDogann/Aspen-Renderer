@@ -17,6 +17,9 @@
 #include <vulkan/vulkan_core.h>
 #define GLM_FORCE_RADIANS           // Ensures that GLM will expect angles to be specified in radians, not degrees.
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE // Tells GLM to expect depth values in the range 0-1 instead of -1 to 1.
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_vulkan.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
 
@@ -28,7 +31,7 @@ namespace Aspen {
 		static constexpr float MAX_FRAME_TIME = 0.1f;
 
 		Application();
-		~Application() = default;
+		~Application();
 
 		Application(const Application&) = delete;
 		Application& operator=(const Application&) = delete;
@@ -40,6 +43,7 @@ namespace Aspen {
 
 	private:
 		void loadGameObjects();
+		void setupImGui();
 		bool OnWindowClose(WindowCloseEvent& e);
 		bool OnWindowResize(WindowResizeEvent& e);
 

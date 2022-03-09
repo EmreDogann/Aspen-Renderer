@@ -4,6 +4,8 @@
 
 namespace Aspen {
 	Application::Application() {
+		setupImGui();
+
 		aspenWindow.setEventCallback(BIND_EVENT_FN(Application::OnEvent));
 
 		m_Scene = std::make_shared<Scene>(aspenDevice);
@@ -13,6 +15,44 @@ namespace Aspen {
 		cameraEntity.addComponent<CameraComponent>();
 
 		loadGameObjects();
+	}
+
+	Application::~Application() {
+		// Cleanup ImGui.
+		ImGui_ImplVulkan_Shutdown();
+		ImGui_ImplGlfw_Shutdown();
+		ImGui::DestroyContext();
+	}
+
+	void Application::setupImGui() {
+		// Initalize the core structures for ImGui.
+		ImGui::CreateContext();
+		ImGuiIO& io = ImGui::GetIO();
+		(void)io;
+
+		// Initialize ImGui for GLFW
+		ImGui_ImplGlfw_InitForVulkan(aspenWindow.getGLFWwindow(), true);
+
+		// Initialize ImGui for Vulkan
+		ImGui_ImplVulkan_InitInfo init_info = {};
+		init_info.Instance = aspenDevice.instance();
+		init_info.PhysicalDevice = aspenDevice.physicalDevice();
+		init_info.Device = aspenDevice.device();
+		init_info.Queue = aspenDevice.graphicsQueue();
+		init_info.DescriptorPool = aspenDevice.ImGuiDescriptorPool();
+		init_info.MinImageCount = aspenRenderer.getSwapChainImageCount();
+		init_info.ImageCount = aspenRenderer.getSwapChainImageCount();
+		init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+
+		ImGui_ImplVulkan_Init(&init_info, aspenRenderer.getSwapChainRenderPass());
+
+		// Create and upload font textures to GPU memory.
+		VkCommandBuffer commandBuffer = aspenDevice.beginSingleTimeCommandBuffers();
+		ImGui_ImplVulkan_CreateFontsTexture(commandBuffer);
+		aspenDevice.endSingleTimeCommandBuffers(commandBuffer);
+
+		// Destroy font textures from CPU memory.
+		ImGui_ImplVulkan_DestroyFontUploadObjects();
 	}
 
 	void Application::run() {
@@ -28,18 +68,36 @@ namespace Aspen {
 			timer.reset();
 
 			// Update the camera position and rotation.
-			AspenCamera& camera = cameraEntity.getComponent<CameraComponent>().camera;
-			TransformComponent& cameraTransform = cameraEntity.getComponent<TransformComponent>();
+			auto [cameraComponent, cameraTransform] = cameraEntity.getComponent<CameraComponent, TransformComponent>();
 			cameraController.moveInPlaneXZ(aspenWindow.getGLFWwindow(), frameTime, cameraTransform);
-			camera.setViewYXZ(cameraTransform.translation, cameraTransform.rotation);
+			cameraComponent.camera.setViewYXZ(cameraTransform.translation, cameraTransform.rotation);
 
 			float aspect = aspenRenderer.getAspectRatio();
 			// camera.setOrthographicProjection(-1, 1, -1, 1, -1, 1, aspect);
-			camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 10.0f);
+			cameraComponent.camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 10.0f);
 
 			if (auto* commandBuffer = aspenRenderer.beginFrame()) {
 				aspenRenderer.beginSwapChainRenderPass(commandBuffer);
-				simpleRenderSystem.renderGameObjects(commandBuffer, m_Scene, camera);
+
+				// Start the Dear ImGui frame
+				ImGui_ImplVulkan_NewFrame();
+				ImGui_ImplGlfw_NewFrame();
+				ImGui::NewFrame();
+
+				ImGui::ShowDemoWindow();
+
+				// ImGui UI Rendering
+				// ImGui::Begin("Test");
+				// ImGui::Button("Hello");
+				// static float value = 0.0f;
+				// ImGui::DragFloat("Value", &value);
+				// ImGui::End();
+
+				// ImGuiIO& io = ImGui::GetIO();
+				ImGui::Render();
+
+				simpleRenderSystem.renderGameObjects(commandBuffer, m_Scene, cameraComponent.camera);
+
 				aspenRenderer.endSwapChainRenderPass(commandBuffer);
 				aspenRenderer.endFrame();
 			}
@@ -53,7 +111,7 @@ namespace Aspen {
 		dispatcher.Dispatch<WindowCloseEvent>(BIND_EVENT_FN(Application::OnWindowClose));
 		dispatcher.Dispatch<WindowResizeEvent>(BIND_EVENT_FN(Application::OnWindowResize));
 
-		std::cout << e.ToString() << std::endl;
+		// std::cout << e.ToString() << std::endl;
 	}
 
 	bool Application::OnWindowClose(WindowCloseEvent& e) {
@@ -140,7 +198,5 @@ namespace Aspen {
 
 		auto& cubeMesh = cube.addComponent<MeshComponent>();
 		createCubeModel(aspenDevice, bufferManager, {0.0f, 0.0f, 0.0f}, cubeMesh); // Converts the unique pointer returned from the function to a shared pointer.
-
-		// cube.model = aspenModel;
 	}
 } // namespace Aspen

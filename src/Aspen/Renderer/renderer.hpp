@@ -6,6 +6,7 @@
 #include "Aspen/Renderer/swap_chain.hpp"
 
 // Libs
+#include "imgui_impl_vulkan.h"
 #include <vulkan/vulkan_core.h>
 
 namespace Aspen {
@@ -21,6 +22,14 @@ namespace Aspen {
 
 		VkRenderPass getSwapChainRenderPass() const {
 			return aspenSwapChain->getRenderPass();
+		}
+
+		uint32_t getSwapChainImageCount() const {
+			return aspenSwapChain->imageCount();
+		}
+
+		int getSwapChainMaxImagesInFlight() const {
+			return aspenSwapChain->MAX_FRAMES_IN_FLIGHT;
 		}
 
 		float getAspectRatio() const {

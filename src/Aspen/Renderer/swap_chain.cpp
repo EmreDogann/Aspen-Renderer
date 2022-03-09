@@ -2,11 +2,11 @@
 
 namespace Aspen {
 
-	AspenSwapChain::AspenSwapChain(AspenDevice &deviceRef, VkExtent2D extent) : device{deviceRef}, windowExtent{extent} {
+	AspenSwapChain::AspenSwapChain(AspenDevice& deviceRef, VkExtent2D extent) : device{deviceRef}, windowExtent{extent} {
 		init();
 	}
 
-	AspenSwapChain::AspenSwapChain(AspenDevice &deviceRef, VkExtent2D extent, std::shared_ptr<AspenSwapChain> previous) : device{deviceRef}, windowExtent{extent}, oldSwapChain{std::move(previous)} {
+	AspenSwapChain::AspenSwapChain(AspenDevice& deviceRef, VkExtent2D extent, std::shared_ptr<AspenSwapChain> previous) : device{deviceRef}, windowExtent{extent}, oldSwapChain{std::move(previous)} {
 		init();
 
 		// Clean up old swap chain since it's no longer being used. Setting to nullptr will signify the system to release its resources.
@@ -24,7 +24,7 @@ namespace Aspen {
 
 	AspenSwapChain::~AspenSwapChain() {
 		// Release memory of image views.
-		for (auto *imageView : swapChainImageViews) {
+		for (auto* imageView : swapChainImageViews) {
 			vkDestroyImageView(device.device(), imageView, nullptr);
 		}
 		swapChainImageViews.clear(); // Empty the array storing the image views.
@@ -44,7 +44,7 @@ namespace Aspen {
 		}
 
 		// Destroy all framebuffer objects.
-		for (auto *framebuffer : swapChainFramebuffers) {
+		for (auto* framebuffer : swapChainFramebuffers) {
 			vkDestroyFramebuffer(device.device(), framebuffer, nullptr);
 		}
 
@@ -60,7 +60,7 @@ namespace Aspen {
 	}
 
 	// Get the next available image in the swap chain to use for rendering operations.
-	VkResult AspenSwapChain::acquireNextImage(uint32_t *imageIndex) {
+	VkResult AspenSwapChain::acquireNextImage(uint32_t* imageIndex) {
 		vkWaitForFences(device.device(), 1, &inFlightFences[currentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max());
 
 		VkResult result =
@@ -74,7 +74,7 @@ namespace Aspen {
 		return result;
 	}
 
-	VkResult AspenSwapChain::submitCommandBuffers(const VkCommandBuffer *buffers, const uint32_t *imageIndex) {
+	VkResult AspenSwapChain::submitCommandBuffers(const VkCommandBuffer* buffers, const uint32_t* imageIndex) {
 		// If the current image is in flight, wait for that image's fence to be signaled so we don't send more frames than desired.
 		if (imagesInFlight[*imageIndex] != VK_NULL_HANDLE) {
 			vkWaitForFences(device.device(), 1, &imagesInFlight[*imageIndex], VK_TRUE, UINT64_MAX); // VK_TRUE means it will wait for all fences in the array to be signaled.
@@ -437,9 +437,9 @@ namespace Aspen {
 	}
 
 	// Select a swap surface with the desired format and color space.
-	VkSurfaceFormatKHR AspenSwapChain::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats) {
+	VkSurfaceFormatKHR AspenSwapChain::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
 		// Find a swap surface format which is SRGB and supports the SRGB color space.
-		for (const auto &availableFormat : availableFormats) {
+		for (const auto& availableFormat : availableFormats) {
 			if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
 				return availableFormat;
 			}
@@ -455,8 +455,8 @@ namespace Aspen {
 	// 2. VK_PRESENT_MODE_IMMEDIATE_KHR
 	// 3. VK_PRESENT_MODE_FIFO_KHR - This present mode is always guarenteed to be
 	// available so is the safe pick.
-	VkPresentModeKHR AspenSwapChain::chooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablePresentModes) {
-		for (const auto &availablePresentMode : availablePresentModes) {
+	VkPresentModeKHR AspenSwapChain::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes) {
+		for (const auto& availablePresentMode : availablePresentModes) {
 			if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
 				std::cout << "Present mode: Mailbox" << std::endl;
 				return availablePresentMode;
@@ -477,7 +477,7 @@ namespace Aspen {
 	// Select the pixel resolution of the swap chain images.
 	// Some high DPI displays (such as Apple's retina displays) do not have a 1:1
 	// between screen coordinates and pixels so pixel resolutions must be used.
-	VkExtent2D AspenSwapChain::chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities) {
+	VkExtent2D AspenSwapChain::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) {
 		// Some window managers allow us to set a range of resolution for the swap
 		// chain images. This is indicated by the window manage setting the
 		// currentExtent width and height to the max value of uint32_t.

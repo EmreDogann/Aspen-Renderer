@@ -14,16 +14,16 @@ namespace Aspen {
 			return m_Scene->m_Registry.emplace<T>(m_EntityHandle, std::forward<Args>(args)...);
 		}
 
-		template <typename T>
-		T& getComponent() {
-			assert(hasComponent<T>() && "Entity does not have component!");
+		template <typename... Ts>
+		decltype(auto) getComponent() {
+			assert(hasComponent<Ts...>() && "Entity does not have component!");
 
-			return m_Scene->m_Registry.get<T>(m_EntityHandle);
+			return m_Scene->m_Registry.get<Ts...>(m_EntityHandle);
 		}
 
-		template <typename T>
+		template <typename... Ts>
 		bool hasComponent() {
-			return m_Scene->m_Registry.all_of<T>(m_EntityHandle);
+			return m_Scene->m_Registry.all_of<Ts...>(m_EntityHandle);
 		}
 
 		template <typename T>

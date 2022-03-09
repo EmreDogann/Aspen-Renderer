@@ -12,15 +12,15 @@ namespace Aspen {
 	public:
 		static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
-		AspenSwapChain(AspenDevice &deviceRef, VkExtent2D windowExtent);
-		AspenSwapChain(AspenDevice &deviceRef, VkExtent2D windowExtent, std::shared_ptr<AspenSwapChain> previous);
+		AspenSwapChain(AspenDevice& deviceRef, VkExtent2D windowExtent);
+		AspenSwapChain(AspenDevice& deviceRef, VkExtent2D windowExtent, std::shared_ptr<AspenSwapChain> previous);
 		~AspenSwapChain();
 
-		AspenSwapChain(const AspenSwapChain &) = delete;            // Copy Constructor
-		AspenSwapChain &operator=(const AspenSwapChain &) = delete; // Copy Assignment Operator
+		AspenSwapChain(const AspenSwapChain&) = delete;            // Copy Constructor
+		AspenSwapChain& operator=(const AspenSwapChain&) = delete; // Copy Assignment Operator
 
-		AspenSwapChain(AspenSwapChain &&) = delete;            // Move Constructor
-		AspenSwapChain &operator=(AspenSwapChain &&) = delete; // Move Assignment Operator
+		AspenSwapChain(AspenSwapChain&&) = delete;            // Move Constructor
+		AspenSwapChain& operator=(AspenSwapChain&&) = delete; // Move Assignment Operator
 
 		VkFramebuffer getFrameBuffer(int index) {
 			return swapChainFramebuffers[index];
@@ -52,10 +52,10 @@ namespace Aspen {
 		}
 		VkFormat findDepthFormat();
 
-		VkResult acquireNextImage(uint32_t *imageIndex);
-		VkResult submitCommandBuffers(const VkCommandBuffer *buffers, const uint32_t *imageIndex);
+		VkResult acquireNextImage(uint32_t* imageIndex);
+		VkResult submitCommandBuffers(const VkCommandBuffer* buffers, const uint32_t* imageIndex);
 
-		bool compareSwapFormats(const AspenSwapChain &swapChain) const {
+		bool compareSwapFormats(const AspenSwapChain& swapChain) const {
 			return swapChain.swapChainDepthFormat == swapChainDepthFormat && swapChain.swapChainImageFormat == swapChainImageFormat;
 		}
 
@@ -69,9 +69,9 @@ namespace Aspen {
 		void createSyncObjects();
 
 		// Helper functions
-		VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats);
-		VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablePresentModes);
-		VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities);
+		VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
+		VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
+		VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 
 		VkFormat swapChainImageFormat{};
 		VkFormat swapChainDepthFormat{};
@@ -86,7 +86,7 @@ namespace Aspen {
 		std::vector<VkImage> swapChainImages{};
 		std::vector<VkImageView> swapChainImageViews{};
 
-		AspenDevice &device;
+		AspenDevice& device;
 		VkExtent2D windowExtent{};
 
 		VkSwapchainKHR swapChain{};

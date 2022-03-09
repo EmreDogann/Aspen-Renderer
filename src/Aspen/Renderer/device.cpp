@@ -1,12 +1,14 @@
 #include "Aspen/Renderer/device.hpp"
+#include <iterator>
+#include <stdexcept>
 
 namespace Aspen {
 
 	// Local callback function
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 	                                                    VkDebugUtilsMessageTypeFlagsEXT messageType,
-	                                                    const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
-	                                                    void *pUserData) {
+	                                                    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+	                                                    void* pUserData) {
 		std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
 
 		return VK_FALSE;
@@ -14,26 +16,26 @@ namespace Aspen {
 
 	// Debug messenger constructor.
 	VkResult
-	CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkDebugUtilsMessengerEXT *pDebugMessenger) {
-		auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
+	CreateDebugUtilsMessengerEXT(VkInstance instance_, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
+		auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance_, "vkCreateDebugUtilsMessengerEXT"));
 		if (func != nullptr) {
-			return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
+			return func(instance_, pCreateInfo, pAllocator, pDebugMessenger);
 		}
 
 		return VK_ERROR_EXTENSION_NOT_PRESENT;
 	}
 
 	// Debug messenger destructor.
-	void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks *pAllocator) {
-		auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT"));
+	void DestroyDebugUtilsMessengerEXT(VkInstance instance_, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
+		auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance_, "vkDestroyDebugUtilsMessengerEXT"));
 		if (func != nullptr) {
-			func(instance, debugMessenger, pAllocator);
+			func(instance_, debugMessenger, pAllocator);
 		}
 	}
 
 	// 1. Initialize Vulkan and picking a physical device.
 	// 2. Setup validation layers that will help us with debugging our Vulkan code.
-	AspenDevice::AspenDevice(AspenWindow &window) : window{window} {
+	AspenDevice::AspenDevice(AspenWindow& window) : window{window} {
 		// Create Vulkan Instance.
 		createInstance();
 
@@ -53,6 +55,9 @@ namespace Aspen {
 		// Setup command pool. Useful for command buffer allocations.
 		createCommandPool();
 
+		// Setup ImGui Descriptor Pools.
+		initImGuiBackend();
+
 		// Create synchronization objects.
 		// createSyncObjects();
 
@@ -67,14 +72,15 @@ namespace Aspen {
 		vkDestroySemaphore(device_, transferSemaphore_, nullptr);
 		vkDestroyCommandPool(device_, graphicsCommandPool, nullptr);
 		vkDestroyCommandPool(device_, transferCommandPool, nullptr);
+		vkDestroyDescriptorPool(device_, ImGui_descriptorPool, nullptr); // Destroy ImGui's descriptor pool.
 		vkDestroyDevice(device_, nullptr);
 
 		if (enableValidationLayers) {
-			DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
+			DestroyDebugUtilsMessengerEXT(instance_, debugMessenger, nullptr);
 		}
 
-		vkDestroySurfaceKHR(instance, surface_, nullptr);
-		vkDestroyInstance(instance, nullptr);
+		vkDestroySurfaceKHR(instance_, surface_, nullptr);
+		vkDestroyInstance(instance_, nullptr);
 	}
 
 	// This is setting up the application runtime's connection with the Vulkan runtime.
@@ -117,9 +123,9 @@ namespace Aspen {
 			createInfo.pNext = nullptr;
 		}
 
-		// Try and create a Vulkan instance using the information we just filled out.
-		if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to create instance!");
+		// Try and create a Vulkan instance_ using the information we just filled out.
+		if (vkCreateInstance(&createInfo, nullptr, &instance_) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create instance_!");
 		}
 
 		// Print the available and required extensions.
@@ -129,7 +135,7 @@ namespace Aspen {
 	// Choose a suitable physical device.
 	void AspenDevice::pickPhysicalDevice() {
 		uint32_t deviceCount = 0;
-		vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr); // Get the number of physical devices.
+		vkEnumeratePhysicalDevices(instance_, &deviceCount, nullptr); // Get the number of physical devices.
 
 		if (deviceCount == 0) {
 			throw std::runtime_error("Failed to find GPUs with Vulkan support!");
@@ -137,30 +143,30 @@ namespace Aspen {
 		std::cout << "Device count: " << deviceCount << std::endl;
 
 		std::vector<VkPhysicalDevice> devices(deviceCount);
-		vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data()); // Get handles to the physical devices if present.
+		vkEnumeratePhysicalDevices(instance_, &deviceCount, devices.data()); // Get handles to the physical devices if present.
 
 		// Iterate through the list of devices and get the first device which matches our criteria.
-		for (const auto &device : devices) {
+		for (const auto& device : devices) {
 			if (isDeviceSuitable(device)) {
-				physicalDevice = device;
+				physicalDevice_ = device;
 				break;
 			}
 		}
 
 		// If a suitable device could not be found, throw an error and stop the application.
-		if (physicalDevice == VK_NULL_HANDLE) {
+		if (physicalDevice_ == VK_NULL_HANDLE) {
 			throw std::runtime_error("Failed to find a suitable GPU!");
 		}
 
 		// Get the properties of the selected physical device.
-		vkGetPhysicalDeviceProperties(physicalDevice, &properties);
+		vkGetPhysicalDeviceProperties(physicalDevice_, &properties);
 		std::cout << "Physical device: " << properties.deviceName << std::endl;
 	}
 
 	// Create a logical device object using the suitable physical device.
 	void AspenDevice::createLogicalDevice() {
 		// Get the suuported queue families.
-		QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+		QueueFamilyIndices indices = findQueueFamilies(physicalDevice_);
 
 		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 		// The queue families the application will be utilizing.
@@ -205,7 +211,7 @@ namespace Aspen {
 			createInfo.enabledLayerCount = 0;
 		}
 
-		if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device_) != VK_SUCCESS) {
+		if (vkCreateDevice(physicalDevice_, &createInfo, nullptr, &device_) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create logical device!");
 		}
 
@@ -256,7 +262,7 @@ namespace Aspen {
 
 	// Create window surface (will call glfw's window surface creation function).
 	void AspenDevice::createSurface() {
-		window.createWindowSurface(instance, &surface_);
+		window.createWindowSurface(instance_, &surface_);
 	}
 
 	// Check several properties to see if the device is suitable for what we want to use the application for.
@@ -282,7 +288,7 @@ namespace Aspen {
 	}
 
 	// Set the type of debug messages to display.
-	void AspenDevice::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &createInfo) {
+	void AspenDevice::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
 		createInfo = {};
 		createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
 		createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
@@ -298,7 +304,7 @@ namespace Aspen {
 		}
 		VkDebugUtilsMessengerCreateInfoEXT createInfo;
 		populateDebugMessengerCreateInfo(createInfo);
-		if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) {
+		if (CreateDebugUtilsMessengerEXT(instance_, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to set up debug messenger!");
 		}
 	}
@@ -314,10 +320,10 @@ namespace Aspen {
 		vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 
 		// Check to see if all layers are supported. Return false if not.
-		for (const char *layerName : validationLayers) {
+		for (const char* layerName : validationLayers) {
 			bool layerFound = false;
 
-			for (const auto &layerProperties : availableLayers) {
+			for (const auto& layerProperties : availableLayers) {
 				if (strcmp(layerName, layerProperties.layerName) == 0) {
 					layerFound = true;
 					break;
@@ -334,12 +340,12 @@ namespace Aspen {
 
 	// Get the required extensions for Vulkan to interface with the window system.
 	// Optionally add validation debug layers to the list of extensions to use.
-	std::vector<const char *> AspenDevice::getRequiredExtensions() const {
+	std::vector<const char*> AspenDevice::getRequiredExtensions() const {
 		uint32_t glfwExtensionCount = 0;
-		const char **glfwExtensions = nullptr;
+		const char** glfwExtensions = nullptr;
 		glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
-		std::vector<const char *> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
+		std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
 
 		if (enableValidationLayers) {
 			extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
@@ -357,14 +363,14 @@ namespace Aspen {
 
 		std::cout << "Available extensions:" << std::endl;
 		std::unordered_set<std::string> available;
-		for (const auto &extension : extensions) {
+		for (const auto& extension : extensions) {
 			std::cout << "\t" << extension.extensionName << std::endl;
 			available.insert(extension.extensionName);
 		}
 
 		std::cout << "Required extensions:" << std::endl;
 		auto requiredExtensions = getRequiredExtensions();
-		for (const auto &required : requiredExtensions) {
+		for (const auto& required : requiredExtensions) {
 			std::cout << "\t" << required << std::endl;
 			if (available.find(required) == available.end()) {
 				throw std::runtime_error("Missing required glfw extension");
@@ -382,7 +388,7 @@ namespace Aspen {
 
 		std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
 
-		for (const auto &extension : availableExtensions) {
+		for (const auto& extension : availableExtensions) {
 			requiredExtensions.erase(extension.extensionName);
 		}
 
@@ -406,7 +412,7 @@ namespace Aspen {
 
 		// Look for a queue family that supports graphics and transfer and is capable of presenting to a window surface.
 		int i = 0;
-		for (const auto &queueFamily : queueFamilies) {
+		for (const auto& queueFamily : queueFamilies) {
 			if (queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
 				indices.graphicsFamily = i;
 				indices.graphicsFamilyHasValue = true;
@@ -462,10 +468,10 @@ namespace Aspen {
 		return details;
 	}
 
-	VkFormat AspenDevice::findSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
+	VkFormat AspenDevice::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
 		for (VkFormat format : candidates) {
 			VkFormatProperties props;
-			vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
+			vkGetPhysicalDeviceFormatProperties(physicalDevice_, format, &props);
 
 			if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
 				return format;
@@ -479,7 +485,7 @@ namespace Aspen {
 	// Find the appropriate memory type based on the requirements of the buffer and our application.
 	uint32_t AspenDevice::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
 		VkPhysicalDeviceMemoryProperties memProperties;
-		vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties); // Get the available types of memory offered by the physical device.
+		vkGetPhysicalDeviceMemoryProperties(physicalDevice_, &memProperties); // Get the available types of memory offered by the physical device.
 
 		for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
 			// Use the typeFilter bit field to find the index of the suitable memory type that matches the memory type our buffer needs.
@@ -493,7 +499,7 @@ namespace Aspen {
 	}
 
 	// Create arbitrary buffers.
-	void AspenDevice::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer &buffer, VkDeviceMemory &bufferMemory) {
+	void AspenDevice::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
 		VkBufferCreateInfo bufferInfo{};
 		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 		bufferInfo.size = size;                             // size of the buffer in bytes.
@@ -606,10 +612,10 @@ namespace Aspen {
 		region.imageExtent = {width, height, 1};
 
 		vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-		// endSingleTimeCommandBuffers(commandBuffer);
+		endSingleTimeCommandBuffers(commandBuffer);
 	}
 
-	void AspenDevice::createImageWithInfo(const VkImageCreateInfo &imageInfo, VkMemoryPropertyFlags properties, VkImage &image, VkDeviceMemory &imageMemory) {
+	void AspenDevice::createImageWithInfo(const VkImageCreateInfo& imageInfo, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) {
 		if (vkCreateImage(device_, &imageInfo, nullptr, &image) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create image!");
 		}
@@ -628,6 +634,32 @@ namespace Aspen {
 
 		if (vkBindImageMemory(device_, image, imageMemory, 0) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to bind image memory!");
+		}
+	}
+
+	// Initialize ImGui and pass in Vulkan handles.
+	void AspenDevice::initImGuiBackend() {
+		VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
+		                                    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
+		                                    {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
+		                                    {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000},
+		                                    {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000},
+		                                    {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000},
+		                                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000},
+		                                    {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000},
+		                                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
+		                                    {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
+		                                    {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000}};
+
+		VkDescriptorPoolCreateInfo poolInfo = {};
+		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+		poolInfo.maxSets = 1000;
+		poolInfo.poolSizeCount = std::size(poolSizes);
+		poolInfo.pPoolSizes = poolSizes;
+
+		if (vkCreateDescriptorPool(device_, &poolInfo, nullptr, &ImGui_descriptorPool)) {
+			throw std::runtime_error("Failed to create descriptor pool for ImGui!");
 		}
 	}
 

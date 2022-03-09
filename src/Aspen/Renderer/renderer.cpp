@@ -178,6 +178,9 @@ namespace Aspen {
 		assert(isFrameStarted && "Can't call endSwapChainRenderPass if frame is not in progress!");
 		assert(commandBuffer == getCurrentCommandBuffer() && "Cannot end render pass on command buffer from a different frame.");
 
+		// Render ImGui UI at the end of the render pass.
+		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
+
 		vkCmdEndRenderPass(commandBuffer);
 	}
 } // namespace Aspen

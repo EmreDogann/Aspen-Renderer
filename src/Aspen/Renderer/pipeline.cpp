@@ -132,8 +132,7 @@ namespace Aspen {
 
 		configInfo.inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 		configInfo.inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST; // Triangle_List = Every 3 verticies are grouped into a triangle.
-		configInfo.inputAssemblyInfo.primitiveRestartEnable =
-		    VK_FALSE; // If set to VK_TRUE when using a strip type topology, we can specify a special index value in an index buffer in order to breakup a strip and create disconnected geometry.
+		configInfo.inputAssemblyInfo.primitiveRestartEnable = VK_FALSE; // If set to VK_TRUE when using a strip topology, we can specify an index value in an index buffer to breakup a strip.
 
 		// // Configure viewport - Describes the transformation between the pipeline output and our target image.
 		// // Transform from range -1 to 1 to range 0 to 1.
