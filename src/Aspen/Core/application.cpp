@@ -81,56 +81,60 @@ namespace Aspen {
 				ImGui_ImplVulkan_NewFrame();
 				ImGui_ImplGlfw_NewFrame();
 				ImGui::NewFrame();
+				ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
-				// ImGui::ShowDemoWindow();
+				ImGui::ShowDemoWindow();
 
-				static int corner = 0;
-				static bool p_open = true;
+				// Performance Metrics Window
+				{
+					static int corner = 0;
+					static bool p_open = true;
 
-				ImGuiIO& io = ImGui::GetIO();
-				ImGuiWindowFlags window_flags =
-				    ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
+					ImGuiIO& io = ImGui::GetIO();
+					ImGuiWindowFlags window_flags =
+					    ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
 
-				if (corner != -1) {
-					const float PAD = 10.0f;
-					const ImGuiViewport* viewport = ImGui::GetMainViewport();
-					ImVec2 work_pos = viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
-					ImVec2 work_size = viewport->WorkSize;
-					ImVec2 window_pos, window_pos_pivot;
-					window_pos.x = (corner & 1) ? (work_pos.x + work_size.x - PAD) : (work_pos.x + PAD);
-					window_pos.y = (corner & 2) ? (work_pos.y + work_size.y - PAD) : (work_pos.y + PAD);
-					window_pos_pivot.x = (corner & 1) ? 1.0f : 0.0f;
-					window_pos_pivot.y = (corner & 2) ? 1.0f : 0.0f;
-					ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
-					window_flags |= ImGuiWindowFlags_NoMove;
-				}
-
-				ImGui::SetNextWindowBgAlpha(0.35f); // Transparent background
-
-				if (ImGui::Begin("Performance Metrics", &p_open, window_flags)) {
-					ImGui::Text("Performance Metrics");
-					ImGui::Separator();
-
-					ImGui::Text("Average over 120 frames: %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-					ImGui::Text("%d vertices, %d indices (%d triangles)", io.MetricsRenderVertices, io.MetricsRenderIndices, io.MetricsRenderIndices / 3);
-
-					if (ImGui::BeginPopupContextWindow()) {
-						if (ImGui::MenuItem("Custom", nullptr, corner == -1))
-							corner = -1;
-						if (ImGui::MenuItem("Top-left", nullptr, corner == 0))
-							corner = 0;
-						if (ImGui::MenuItem("Top-right", nullptr, corner == 1))
-							corner = 1;
-						if (ImGui::MenuItem("Bottom-left", nullptr, corner == 2))
-							corner = 2;
-						if (ImGui::MenuItem("Bottom-right", nullptr, corner == 3))
-							corner = 3;
-						if (p_open && ImGui::MenuItem("Close"))
-							p_open = false;
-						ImGui::EndPopup();
+					if (corner != -1) {
+						const float PAD = 10.0f;
+						const ImGuiViewport* viewport = ImGui::GetMainViewport();
+						ImVec2 work_pos = viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
+						ImVec2 work_size = viewport->WorkSize;
+						ImVec2 window_pos, window_pos_pivot;
+						window_pos.x = (corner & 1) ? (work_pos.x + work_size.x - PAD) : (work_pos.x + PAD);
+						window_pos.y = (corner & 2) ? (work_pos.y + work_size.y - PAD) : (work_pos.y + PAD);
+						window_pos_pivot.x = (corner & 1) ? 1.0f : 0.0f;
+						window_pos_pivot.y = (corner & 2) ? 1.0f : 0.0f;
+						ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
+						window_flags |= ImGuiWindowFlags_NoMove;
 					}
+
+					ImGui::SetNextWindowBgAlpha(0.35f); // Transparent background
+
+					if (ImGui::Begin("Performance Metrics", &p_open, window_flags)) {
+						ImGui::Text("Performance Metrics");
+						ImGui::Separator();
+
+						ImGui::Text("Average over 120 frames: %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+						ImGui::Text("%d vertices, %d indices (%d triangles)", io.MetricsRenderVertices, io.MetricsRenderIndices, io.MetricsRenderIndices / 3);
+
+						if (ImGui::BeginPopupContextWindow()) {
+							if (ImGui::MenuItem("Custom", nullptr, corner == -1))
+								corner = -1;
+							if (ImGui::MenuItem("Top-left", nullptr, corner == 0))
+								corner = 0;
+							if (ImGui::MenuItem("Top-right", nullptr, corner == 1))
+								corner = 1;
+							if (ImGui::MenuItem("Bottom-left", nullptr, corner == 2))
+								corner = 2;
+							if (ImGui::MenuItem("Bottom-right", nullptr, corner == 3))
+								corner = 3;
+							if (p_open && ImGui::MenuItem("Close"))
+								p_open = false;
+							ImGui::EndPopup();
+						}
+					}
+					ImGui::End();
 				}
-				ImGui::End();
 
 				ImGui::Render();
 
