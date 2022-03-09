@@ -2,7 +2,7 @@
 #include <string>
 
 namespace Aspen {
-	static void GLFWErrorCallback(int error, const char *description) {
+	static void GLFWErrorCallback(int error, const char* description) {
 		throw std::runtime_error(std::string("GLFW Error (") + std::to_string(error) + std::string("): ") + description);
 	}
 
@@ -26,8 +26,8 @@ namespace Aspen {
 
 		// Set GLFW Callbacks
 		// Register callback function for GLFW to call whenever the window is resized.
-		glfwSetFramebufferSizeCallback(window, [](GLFWwindow *window, int width, int height) {
-			WindowProps &windowProps = *static_cast<WindowProps *>(glfwGetWindowUserPointer(window));
+		glfwSetFramebufferSizeCallback(window, [](GLFWwindow* window, int width, int height) {
+			WindowProps& windowProps = *static_cast<WindowProps*>(glfwGetWindowUserPointer(window));
 			windowProps.framebufferResized = true;
 			windowProps.width = width;
 			windowProps.height = height;
@@ -36,15 +36,15 @@ namespace Aspen {
 			windowProps.eventCallback(event);
 		});
 
-		glfwSetWindowCloseCallback(window, [](GLFWwindow *window) {
-			WindowProps &windowProps = *static_cast<WindowProps *>(glfwGetWindowUserPointer(window));
+		glfwSetWindowCloseCallback(window, [](GLFWwindow* window) {
+			WindowProps& windowProps = *static_cast<WindowProps*>(glfwGetWindowUserPointer(window));
 
 			WindowCloseEvent event;
 			windowProps.eventCallback(event);
 		});
 
-		glfwSetKeyCallback(window, [](GLFWwindow *window, int key, int scancode, int action, int mods) {
-			WindowProps &windowProps = *static_cast<WindowProps *>(glfwGetWindowUserPointer(window));
+		glfwSetKeyCallback(window, [](GLFWwindow* window, int key, int scancode, int action, int mods) {
+			WindowProps& windowProps = *static_cast<WindowProps*>(glfwGetWindowUserPointer(window));
 
 			switch (action) {
 				case GLFW_PRESS: {
@@ -68,8 +68,8 @@ namespace Aspen {
 			}
 		});
 
-		glfwSetMouseButtonCallback(window, [](GLFWwindow *window, int button, int action, int mods) {
-			WindowProps &windowProps = *static_cast<WindowProps *>(glfwGetWindowUserPointer(window));
+		glfwSetMouseButtonCallback(window, [](GLFWwindow* window, int button, int action, int mods) {
+			WindowProps& windowProps = *static_cast<WindowProps*>(glfwGetWindowUserPointer(window));
 			switch (action) {
 				case GLFW_PRESS: {
 					MouseButtonPressedEvent event(button);
@@ -87,22 +87,22 @@ namespace Aspen {
 			}
 		});
 
-		glfwSetScrollCallback(window, [](GLFWwindow *window, double xOffset, double yOffset) {
-			WindowProps &windowProps = *static_cast<WindowProps *>(glfwGetWindowUserPointer(window));
+		glfwSetScrollCallback(window, [](GLFWwindow* window, double xOffset, double yOffset) {
+			WindowProps& windowProps = *static_cast<WindowProps*>(glfwGetWindowUserPointer(window));
 
 			MouseScrolledEvent event(static_cast<float>(xOffset), static_cast<float>(yOffset));
 			windowProps.eventCallback(event);
 		});
 
-		glfwSetCursorPosCallback(window, [](GLFWwindow *window, double xOffset, double yOffset) {
-			WindowProps &windowProps = *static_cast<WindowProps *>(glfwGetWindowUserPointer(window));
+		glfwSetCursorPosCallback(window, [](GLFWwindow* window, double xOffset, double yOffset) {
+			WindowProps& windowProps = *static_cast<WindowProps*>(glfwGetWindowUserPointer(window));
 
 			MouseMovedEvent event(static_cast<float>(xOffset), static_cast<float>(yOffset));
 			windowProps.eventCallback(event);
 		});
 	}
 
-	void AspenWindow::createWindowSurface(VkInstance instance, VkSurfaceKHR *surface) {
+	void AspenWindow::createWindowSurface(VkInstance instance, VkSurfaceKHR* surface) {
 		if (glfwCreateWindowSurface(instance, window, nullptr, surface) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create window surface!");
 		}
