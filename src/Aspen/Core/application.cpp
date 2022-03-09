@@ -28,6 +28,9 @@ namespace Aspen {
 		// Initalize the core structures for ImGui.
 		ImGui::CreateContext();
 
+		// Enable docking.
+		ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
 		// Initialize ImGui for GLFW
 		ImGui_ImplGlfw_InitForVulkan(aspenWindow.getGLFWwindow(), true);
 
@@ -81,7 +84,6 @@ namespace Aspen {
 				ImGui_ImplVulkan_NewFrame();
 				ImGui_ImplGlfw_NewFrame();
 				ImGui::NewFrame();
-				ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
 				ImGui::ShowDemoWindow();
 
