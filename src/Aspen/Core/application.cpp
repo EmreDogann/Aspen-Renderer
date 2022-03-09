@@ -27,8 +27,6 @@ namespace Aspen {
 	void Application::setupImGui() {
 		// Initalize the core structures for ImGui.
 		ImGui::CreateContext();
-		ImGuiIO& io = ImGui::GetIO();
-		(void)io;
 
 		// Initialize ImGui for GLFW
 		ImGui_ImplGlfw_InitForVulkan(aspenWindow.getGLFWwindow(), true);
@@ -85,15 +83,6 @@ namespace Aspen {
 				ImGui::NewFrame();
 
 				ImGui::ShowDemoWindow();
-
-				// ImGui UI Rendering
-				// ImGui::Begin("Test");
-				// ImGui::Button("Hello");
-				// static float value = 0.0f;
-				// ImGui::DragFloat("Value", &value);
-				// ImGui::End();
-
-				// ImGuiIO& io = ImGui::GetIO();
 				ImGui::Render();
 
 				simpleRenderSystem.renderGameObjects(commandBuffer, m_Scene, cameraComponent.camera);
@@ -132,6 +121,15 @@ namespace Aspen {
 
 		if (auto* commandBuffer = aspenRenderer.beginFrame()) {
 			aspenRenderer.beginSwapChainRenderPass(commandBuffer);
+
+			// Start the Dear ImGui frame
+			ImGui_ImplVulkan_NewFrame();
+			ImGui_ImplGlfw_NewFrame();
+			ImGui::NewFrame();
+
+			ImGui::ShowDemoWindow();
+			ImGui::Render();
+
 			simpleRenderSystem.renderGameObjects(commandBuffer, m_Scene, camera);
 			aspenRenderer.endSwapChainRenderPass(commandBuffer);
 			aspenRenderer.endFrame();
