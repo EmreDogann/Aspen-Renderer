@@ -13,3 +13,4 @@
 [submodule "imgui"]
 	path = imgui
 	url = https://github.com/EmreDogann/imgui.git
+	branch = docking
