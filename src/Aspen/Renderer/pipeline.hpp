@@ -33,7 +33,7 @@ namespace Aspen {
 
 	class AspenPipeline {
 	public:
-		AspenPipeline(AspenDevice& device, const std::string& vertFilepath, const std::string& fragFilepath, const PipelineConfigInfo& configInfo);
+		AspenPipeline(AspenDevice& device, const std::string& vertFilepath, const std::string& fragFilepath);
 		~AspenPipeline();
 
 		AspenPipeline(const AspenPipeline&) = delete;
@@ -42,18 +42,26 @@ namespace Aspen {
 		AspenPipeline(AspenPipeline&&) = delete;            // Move Constructor
 		AspenPipeline& operator=(AspenPipeline&&) = delete; // Move Assignment Operator
 
-		void bind(VkCommandBuffer commandBuffer);
+		void bind(VkCommandBuffer commandBuffer, VkPipeline& pipeline);
 		static void defaultPipelineConfigInfo(PipelineConfigInfo& configInfo);
+		void createGraphicsPipeline(const PipelineConfigInfo& configInfo, VkPipeline& pipeline);
+
+		VkPipeline& getPresentPipeline() {
+			return presentGraphicsPipeline;
+		}
+
+		VkPipeline& getOffscreenPipeline() {
+			return offscreenGraphicsPipeline;
+		}
 
 	private:
 		static std::vector<char> readFile(const std::string& filepath);
 
-		void createGraphicsPipeline(const std::string& vertFilepath, const std::string& fragFilepath, const PipelineConfigInfo& configInfo);
-
 		void createShaderModule(const std::vector<char>& code, VkShaderModule* shaderModule);
 
 		AspenDevice& aspenDevice;
-		VkPipeline graphicsPipeline{};
+		VkPipeline presentGraphicsPipeline{};
+		VkPipeline offscreenGraphicsPipeline{};
 		VkShaderModule vertShaderModule{};
 		VkShaderModule fragShaderModule{};
 	};

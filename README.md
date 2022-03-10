@@ -9,9 +9,6 @@ Apsen is a 3D Real-Time Ray Traced graphics renderer written in C++ using the Vu
 # About 
 The objective of this project is to explore the Vulkan API and learn more about the underlying graphics hardware and pipeline systems in place to perform rasterization and ray tracing (on more recent GPUs) rendering.
 
-The project mainly follows the work of [Brendan Galea's Vulkan Game Engine Series](https://www.youtube.com/watch?v=Y9U9IE0gVHA&list=PL8327DO66nu9qYVKLDmdLW_84-yE4auCR). However, this series is used as a rough guide and more work is done on this engine external to that series in order to fit my needs.
-
-# What This Project Is Not
 Currently, this is not intended to be an engine but just a graphics renderer using rasterization (and ray tracing as a future goal). With my current vision for this project, it will not be possible to make a full game by the end of it. However, in the future, that could change as the project evolves.
 
 # Getting Started
@@ -64,14 +61,18 @@ cmake --build . --config Release
 After this there should be a `aspen-vulkan-renderer.exe` executable in the `/builds` folder. Running that executable will start up the renderer.
 
 ## Other Dependencies
-Other dependencies this project uses that are automatically downloaded and built with the application as part of the CMakeLists file:
 
-- GLFW - For platform-specific window management.
-- GLM - For Maths computations used for rendering.
+- [GLFW](https://github.com/glfw/glfw) - For platform-specific window management.
+- [GLM](https://github.com/g-truc/glm) - For Maths computations used for rendering.
+- [EnTT](https://github.com/skypjack/entt) - Used for implemntation of an ECS.
+- [ImGui](https://github.com/ocornut/imgui/tree/docking) - Used for UI. **docking** branch is used.
+- [ImGuizmo](https://github.com/CedricGuillemet/ImGuizmo) - Used for gizmos.
 
 # Credit
-Some code samples for this project were adapted from:
-- [The Cherno's Hazle Engine](https://github.com/TheCherno/Hazel) - Event system, Entity Component System
+Some code samples/system design for this project was adapted from:
+- [Brendan Galea's Vulkan Game Engine Series](https://www.youtube.com/watch?v=Y9U9IE0gVHA&list=PL8327DO66nu9qYVKLDmdLW_84-yE4auCR) - Used as basis for the design of the vulkan renderer.
+- [The Cherno's Hazle Engine](https://github.com/TheCherno/Hazel) - Event system, Entity Component System design.
+- [Vulkan Tutorial (By Alexander Overvoorde)](https://vulkan-tutorial.com/) - Vulkan theory and boilerplate.
 
 # License
 [Apache 2.0](https://github.com/EmreDogann/Aspen-Renderer/blob/master/LICENSE)

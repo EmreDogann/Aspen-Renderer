@@ -1,4 +1,5 @@
 #include "Aspen/Core/application.hpp"
+#include <iostream>
 
 #define BIND_EVENT_FN(x) std::bind(&x, this, std::placeholders::_1)
 
@@ -45,12 +46,15 @@ namespace Aspen {
 		init_info.ImageCount = aspenRenderer.getSwapChainImageCount();
 		init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 
-		ImGui_ImplVulkan_Init(&init_info, aspenRenderer.getSwapChainRenderPass());
+		ImGui_ImplVulkan_Init(&init_info, aspenRenderer.getPresentRenderPass());
 
 		// Create and upload font textures to GPU memory.
 		VkCommandBuffer commandBuffer = aspenDevice.beginSingleTimeCommandBuffers();
 		ImGui_ImplVulkan_CreateFontsTexture(commandBuffer);
 		aspenDevice.endSingleTimeCommandBuffers(commandBuffer);
+
+		AspenSwapChain::OffscreenPass offscreenPass = aspenRenderer.getOffscreenPass();
+		viewportTexture = ImGui_ImplVulkan_AddTexture(offscreenPass.sampler, offscreenPass.color.view, offscreenPass.descriptor.imageLayout);
 
 		// Destroy font textures from CPU memory.
 		ImGui_ImplVulkan_DestroyFontUploadObjects();
@@ -78,71 +82,26 @@ namespace Aspen {
 			cameraComponent.camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 10.0f);
 
 			if (auto* commandBuffer = aspenRenderer.beginFrame()) {
-				aspenRenderer.beginSwapChainRenderPass(commandBuffer);
 
-				// Start the Dear ImGui frame
-				ImGui_ImplVulkan_NewFrame();
-				ImGui_ImplGlfw_NewFrame();
-				ImGui::NewFrame();
-
-				ImGui::ShowDemoWindow();
-
-				// Performance Metrics Window
-				{
-					static int corner = 0;
-					static bool p_open = true;
-
-					ImGuiIO& io = ImGui::GetIO();
-					ImGuiWindowFlags window_flags =
-					    ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
-
-					if (corner != -1) {
-						const float PAD = 10.0f;
-						const ImGuiViewport* viewport = ImGui::GetMainViewport();
-						ImVec2 work_pos = viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
-						ImVec2 work_size = viewport->WorkSize;
-						ImVec2 window_pos, window_pos_pivot;
-						window_pos.x = (corner & 1) ? (work_pos.x + work_size.x - PAD) : (work_pos.x + PAD);
-						window_pos.y = (corner & 2) ? (work_pos.y + work_size.y - PAD) : (work_pos.y + PAD);
-						window_pos_pivot.x = (corner & 1) ? 1.0f : 0.0f;
-						window_pos_pivot.y = (corner & 2) ? 1.0f : 0.0f;
-						ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
-						window_flags |= ImGuiWindowFlags_NoMove;
-					}
-
-					ImGui::SetNextWindowBgAlpha(0.35f); // Transparent background
-
-					if (ImGui::Begin("Performance Metrics", &p_open, window_flags)) {
-						ImGui::Text("Performance Metrics");
-						ImGui::Separator();
-
-						ImGui::Text("Average over 120 frames: %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-						ImGui::Text("%d vertices, %d indices (%d triangles)", io.MetricsRenderVertices, io.MetricsRenderIndices, io.MetricsRenderIndices / 3);
-
-						if (ImGui::BeginPopupContextWindow()) {
-							if (ImGui::MenuItem("Custom", nullptr, corner == -1))
-								corner = -1;
-							if (ImGui::MenuItem("Top-left", nullptr, corner == 0))
-								corner = 0;
-							if (ImGui::MenuItem("Top-right", nullptr, corner == 1))
-								corner = 1;
-							if (ImGui::MenuItem("Bottom-left", nullptr, corner == 2))
-								corner = 2;
-							if (ImGui::MenuItem("Bottom-right", nullptr, corner == 3))
-								corner = 3;
-							if (p_open && ImGui::MenuItem("Close"))
-								p_open = false;
-							ImGui::EndPopup();
-						}
-					}
-					ImGui::End();
-				}
-
-				ImGui::Render();
+				/*
+				    Render Scene to texture - Offscreen rendering
+				*/
+				aspenRenderer.beginOffscreenRenderPass(commandBuffer);
 
 				simpleRenderSystem.renderGameObjects(commandBuffer, m_Scene, cameraComponent.camera);
 
-				aspenRenderer.endSwapChainRenderPass(commandBuffer);
+				aspenRenderer.endRenderPass(commandBuffer);
+
+				/*
+				    Render UI (render scene from texture into a UI window)
+				*/
+				aspenRenderer.beginPresentRenderPass(commandBuffer);
+
+				// simpleRenderSystem.renderGameObjects(commandBuffer, m_Scene, cameraComponent.camera);
+				simpleRenderSystem.renderUI(commandBuffer);
+				renderUI(commandBuffer, cameraComponent.camera);
+
+				aspenRenderer.endRenderPass(commandBuffer);
 				aspenRenderer.endFrame();
 			}
 		}
@@ -150,40 +109,121 @@ namespace Aspen {
 		vkDeviceWaitIdle(aspenDevice.device()); // Block CPU until all GPU operations have completed.
 	}
 
-	void Application::OnEvent(Event& e) {
-		EventDispatcher dispatcher(e);
-		dispatcher.Dispatch<WindowCloseEvent>(BIND_EVENT_FN(Application::OnWindowClose));
-		dispatcher.Dispatch<WindowResizeEvent>(BIND_EVENT_FN(Application::OnWindowResize));
+	void Application::renderUI(VkCommandBuffer commandBuffer, AspenCamera camera) {
+		// Start the Dear ImGui frame
+		ImGui_ImplVulkan_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+		ImGuizmo::BeginFrame();
 
-		// std::cout << e.ToString() << std::endl;
-	}
+		// Base Dockspace
+		{
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0)); // Disable window padding
+			// ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);         // Disable window border
 
-	bool Application::OnWindowClose(WindowCloseEvent& e) {
-		m_Running = false;
-		return true;
-	}
+			const bool use_work_area = true;
+			const ImGuiViewport* viewport = ImGui::GetMainViewport();
+			ImGui::SetNextWindowPos(use_work_area ? viewport->WorkPos : viewport->Pos);
+			ImGui::SetNextWindowSize(use_work_area ? viewport->WorkSize : viewport->Size);
+			ImGui::SetNextWindowViewport(viewport->ID);
 
-	bool Application::OnWindowResize(WindowResizeEvent& e) {
-		aspenWindow.resetWindowResizedFlag();
-		aspenRenderer.recreateSwapChain();
-		// createPipeline(); // Right now this is not required as the new render pass will be compatible with the old one but is put here for future proofing.
+			ImGui::Begin("Viewport",
+			             nullptr,
+			             ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
+			                 ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDocking);
 
-		// The perspective must be recalculated as the aspect ratio might have changed.
-		float aspect = aspenRenderer.getAspectRatio();
+			ImGui::PopStyleVar(1);
 
-		AspenCamera& camera = cameraEntity.getComponent<CameraComponent>().camera;
-		camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 10.0f);
+			ImGuiID dockspace_id = ImGui::GetID("DockSpace");
+			ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_PassthruCentralNode);
 
-		if (auto* commandBuffer = aspenRenderer.beginFrame()) {
-			aspenRenderer.beginSwapChainRenderPass(commandBuffer);
+			ImGui::End();
+		}
 
-			// Start the Dear ImGui frame
-			ImGui_ImplVulkan_NewFrame();
-			ImGui_ImplGlfw_NewFrame();
-			ImGui::NewFrame();
+		// Viewport
+		{
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0)); // Disable window padding
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);         // Disable window border
 
-			ImGui::ShowDemoWindow();
+			const bool use_work_area = true;
+			const ImGuiViewport* viewport = ImGui::GetMainViewport();
+			ImGui::SetNextWindowPos(use_work_area ? viewport->WorkPos : viewport->Pos);
+			ImGui::SetNextWindowSize(use_work_area ? viewport->WorkSize : viewport->Size);
+			// ImGui::SetNextWindowViewport(viewport->ID);
 
+			ImGui::Begin("Scene",
+			             nullptr,
+			             ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoNavFocus |
+			                 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoNav);
+
+			ImGui::PopStyleVar(2);
+
+			// std::cout << viewport->WorkSize.x << ", " << viewport->WorkSize.y << std::endl;
+			// std::cout << ImGui::GetContentRegionAvail().x << ", " << ImGui::GetContentRegionAvail().y << std::endl;
+
+			ImGui::Image((ImTextureID)viewportTexture, ImVec2((float)aspenRenderer.getSwapChainExtent().width, (float)aspenRenderer.getSwapChainExtent().height));
+
+			if (cube && gizmoType != -1) {
+				ImGuizmo::SetOrthographic(false);
+				ImGuizmo::SetDrawlist();
+
+				// Setup ImGuizmo Viewport.
+				float windowWidth = ImGui::GetWindowWidth();
+				float windowHeight = ImGui::GetWindowHeight();
+				ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, windowWidth, windowHeight);
+
+				// Get camera's view and projection matrices.
+				const glm::mat4& cameraView = camera.getView();
+				glm::mat4 cameraProjection = camera.getProjection();
+
+				// Flip the y axis for perspective projection.
+				cameraProjection[1][1] *= -1;
+
+				// Get entity's transform component
+				auto& cubeTranform = cube.getComponent<TransformComponent>().transform();
+
+				// Snapping
+				float snapValue = 0.5f; // Snap to 0.5m for translation/scale.
+
+				// Snap to 45 degrees for rotation.
+				if (gizmoType == ImGuizmo::OPERATION::ROTATE) {
+					snapValue = 45.0f;
+				}
+
+				float snapValues[3] = {snapValue, snapValue, snapValue};
+
+				// Modify the transform matrix as needed.
+				ImGuizmo::Manipulate(glm::value_ptr(cameraView),
+				                     glm::value_ptr(cameraProjection),
+				                     static_cast<ImGuizmo::OPERATION>(gizmoType),
+				                     ImGuizmo::LOCAL,
+				                     glm::value_ptr(cubeTranform),
+				                     nullptr,
+				                     snapping ? snapValues : nullptr);
+
+				if (ImGuizmo::IsUsing()) {
+					auto& cubeComponent = cube.getComponent<TransformComponent>();
+
+					// Decompose the transformation matrix into translation, rotation, and scale.
+					glm::vec3 translation, rotation, scale;
+					Math::decomposeTransform(cubeTranform, translation, rotation, scale);
+
+					// Fix gimbal lock but adding a delta change in rotation.
+					glm::vec3 deltaRotation = rotation - cubeComponent.rotation;
+
+					// Apply the new transformation values.
+					cubeComponent.translation = translation;
+					cubeComponent.rotation += deltaRotation;
+					cubeComponent.scale = scale;
+				}
+			}
+			ImGui::End();
+		}
+
+		ImGui::ShowDemoWindow();
+
+		// Performance Metrics Window
+		{
 			static int corner = 0;
 			static bool p_open = true;
 
@@ -202,6 +242,7 @@ namespace Aspen {
 				window_pos_pivot.x = (corner & 1) ? 1.0f : 0.0f;
 				window_pos_pivot.y = (corner & 2) ? 1.0f : 0.0f;
 				ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
+				ImGui::SetNextWindowSize(ImVec2(450.0f, 500.0f), ImGuiCond_FirstUseEver);
 				window_flags |= ImGuiWindowFlags_NoMove;
 			}
 
@@ -211,7 +252,7 @@ namespace Aspen {
 				ImGui::Text("Performance Metrics");
 				ImGui::Separator();
 
-				ImGui::Text("Application average over 120 frames: %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+				ImGui::Text("Average over 120 frames: %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
 				ImGui::Text("%d vertices, %d indices (%d triangles)", io.MetricsRenderVertices, io.MetricsRenderIndices, io.MetricsRenderIndices / 3);
 
 				if (ImGui::BeginPopupContextWindow()) {
@@ -231,13 +272,82 @@ namespace Aspen {
 				}
 			}
 			ImGui::End();
-
-			ImGui::Render();
-
-			simpleRenderSystem.renderGameObjects(commandBuffer, m_Scene, camera);
-			aspenRenderer.endSwapChainRenderPass(commandBuffer);
-			aspenRenderer.endFrame();
 		}
+
+		ImGui::Render();
+
+		// Render ImGui UI at the end of the render pass.
+		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
+	}
+
+	void Application::OnEvent(Event& e) {
+		EventDispatcher dispatcher(e);
+		dispatcher.Dispatch<WindowCloseEvent>(BIND_EVENT_FN(Application::OnWindowClose));
+		dispatcher.Dispatch<WindowResizeEvent>(BIND_EVENT_FN(Application::OnWindowResize));
+
+		if (e.GetEventType() == EventType::KeyPressed) {
+			KeyPressedEvent& keyEvent = dynamic_cast<KeyPressedEvent&>(e);
+			switch (keyEvent.GetKeyCode()) {
+				// Gizmo Shorcuts
+				case Key::Q:
+					gizmoType = -1;
+					break;
+				case Key::T:
+					gizmoType = ImGuizmo::OPERATION::TRANSLATE;
+					break;
+				case Key::R:
+					gizmoType = ImGuizmo::OPERATION::ROTATE;
+					break;
+				case Key::Y:
+					gizmoType = ImGuizmo::OPERATION::SCALE;
+					break;
+				case Key::LeftControl:
+					snapping = true;
+					break;
+			}
+		} else if (e.GetEventType() == EventType::KeyReleased) {
+			KeyReleasedEvent& keyEvent = dynamic_cast<KeyReleasedEvent&>(e);
+			switch (keyEvent.GetKeyCode()) {
+				// Gizmo Shorcuts
+				case Key::LeftControl:
+					snapping = false;
+					break;
+			}
+		}
+		// std::cout << e.ToString() << std::endl;
+	}
+
+	bool Application::OnWindowClose(WindowCloseEvent& e) {
+		m_Running = false;
+		return true;
+	}
+
+	bool Application::OnWindowResize(WindowResizeEvent& e) {
+		aspenWindow.resetWindowResizedFlag();
+		aspenRenderer.recreateSwapChain();
+		simpleRenderSystem.onResize();
+
+		AspenSwapChain::OffscreenPass offscreenPass = aspenRenderer.getOffscreenPass();
+		viewportTexture = ImGui_ImplVulkan_UpdateTexture(viewportTexture, offscreenPass.sampler, offscreenPass.color.view, offscreenPass.descriptor.imageLayout);
+
+		// createPipeline(); // Right now this is not required as the new render pass will be compatible with the old one but is put here for future proofing.
+
+		// The perspective must be recalculated as the aspect ratio might have changed.
+		float aspect = aspenRenderer.getAspectRatio();
+
+		AspenCamera& camera = cameraEntity.getComponent<CameraComponent>().camera;
+		camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 10.0f);
+
+		// if (auto* commandBuffer = aspenRenderer.beginFrame()) {
+		// 	aspenRenderer.beginRenderPass(commandBuffer);
+
+		// 	simpleRenderSystem.renderGameObjects(commandBuffer, m_Scene, camera);
+
+		// 	renderUI(commandBuffer, camera);
+
+		// 	aspenRenderer.endRenderPass(commandBuffer);
+		// 	aspenRenderer.endFrame();
+		// }
 		return true;
 	}
 
@@ -293,7 +403,7 @@ namespace Aspen {
 	}
 
 	void Application::loadGameObjects() {
-		auto cube = m_Scene->createEntity("Cube");
+		cube = m_Scene->createEntity("Cube");
 		auto& cubeTransform = cube.getComponent<TransformComponent>();
 		cubeTransform.translation = {0.0f, 0.0f, 2.5f};
 		cubeTransform.scale = {0.5f, 0.5f, 0.5f};

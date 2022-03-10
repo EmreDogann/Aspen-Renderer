@@ -83,6 +83,9 @@ namespace Aspen {
 			return querySwapChainSupport(physicalDevice_);
 		}
 
+		VkDescriptorPool getDescriptorPool() {
+			return descriptorPool;
+		}
 		VkDescriptorPool ImGuiDescriptorPool() {
 			return ImGui_descriptorPool;
 		}
@@ -113,6 +116,7 @@ namespace Aspen {
 		void pickPhysicalDevice();
 		void createLogicalDevice();
 		void createCommandPool();
+		void createDescriptorPool();
 
 		// helper functions
 		bool isDeviceSuitable(VkPhysicalDevice device);
@@ -146,6 +150,7 @@ namespace Aspen {
 		// VkBuffer stagingBuffer{};
 		// VkDeviceMemory stagingBufferMemory{};
 
+		VkDescriptorPool descriptorPool{};
 		VkDescriptorPool ImGui_descriptorPool{};
 
 		const std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};

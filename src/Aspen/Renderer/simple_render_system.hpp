@@ -3,9 +3,8 @@
 #include "Aspen/Renderer/camera.hpp"
 #include "Aspen/Renderer/device.hpp"
 #include "Aspen/Renderer/pipeline.hpp"
+#include "Aspen/Renderer/renderer.hpp"
 #include "Aspen/Scene/scene.hpp"
-
-class AspenGameObject;
 
 // Libs & defines
 #include <GLFW/glfw3.h>
@@ -18,7 +17,7 @@ class AspenGameObject;
 namespace Aspen {
 	class SimpleRenderSystem {
 	public:
-		SimpleRenderSystem(AspenDevice& device, Buffer& bufferManager, VkRenderPass renderPass);
+		SimpleRenderSystem(AspenDevice& device, Buffer& bufferManager, AspenRenderer& renderer);
 		~SimpleRenderSystem();
 
 		SimpleRenderSystem(const SimpleRenderSystem&) = delete;
@@ -28,18 +27,27 @@ namespace Aspen {
 		SimpleRenderSystem& operator=(SimpleRenderSystem&&) = delete; // Move Assignment Operator
 
 		void renderGameObjects(VkCommandBuffer commandBuffer, std::shared_ptr<Scene>& scene, const AspenCamera& camera);
+		void renderUI(VkCommandBuffer commandBuffer);
+		void onResize();
+
+		VkDescriptorSet getCurrentDescriptorSet() {
+			return offscreenDescriptorSets[0];
+		}
 
 	private:
 		void createPipelineLayout();
 		void createDescriptorSetLayout();
-		void createPipeline(VkRenderPass renderPass);
+		void createDescriptorSet();
+		void createPipelines();
 
 		AspenDevice& aspenDevice;
 		Buffer& bufferManager;
+		AspenRenderer& renderer;
 
 		std::unique_ptr<AspenPipeline> aspenPipeline;
 		VkPipelineLayout pipelineLayout{};
 
 		VkDescriptorSetLayout descriptorSetLayout{};
+		std::vector<VkDescriptorSet> offscreenDescriptorSets;
 	};
 } // namespace Aspen

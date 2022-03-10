@@ -55,6 +55,9 @@ namespace Aspen {
 		// Setup command pool. Useful for command buffer allocations.
 		createCommandPool();
 
+		// Setup Descriptor Pools.
+		createDescriptorPool();
+
 		// Setup ImGui Descriptor Pools.
 		initImGuiBackend();
 
@@ -70,9 +73,13 @@ namespace Aspen {
 
 	AspenDevice::~AspenDevice() {
 		vkDestroySemaphore(device_, transferSemaphore_, nullptr);
+
 		vkDestroyCommandPool(device_, graphicsCommandPool, nullptr);
 		vkDestroyCommandPool(device_, transferCommandPool, nullptr);
+
+		vkDestroyDescriptorPool(device_, descriptorPool, nullptr);       // Destroy descriptor pool.
 		vkDestroyDescriptorPool(device_, ImGui_descriptorPool, nullptr); // Destroy ImGui's descriptor pool.
+
 		vkDestroyDevice(device_, nullptr);
 
 		if (enableValidationLayers) {
@@ -248,6 +255,21 @@ namespace Aspen {
 
 		if (vkCreateCommandPool(device_, &poolInfo, nullptr, &transferCommandPool) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create transfer command pool!");
+		}
+	}
+
+	void AspenDevice::createDescriptorPool() {
+		VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 8}, {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 6}};
+
+		VkDescriptorPoolCreateInfo poolInfo = {};
+		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+		poolInfo.maxSets = 5;
+		poolInfo.poolSizeCount = std::size(poolSizes);
+		poolInfo.pPoolSizes = poolSizes;
+
+		if (vkCreateDescriptorPool(device_, &poolInfo, nullptr, &descriptorPool)) {
+			throw std::runtime_error("Failed to create descriptor pool!");
 		}
 	}
 

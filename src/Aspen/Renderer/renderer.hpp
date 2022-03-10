@@ -12,7 +12,7 @@
 namespace Aspen {
 	class AspenRenderer {
 	public:
-		AspenRenderer(AspenWindow& window, AspenDevice& aspenDevice);
+		AspenRenderer(AspenWindow& window, AspenDevice& aspenDevice, Buffer& bufferManager);
 		~AspenRenderer();
 
 		AspenRenderer(const AspenRenderer&) = delete;
@@ -20,8 +20,27 @@ namespace Aspen {
 		AspenRenderer(AspenRenderer&&) = default;
 		AspenRenderer& operator=(AspenRenderer&&) noexcept;
 
-		VkRenderPass getSwapChainRenderPass() const {
-			return aspenSwapChain->getRenderPass();
+		VkFramebuffer getOffscreenFrameBuffer() {
+			return aspenSwapChain->getOffscreenFrameBuffer();
+		}
+
+		VkRenderPass getPresentRenderPass() const {
+			return aspenSwapChain->getPresentRenderPass();
+		}
+		VkRenderPass getOffscreenRenderPass() const {
+			return aspenSwapChain->getOffscreenRenderPass();
+		}
+
+		AspenSwapChain::OffscreenPass getOffscreenPass() {
+			return aspenSwapChain->getOffscreenPass();
+		}
+
+		VkExtent2D getSwapChainExtent() {
+			return aspenSwapChain->getSwapChainExtent();
+		}
+
+		VkDescriptorImageInfo& getOffscreenDescriptorInfo() const {
+			return aspenSwapChain->getOffscreenDescriptorInfo();
 		}
 
 		uint32_t getSwapChainImageCount() const {
@@ -52,16 +71,19 @@ namespace Aspen {
 
 		VkCommandBuffer beginFrame();
 		void endFrame();
-		void beginSwapChainRenderPass(VkCommandBuffer commandBuffer);
-		void endSwapChainRenderPass(VkCommandBuffer commandBuffer) const;
+		void beginPresentRenderPass(VkCommandBuffer commandBuffer);
+		void beginOffscreenRenderPass(VkCommandBuffer commandBuffer);
+		void endRenderPass(VkCommandBuffer commandBuffer) const;
 		void recreateSwapChain();
 
 	private:
 		void createCommandBuffers();
 		void freeCommandBuffers();
+		void beginRenderPass(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, VkRenderPass renderPass);
 
 		AspenWindow& aspenWindow;
 		AspenDevice& aspenDevice;
+		Buffer& bufferManager;
 		std::unique_ptr<AspenSwapChain> aspenSwapChain;
 		std::vector<VkCommandBuffer> commandBuffers;
 

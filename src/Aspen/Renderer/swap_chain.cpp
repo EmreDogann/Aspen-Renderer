@@ -1,12 +1,14 @@
 #include "Aspen/Renderer/swap_chain.hpp"
+#include "vulkan/vulkan_core.h"
 
 namespace Aspen {
 
-	AspenSwapChain::AspenSwapChain(AspenDevice& deviceRef, VkExtent2D extent) : device{deviceRef}, windowExtent{extent} {
+	AspenSwapChain::AspenSwapChain(AspenDevice& deviceRef, Buffer& bufferManager, VkExtent2D extent) : device{deviceRef}, bufferManager{bufferManager}, windowExtent{extent} {
 		init();
 	}
 
-	AspenSwapChain::AspenSwapChain(AspenDevice& deviceRef, VkExtent2D extent, std::shared_ptr<AspenSwapChain> previous) : device{deviceRef}, windowExtent{extent}, oldSwapChain{std::move(previous)} {
+	AspenSwapChain::AspenSwapChain(AspenDevice& deviceRef, Buffer& bufferManager, VkExtent2D extent, std::shared_ptr<AspenSwapChain> previous)
+	    : device{deviceRef}, bufferManager{bufferManager}, windowExtent{extent}, oldSwapChain{std::move(previous)} {
 		init();
 
 		// Clean up old swap chain since it's no longer being used. Setting to nullptr will signify the system to release its resources.
@@ -16,7 +18,8 @@ namespace Aspen {
 	void AspenSwapChain::init() {
 		createSwapChain();
 		createImageViews();
-		createRenderPass();
+		createSamplers();
+		createRenderPasses();
 		createDepthResources();
 		createFramebuffers();
 		createSyncObjects();
@@ -48,8 +51,31 @@ namespace Aspen {
 			vkDestroyFramebuffer(device.device(), framebuffer, nullptr);
 		}
 
-		// Destroy the render pass.
-		vkDestroyRenderPass(device.device(), renderPass, nullptr);
+		// Destroy the present render pass.
+		vkDestroyRenderPass(device.device(), presentRenderPass, nullptr);
+
+		/*
+		    Destroy offscreen rendering struct.
+		*/
+
+		// Color Attachment
+		vkDestroyImageView(device.device(), offscreenPass.color.view, nullptr);
+		vkDestroyImage(device.device(), offscreenPass.color.image, nullptr);
+		vkFreeMemory(device.device(), offscreenPass.color.memory, nullptr);
+
+		// Depth Attachment
+		vkDestroyImageView(device.device(), offscreenPass.depth.view, nullptr);
+		vkDestroyImage(device.device(), offscreenPass.depth.image, nullptr);
+		vkFreeMemory(device.device(), offscreenPass.depth.memory, nullptr);
+
+		// Framebuffer
+		vkDestroyFramebuffer(device.device(), offscreenPass.frameBuffer, nullptr);
+
+		// Offscreen renderpass
+		vkDestroyRenderPass(device.device(), offscreenPass.renderPass, nullptr);
+
+		// Sampler
+		vkDestroySampler(device.device(), offscreenPass.sampler, nullptr);
 
 		// Cleanup synchronization objects.
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
@@ -249,100 +275,233 @@ namespace Aspen {
 				throw std::runtime_error("Failed to create texture image view!");
 			}
 		}
+
+		// Create offscreen color attachment.
+		VkImageCreateInfo offscreenImageCreateInfo{};
+		offscreenImageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+		offscreenImageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+		offscreenImageCreateInfo.format = swapChainImageFormat;
+		offscreenImageCreateInfo.extent.width = swapChainExtent.width;
+		offscreenImageCreateInfo.extent.height = swapChainExtent.height;
+		offscreenImageCreateInfo.extent.depth = 1;
+		offscreenImageCreateInfo.mipLevels = 1;
+		offscreenImageCreateInfo.arrayLayers = 1;
+		offscreenImageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+		offscreenImageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+		offscreenImageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		offscreenImageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		offscreenImageCreateInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT; // We will sample directly from the color attachment.
+
+		// Create image and allocate memory for it.
+		device.createImageWithInfo(offscreenImageCreateInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, offscreenPass.color.image, offscreenPass.color.memory);
+
+		// Create image view for the color attachment created above.
+		VkImageViewCreateInfo offscreenImageViewCreateInfo{};
+		offscreenImageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		offscreenImageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		offscreenImageViewCreateInfo.format = swapChainImageFormat;
+		offscreenImageViewCreateInfo.subresourceRange = {};
+		offscreenImageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		offscreenImageViewCreateInfo.subresourceRange.baseMipLevel = 0;
+		offscreenImageViewCreateInfo.subresourceRange.levelCount = 1;
+		offscreenImageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+		offscreenImageViewCreateInfo.subresourceRange.layerCount = 1;
+		offscreenImageViewCreateInfo.image = offscreenPass.color.image;
+
+		if (vkCreateImageView(device.device(), &offscreenImageViewCreateInfo, nullptr, &offscreenPass.color.view) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create offscreen texture image view!");
+		}
+	}
+
+	void AspenSwapChain::createSamplers() {
+		/*
+		    Create sampler for offscreen rendering.
+		*/
+		VkSamplerCreateInfo samplerCreateInfo{};
+		samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+		samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
+		samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
+		samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+		samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		samplerCreateInfo.mipLodBias = 0.0f;
+		samplerCreateInfo.maxAnisotropy = 1.0f;
+		samplerCreateInfo.minLod = 0.0f;
+		samplerCreateInfo.maxLod = 1.0f;
+		samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+
+		if (vkCreateSampler(device.device(), &samplerCreateInfo, nullptr, &offscreenPass.sampler) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create offscreen sampler!");
+		}
 	}
 
 	// Setup the contents of the renderpass and a subpass.
 	// Right now, there is one depth attachment and one color attachment.
-	void AspenSwapChain::createRenderPass() {
-		// Define the color attachment.
-		VkAttachmentDescription colorAttachment = {};
-		colorAttachment.format = getSwapChainImageFormat(); // Use the same surface format as the swap chain images.
-		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;    // We are not doing any multi-sampling yet so just stick to one.
+	void AspenSwapChain::createRenderPasses() {
+		// Main Render Pass
+		{
+			// Define the color attachment.
+			VkAttachmentDescription colorAttachment = {};
+			colorAttachment.format = getSwapChainImageFormat(); // Use the same surface format as the swap chain images.
+			colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;    // We are not doing any multi-sampling yet so just stick to one.
 
-		// loadOp and storeOp determine what to do with the data in the attachment before and after rendering.
-		// VK_ATTACHMENT_LOAD_OP_LOAD: Preserve the existing contents of the attachment.
-		// VK_ATTACHMENT_LOAD_OP_CLEAR: Clear the values to a constant at the start.
-		// VK_ATTACHMENT_LOAD_OP_DONT_CARE: Existing contents are undefined; we don't care about them.
-		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+			// loadOp and storeOp determine what to do with the data in the attachment before and after rendering.
+			// VK_ATTACHMENT_LOAD_OP_LOAD: Preserve the existing contents of the attachment.
+			// VK_ATTACHMENT_LOAD_OP_CLEAR: Clear the values to a constant at the start.
+			// VK_ATTACHMENT_LOAD_OP_DONT_CARE: Existing contents are undefined; we don't care about them.
+			colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 
-		// VK_ATTACHMENT_STORE_OP_STORE: Rendered contents will be stored in memory and can be read later.
-		// VK_ATTACHMENT_STORE_OP_DONT_CARE: Contents of the framebuffer will be undefined after the rendering operation.
-		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+			// VK_ATTACHMENT_STORE_OP_STORE: Rendered contents will be stored in memory and can be read later.
+			// VK_ATTACHMENT_STORE_OP_DONT_CARE: Contents of the framebuffer will be undefined after the rendering operation.
+			colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 
-		// Comments above work here as well but in this case it's for a stencil buffer.
-		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+			// Comments above work here as well but in this case it's for a stencil buffer.
+			colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+			colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 
-		// initialLayout specifies which layout the image will have before the render pass begins.
-		// VK_IMAGE_LAYOUT_UNDEFINED for initialLayout means that we don't care what previous layout the image was in.
-		// However, this means that the contents of the image are not guaranteed to be preserved, but that doesn't matter since we're going to clear it anyway.
-		// finalLayout specifies the layout to automatically transition to when the render pass finishes.
-		// We want the image to be ready for presentation using the swap chain after rendering, which is why we use VK_IMAGE_LAYOUT_PRESENT_SRC_KHR as finalLayout.
-		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+			// initialLayout specifies which layout the image will have before the render pass begins.
+			// VK_IMAGE_LAYOUT_UNDEFINED for initialLayout means that we don't care what previous layout the image was in.
+			// However, this means that the contents of the image are not guaranteed to be preserved, but that doesn't matter since we're going to clear it anyway.
+			// finalLayout specifies the layout to automatically transition to when the render pass finishes.
+			// We want the image to be ready for presentation using the swap chain after rendering, which is why we use VK_IMAGE_LAYOUT_PRESENT_SRC_KHR as finalLayout.
+			colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+			colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-		// Attachment references to be used by subpasses.
-		VkAttachmentReference colorAttachmentRef = {};
-		colorAttachmentRef.attachment = 0; // Which attachment to reference by its index in the attachment descriptions array.
+			// Attachment references to be used by subpasses.
+			VkAttachmentReference colorAttachmentRef = {};
+			colorAttachmentRef.attachment = 0; // Which attachment to reference by its index in the attachment descriptions array.
 
-		// What layout we would like the attachment to have during a subpass. We are going to use it as a color buffer so VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL will give the best performance.
-		colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			// What layout we would like the attachment to have during a subpass. We are going to use it as a color buffer so VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL will give the best performance.
+			colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-		// Check comments above.
-		VkAttachmentDescription depthAttachment{};
-		depthAttachment.format = findDepthFormat();
-		depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+			// Check comments above.
+			VkAttachmentDescription depthAttachment{};
+			depthAttachment.format = findDepthFormat();
+			depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+			depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+			depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+			depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+			depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+			depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+			depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-		VkAttachmentReference depthAttachmentRef{};
-		depthAttachmentRef.attachment = 1;
-		depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+			VkAttachmentReference depthAttachmentRef{};
+			depthAttachmentRef.attachment = 1;
+			depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-		// Describe the subpass.
-		VkSubpassDescription subpass = {};
-		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS; // This subpass will be used for graphics. In the future Vulkan might support compute.
-		subpass.colorAttachmentCount = 1;
-		subpass.pColorAttachments = &colorAttachmentRef;
-		subpass.pDepthStencilAttachment = &depthAttachmentRef;
+			// Describe the subpass.
+			VkSubpassDescription subpass = {};
+			subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS; // This subpass will be used for graphics. In the future Vulkan might support compute.
+			subpass.colorAttachmentCount = 1;
+			subpass.pColorAttachments = &colorAttachmentRef;
+			subpass.pDepthStencilAttachment = &depthAttachmentRef;
 
-		// Specify memory and execution dependencies between subpasses.
-		VkSubpassDependency dependency = {};
-		// Refers to the implicit subpass before the render pass. Or render passes BEFORE the current render pass.
-		// If this was defined for dstSubpass then it would refer to the implicit subpass after the render pass. Or the render passes AFTER the current render pass.
-		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-		dependency.dstSubpass = 0; // Index of the subpass.
+			// Specify memory and execution dependencies between subpasses.
+			VkSubpassDependency dependency = {};
+			// Refers to the implicit subpass before the render pass. Or render passes BEFORE the current render pass.
+			// If this was defined for dstSubpass then it would refer to the implicit subpass after the render pass. Or the render passes AFTER the current render pass.
+			dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+			dependency.dstSubpass = 0; // Index of the subpass.
 
-		// Wait for the swap chain to finish reading from the image before we access it.
-		dependency.srcAccessMask = 0;
-		dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+			// Wait for the swap chain to finish reading from the image before we access it.
+			dependency.srcAccessMask = 0;
+			dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 
-		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+			dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+			dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-		// What we have defined above is a dependency which states that the dstSubpass depends on the srcSubpass.
-		// Subpasses don't execute in any particular order (for performance reasons) so we need dependencies between them to enforce a particular order.
-		// Here we are saying, you can execute everything in the dstSubpass except the color output stage and early depth testing at which point you have to wait
-		// for the srcSubpass to finish its color output stage and early depth testing.
-		// The access masks specify which types of memory access each subpass dependency will need.
+			// What we have defined above is a dependency which states that the dstSubpass depends on the srcSubpass.
+			// Subpasses don't execute in any particular order (for performance reasons) so we need dependencies between them to enforce a particular order.
+			// Here we are saying, you can execute everything in the dstSubpass except the color output stage and early depth testing at which point you have to wait
+			// for the srcSubpass to finish its color output stage and early depth testing.
+			// The access masks specify which types of memory access each subpass dependency will need.
 
-		// Create a render pass object.
-		std::array<VkAttachmentDescription, 2> attachments = {colorAttachment, depthAttachment};
-		VkRenderPassCreateInfo renderPassInfo = {};
-		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-		renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-		renderPassInfo.pAttachments = attachments.data();
-		renderPassInfo.subpassCount = 1;
-		renderPassInfo.pSubpasses = &subpass;
-		renderPassInfo.dependencyCount = 1;
-		renderPassInfo.pDependencies = &dependency;
+			// Create a render pass object.
+			std::array<VkAttachmentDescription, 2> attachments = {colorAttachment, depthAttachment};
+			VkRenderPassCreateInfo renderPassInfo = {};
+			renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+			renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+			renderPassInfo.pAttachments = attachments.data();
+			renderPassInfo.subpassCount = 1;
+			renderPassInfo.pSubpasses = &subpass;
+			renderPassInfo.dependencyCount = 1;
+			renderPassInfo.pDependencies = &dependency;
 
-		if (vkCreateRenderPass(device.device(), &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to create render pass!");
+			if (vkCreateRenderPass(device.device(), &renderPassInfo, nullptr, &presentRenderPass) != VK_SUCCESS) {
+				throw std::runtime_error("Failed to create render pass!");
+			}
+		}
+
+		// Offscreen Render Pass
+		{
+			VkAttachmentDescription colorAttachment{};
+			colorAttachment.format = swapChainImageFormat;
+			colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+			colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+			colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+			colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+			colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+			colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+			colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+			VkAttachmentReference colorAttachmentRef{};
+			colorAttachmentRef.attachment = 0;
+			colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+			VkAttachmentDescription depthAttachment{};
+			depthAttachment.format = findDepthFormat();
+			depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+			depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+			depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+			depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+			depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+			depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+			depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+			VkAttachmentReference depthAttachmentRef{};
+			depthAttachmentRef.attachment = 1;
+			depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+			// Describe the subpass.
+			VkSubpassDescription subpassDescription = {};
+			subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+			subpassDescription.colorAttachmentCount = 1;
+			subpassDescription.pColorAttachments = &colorAttachmentRef;
+			subpassDescription.pDepthStencilAttachment = &depthAttachmentRef;
+
+			// Specify memory and execution dependencies between subpasses.
+			std::array<VkSubpassDependency, 2> dependencies = {};
+			dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+			dependencies[0].dstSubpass = 0;
+			dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+			dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+			dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+			dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+			dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+			dependencies[1].srcSubpass = 0;
+			dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+			dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+			dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+			dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+			dependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+			dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+			// Create a render pass object.
+			std::array<VkAttachmentDescription, 2> attachments = {colorAttachment, depthAttachment};
+			VkRenderPassCreateInfo renderPassInfo = {};
+			renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+			renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+			renderPassInfo.pAttachments = attachments.data();
+			renderPassInfo.subpassCount = 1;
+			renderPassInfo.pSubpasses = &subpassDescription;
+			renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
+			renderPassInfo.pDependencies = dependencies.data();
+
+			if (vkCreateRenderPass(device.device(), &renderPassInfo, nullptr, &offscreenPass.renderPass) != VK_SUCCESS) {
+				throw std::runtime_error("Failed to create offscreen render pass!");
+			}
 		}
 	}
 
@@ -355,7 +514,7 @@ namespace Aspen {
 			VkExtent2D swapChainExtent = getSwapChainExtent();
 			VkFramebufferCreateInfo framebufferInfo = {};
 			framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-			framebufferInfo.renderPass = renderPass; // You can only use a framebuffer with the render passes that it is compatible with (that roughly means the same number of type of attachments).
+			framebufferInfo.renderPass = presentRenderPass; // You can only use a framebuffer with the render passes that it is compatible with (roughly means the same number of type of attachments).
 			framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
 			framebufferInfo.pAttachments = attachments.data();
 			framebufferInfo.width = swapChainExtent.width;
@@ -366,6 +525,32 @@ namespace Aspen {
 				throw std::runtime_error("Failed to create framebuffer!");
 			}
 		}
+
+		/*
+		    Create framebuffer for offscreen rendering.
+		*/
+		VkImageView attachments[2];
+		attachments[0] = offscreenPass.color.view;
+		attachments[1] = offscreenPass.depth.view;
+
+		VkFramebufferCreateInfo framebufferCreateInfo{};
+		framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		framebufferCreateInfo.renderPass = offscreenPass.renderPass;
+		framebufferCreateInfo.attachmentCount = 2;
+		framebufferCreateInfo.pAttachments = attachments;
+		framebufferCreateInfo.width = swapChainExtent.width;
+		framebufferCreateInfo.height = swapChainExtent.height;
+		framebufferCreateInfo.layers = 1;
+
+		if (vkCreateFramebuffer(device.device(), &framebufferCreateInfo, nullptr, &offscreenPass.frameBuffer) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create offscreen framebuffer!");
+		}
+
+		// TODO: Move this into its own function.
+		// Fill a descriptor for later use in a descriptor set
+		offscreenPass.descriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		offscreenPass.descriptor.imageView = offscreenPass.color.view;
+		offscreenPass.descriptor.sampler = offscreenPass.sampler;
 	}
 
 	void AspenSwapChain::createDepthResources() {
@@ -408,8 +593,44 @@ namespace Aspen {
 			viewInfo.subresourceRange.layerCount = 1;
 
 			if (vkCreateImageView(device.device(), &viewInfo, nullptr, &depthImageViews[i]) != VK_SUCCESS) {
-				throw std::runtime_error("Failed to create texture image view!");
+				throw std::runtime_error("Failed to create depth image view!");
 			}
+		}
+
+		// Create offscreen deptrh attachment.
+		VkImageCreateInfo offscreenDepthImageCreateInfo{};
+		offscreenDepthImageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+		offscreenDepthImageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+		offscreenDepthImageCreateInfo.format = depthFormat;
+		offscreenDepthImageCreateInfo.extent.width = swapChainExtent.width;
+		offscreenDepthImageCreateInfo.extent.height = swapChainExtent.height;
+		offscreenDepthImageCreateInfo.extent.depth = 1;
+		offscreenDepthImageCreateInfo.mipLevels = 1;
+		offscreenDepthImageCreateInfo.arrayLayers = 1;
+		offscreenDepthImageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+		offscreenDepthImageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+		offscreenDepthImageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		offscreenDepthImageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		offscreenDepthImageCreateInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+
+		// Create image and allocate memory for it.
+		device.createImageWithInfo(offscreenDepthImageCreateInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, offscreenPass.depth.image, offscreenPass.depth.memory);
+
+		// Create image view for the color attachment created above.
+		VkImageViewCreateInfo offscreenDepthImageViewCreateInfo{};
+		offscreenDepthImageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		offscreenDepthImageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		offscreenDepthImageViewCreateInfo.format = depthFormat;
+		offscreenDepthImageViewCreateInfo.subresourceRange = {};
+		offscreenDepthImageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT; // TODO: Do we need stencil bit flag here?
+		offscreenDepthImageViewCreateInfo.subresourceRange.baseMipLevel = 0;
+		offscreenDepthImageViewCreateInfo.subresourceRange.levelCount = 1;
+		offscreenDepthImageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+		offscreenDepthImageViewCreateInfo.subresourceRange.layerCount = 1;
+		offscreenDepthImageViewCreateInfo.image = offscreenPass.depth.image;
+
+		if (vkCreateImageView(device.device(), &offscreenDepthImageViewCreateInfo, nullptr, &offscreenPass.depth.view) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create offscreen depth image view!");
 		}
 	}
 

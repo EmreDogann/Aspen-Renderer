@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Aspen/Core/buffer.hpp"
 #include "Aspen/Renderer/device.hpp"
 
 // Libs
@@ -10,10 +11,26 @@ namespace Aspen {
 
 	class AspenSwapChain {
 	public:
+		// Framebuffer for offscreen rendering
+		struct FrameBufferAttachment {
+			VkImage image{};
+			VkDeviceMemory memory{};
+			VkImageView view{};
+		};
+
+		// Offscreen rendering struct.
+		struct OffscreenPass {
+			VkFramebuffer frameBuffer{};
+			FrameBufferAttachment color, depth;
+			VkRenderPass renderPass{};
+			VkSampler sampler{};
+			VkDescriptorImageInfo descriptor{};
+		};
+
 		static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
-		AspenSwapChain(AspenDevice& deviceRef, VkExtent2D windowExtent);
-		AspenSwapChain(AspenDevice& deviceRef, VkExtent2D windowExtent, std::shared_ptr<AspenSwapChain> previous);
+		AspenSwapChain(AspenDevice& deviceRef, Buffer& bufferManager, VkExtent2D windowExtent);
+		AspenSwapChain(AspenDevice& deviceRef, Buffer& bufferManager, VkExtent2D windowExtent, std::shared_ptr<AspenSwapChain> previous);
 		~AspenSwapChain();
 
 		AspenSwapChain(const AspenSwapChain&) = delete;            // Copy Constructor
@@ -25,9 +42,25 @@ namespace Aspen {
 		VkFramebuffer getFrameBuffer(int index) {
 			return swapChainFramebuffers[index];
 		}
-		VkRenderPass getRenderPass() {
-			return renderPass;
+		VkFramebuffer getOffscreenFrameBuffer() {
+			return offscreenPass.frameBuffer;
 		}
+
+		VkRenderPass getPresentRenderPass() {
+			return presentRenderPass;
+		}
+		VkDescriptorImageInfo& getOffscreenDescriptorInfo() {
+			return offscreenPass.descriptor;
+		}
+
+		OffscreenPass getOffscreenPass() {
+			return offscreenPass;
+		}
+
+		VkRenderPass getOffscreenRenderPass() {
+			return offscreenPass.renderPass;
+		}
+
 		VkImageView getImageView(int index) {
 			return swapChainImageViews[index];
 		}
@@ -62,10 +95,14 @@ namespace Aspen {
 	private:
 		void init();
 		void createSwapChain();
+
 		void createImageViews();
 		void createDepthResources();
-		void createRenderPass();
+		void createSamplers();
+
+		void createRenderPasses();
 		void createFramebuffers();
+
 		void createSyncObjects();
 
 		// Helper functions
@@ -78,7 +115,7 @@ namespace Aspen {
 		VkExtent2D swapChainExtent{};
 
 		std::vector<VkFramebuffer> swapChainFramebuffers{};
-		VkRenderPass renderPass{};
+		VkRenderPass presentRenderPass{};
 
 		std::vector<VkImage> depthImages{};
 		std::vector<VkDeviceMemory> depthImageMemorys{};
@@ -86,7 +123,10 @@ namespace Aspen {
 		std::vector<VkImage> swapChainImages{};
 		std::vector<VkImageView> swapChainImageViews{};
 
+		OffscreenPass offscreenPass;
+
 		AspenDevice& device;
+		Buffer& bufferManager;
 		VkExtent2D windowExtent{};
 
 		VkSwapchainKHR swapChain{};

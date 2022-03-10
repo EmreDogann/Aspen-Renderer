@@ -2,7 +2,7 @@
 
 namespace Aspen {
 
-	AspenRenderer::AspenRenderer(AspenWindow& window, AspenDevice& device) : aspenWindow{window}, aspenDevice{device} {
+	AspenRenderer::AspenRenderer(AspenWindow& window, AspenDevice& device, Buffer& bufferManager) : aspenWindow{window}, aspenDevice{device}, bufferManager{bufferManager} {
 		recreateSwapChain();
 		createCommandBuffers();
 	}
@@ -46,10 +46,12 @@ namespace Aspen {
 		vkDeviceWaitIdle(aspenDevice.device()); // Wait until the current swapchain is no longer being used.
 
 		if (aspenSwapChain == nullptr) {
-			aspenSwapChain = std::make_unique<AspenSwapChain>(aspenDevice, extent); // Create new swapchain with new extents.
+			aspenSwapChain = std::make_unique<AspenSwapChain>(aspenDevice, bufferManager, extent); // Create new swapchain with new extents.
 		} else {
 			std::shared_ptr<AspenSwapChain> oldSwapChain = std::move(aspenSwapChain);
-			aspenSwapChain = std::make_unique<AspenSwapChain>(aspenDevice, extent, oldSwapChain); // Create new swapchain with new extents and pass through the old swap chain if it exists.
+
+			// Create new swapchain with new extents and pass through the old swap chain if it exists.
+			aspenSwapChain = std::make_unique<AspenSwapChain>(aspenDevice, bufferManager, extent, oldSwapChain);
 
 			// Check if the old and new swap chains are compatible.
 			if (!oldSwapChain->compareSwapFormats(*aspenSwapChain)) {
@@ -124,16 +126,23 @@ namespace Aspen {
 		currentFrameIndex = (currentFrameIndex + 1) % AspenSwapChain::MAX_FRAMES_IN_FLIGHT; // Increment currentFrameIndex.
 	}
 
+	void AspenRenderer::beginPresentRenderPass(VkCommandBuffer commandBuffer) {
+		beginRenderPass(commandBuffer, aspenSwapChain->getFrameBuffer(currentImageIndex), aspenSwapChain->getPresentRenderPass());
+	}
+	void AspenRenderer::beginOffscreenRenderPass(VkCommandBuffer commandBuffer) {
+		beginRenderPass(commandBuffer, aspenSwapChain->getOffscreenFrameBuffer(), aspenSwapChain->getOffscreenRenderPass());
+	}
+
 	// beginSwapChainRenderPass will start the render pass in order to then record commands to it.
-	void AspenRenderer::beginSwapChainRenderPass(VkCommandBuffer commandBuffer) {
-		assert(isFrameStarted && "Can't call beginSwapChainRenderPass if frame is not in progress!");
+	void AspenRenderer::beginRenderPass(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, VkRenderPass renderPass) {
+		assert(isFrameStarted && "Can't call beginRenderPass if frame is not in progress!");
 		assert(commandBuffer == getCurrentCommandBuffer() && "Cannot begin render pass on command buffer from a different frame.");
 
 		// 1st Command: Begin render pass.
 		VkRenderPassBeginInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassInfo.renderPass = aspenSwapChain->getRenderPass();
-		renderPassInfo.framebuffer = aspenSwapChain->getFrameBuffer(currentImageIndex); // Which frame buffer is this render pass writing to?
+		renderPassInfo.renderPass = renderPass;
+		renderPassInfo.framebuffer = framebuffer; // Which frame buffer is this render pass writing to?
 
 		// Defines the area in which the shader loads and stores will take place.
 		renderPassInfo.renderArea.offset = {0, 0};
@@ -174,12 +183,9 @@ namespace Aspen {
 	}
 
 	// End the render pass when commands have been recorded.
-	void AspenRenderer::endSwapChainRenderPass(VkCommandBuffer commandBuffer) const {
-		assert(isFrameStarted && "Can't call endSwapChainRenderPass if frame is not in progress!");
+	void AspenRenderer::endRenderPass(VkCommandBuffer commandBuffer) const {
+		assert(isFrameStarted && "Can't call endRenderPass if frame is not in progress!");
 		assert(commandBuffer == getCurrentCommandBuffer() && "Cannot end render pass on command buffer from a different frame.");
-
-		// Render ImGui UI at the end of the render pass.
-		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
 
 		vkCmdEndRenderPass(commandBuffer);
 	}

@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.7)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Use ccahce if available
 find_program(CCACHE_FOUND ccache)
 if(CCACHE_FOUND)
   set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
@@ -28,37 +29,44 @@ endif()
 # Find all .cpp files in source directory (including those inside subdirectories).
 file(GLOB_RECURSE SOURCES ${PROJECT_SOURCE_DIR}/src/*.cpp)
 
-add_executable(${PROJECT_NAME} ${SOURCES})
+add_executable(${PROJECT_NAME}
+  ${SOURCES}
+  "include/imguizmo/ImGuizmo.cpp"
+)
+
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
 set_property(TARGET ${PROJECT_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/build")
 
 # Precompiled Header
 target_precompile_headers(${PROJECT_NAME} PRIVATE "${PROJECT_SOURCE_DIR}/src/pch.h")
 
-# Download All Git Submodules
-find_package(Git QUIET)
-if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
-  # Update submodules as needed
-  option(GIT_SUBMODULE "Check submodules during build" OFF)
-  if(GIT_SUBMODULE)
-    message(STATUS "Updating Submodules...")
-    execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init --recursive WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} RESULT_VARIABLE GIT_SUBMODULE_RESULT)
-    if (NOT GIT_SUBMODULE_RESULT EQUAL "0")
-      message(FATAL_ERROR "git submodule update --init failed with ${GIT_SUBMODULE_RESULT}, please checkout submodules.")
-    endif()
-  endif()
-endif()
+# Disable precompiled headers for the following files.
+set_source_files_properties("include/imguizmo/**.cpp" PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 
-# Check all submodules exist
-if(NOT EXISTS "${PROJECT_SOURCE_DIR}/include/glfw/CMakeLists.txt")
-  message(FATAL_ERROR "The GLFW submodule was not downloaded! GIT_SUBMODULE was turned off or failed.")
-endif()
-if(NOT EXISTS "${PROJECT_SOURCE_DIR}/include/glm/CMakeLists.txt")
-  message(FATAL_ERROR "The GLM submodule was not downloaded! GIT_SUBMODULE was turned off or failed.")
-endif()
-if(NOT EXISTS "${PROJECT_SOURCE_DIR}/include/entt/CMakeLists.txt")
-  message(FATAL_ERROR "The entt submodule was not downloaded! GIT_SUBMODULE was turned off or failed.")
-endif()
+# Download All Git Submodules
+# find_package(Git QUIET)
+# if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
+#   # Update submodules as needed
+#   option(GIT_SUBMODULE "Check submodules during build" OFF)
+#   if(GIT_SUBMODULE)
+#     message(STATUS "Updating Submodules...")
+#     execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init --recursive WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} RESULT_VARIABLE GIT_SUBMODULE_RESULT)
+#     if (NOT GIT_SUBMODULE_RESULT EQUAL "0")
+#       message(FATAL_ERROR "git submodule update --init failed with ${GIT_SUBMODULE_RESULT}, please checkout submodules.")
+#     endif()
+#   endif()
+# endif()
+
+# # Check all submodules exist for submodules that use cmake
+# if(NOT EXISTS "${PROJECT_SOURCE_DIR}/include/glfw/CMakeLists.txt")
+#   message(FATAL_ERROR "The GLFW submodule was not downloaded! GIT_SUBMODULE was turned off or failed.")
+# endif()
+# if(NOT EXISTS "${PROJECT_SOURCE_DIR}/include/glm/CMakeLists.txt")
+#   message(FATAL_ERROR "The GLM submodule was not downloaded! GIT_SUBMODULE was turned off or failed.")
+# endif()
+# if(NOT EXISTS "${PROJECT_SOURCE_DIR}/include/entt/CMakeLists.txt")
+#   message(FATAL_ERROR "The entt submodule was not downloaded! GIT_SUBMODULE was turned off or failed.")
+# endif()
 
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -102,6 +110,7 @@ if (WIN32)
   target_include_directories(${PROJECT_NAME} PUBLIC
     ${PROJECT_SOURCE_DIR}/src
     ${Vulkan_INCLUDE_DIRS}
+    "include/imguizmo"
     )
 
   target_link_libraries(${PROJECT_NAME} glfw glm EnTT ImGui ${Vulkan_LIBRARIES})
@@ -132,6 +141,7 @@ find_program(GLSL_VALIDATOR glslangValidator HINTS
 
 # Create ./build/shaders folder
 add_custom_target(make_shader_folder
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_SOURCE_DIR}/build/assets"
     COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_SOURCE_DIR}/build/assets/shaders")
 
 # get all .vert and .frag files in shaders directory

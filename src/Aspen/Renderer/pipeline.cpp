@@ -1,15 +1,21 @@
 #include "Aspen/Renderer/pipeline.hpp"
+#include "vulkan/vulkan_core.h"
 
 namespace Aspen {
 
-	AspenPipeline::AspenPipeline(AspenDevice& device, const std::string& vertFilepath, const std::string& fragFilepath, const PipelineConfigInfo& configInfo) : aspenDevice(device) {
-		createGraphicsPipeline(vertFilepath, fragFilepath, configInfo);
+	AspenPipeline::AspenPipeline(AspenDevice& device, const std::string& vertFilepath, const std::string& fragFilepath) : aspenDevice(device) {
+		auto vertCode = readFile(vertFilepath);
+		auto fragCode = readFile(fragFilepath);
+
+		createShaderModule(vertCode, &vertShaderModule);
+		createShaderModule(fragCode, &fragShaderModule);
 	}
 
 	AspenPipeline::~AspenPipeline() {
 		vkDestroyShaderModule(aspenDevice.device(), vertShaderModule, nullptr);
 		vkDestroyShaderModule(aspenDevice.device(), fragShaderModule, nullptr);
-		vkDestroyPipeline(aspenDevice.device(), graphicsPipeline, nullptr);
+		vkDestroyPipeline(aspenDevice.device(), presentGraphicsPipeline, nullptr);
+		vkDestroyPipeline(aspenDevice.device(), offscreenGraphicsPipeline, nullptr);
 	}
 
 	std::vector<char> AspenPipeline::readFile(const std::string& filepath) {
@@ -35,15 +41,10 @@ namespace Aspen {
 		return buffer;
 	}
 
-	void AspenPipeline::createGraphicsPipeline(const std::string& vertFilepath, const std::string& fragFilepath, const PipelineConfigInfo& configInfo) {
+	void AspenPipeline::createGraphicsPipeline(const PipelineConfigInfo& configInfo, VkPipeline& pipeline) {
 
 		assert(configInfo.pipelineLayout != VK_NULL_HANDLE && "Cannot create graphics pipeline:: No pipelineLayout provided in configInfo");
 		assert(configInfo.renderPass != VK_NULL_HANDLE && "Cannot create graphics pipeline:: No renderPass provided in configInfo");
-		auto vertCode = readFile(vertFilepath);
-		auto fragCode = readFile(fragFilepath);
-
-		createShaderModule(vertCode, &vertShaderModule);
-		createShaderModule(fragCode, &fragShaderModule);
 
 		VkPipelineShaderStageCreateInfo shaderStages[2];
 		// Setup shader stage for vertex shader.
@@ -104,7 +105,7 @@ namespace Aspen {
 		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
 		// Create graphics pipeline.
-		if (vkCreateGraphicsPipelines(aspenDevice.device(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
+		if (vkCreateGraphicsPipelines(aspenDevice.device(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create graphics pipeline");
 		}
 	}
@@ -121,11 +122,11 @@ namespace Aspen {
 	}
 
 	// Bind a command buffer to a graphics pipeline.
-	void AspenPipeline::bind(VkCommandBuffer commandBuffer) {
+	void AspenPipeline::bind(VkCommandBuffer commandBuffer, VkPipeline& pipeline) {
 		// VK_PIPELINE_BIND_POINT_GRAPHICS signals that this is a graphics pipeline we are binding this command buffer to.
 		// VK_PIPELINE_BIND_POINT_COMPUTE signals that this is a compute pipeline.
 		// VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR signals that this is a ray tracing pipeline.
-		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 	}
 
 	void AspenPipeline::defaultPipelineConfigInfo(PipelineConfigInfo& configInfo) {
