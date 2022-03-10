@@ -7,7 +7,7 @@
 [submodule "include/entt"]
 	path = include/entt
 	url = https://github.com/skypjack/entt.git
-[submodule "imgui"]
+[submodule "include/imgui"]
 	path = include/imgui
 	url = https://github.com/EmreDogann/imgui.git
 	branch = docking
