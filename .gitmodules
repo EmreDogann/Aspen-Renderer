@@ -10,3 +10,6 @@
 [submodule "include/imguizmo"]
 	path = include/imguizmo
 	url = https://github.com/CedricGuillemet/ImGuizmo
+[submodule "imgui"]
+	path = imgui
+	url = https://github.com/EmreDogann/imgui.git
