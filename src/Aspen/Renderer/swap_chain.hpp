@@ -1,10 +1,9 @@
 #pragma once
 
-#include "Aspen/Core/buffer.hpp"
+#include "Aspen/Renderer/buffer.hpp"
 #include "Aspen/Renderer/device.hpp"
 
 // Libs
-#include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
 namespace Aspen {
@@ -29,8 +28,8 @@ namespace Aspen {
 
 		static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
-		SwapChain(Device& deviceRef, Buffer& bufferManager, VkExtent2D windowExtent);
-		SwapChain(Device& deviceRef, Buffer& bufferManager, VkExtent2D windowExtent, std::shared_ptr<SwapChain> previous);
+		SwapChain(Device& deviceRef, VkExtent2D windowExtent);
+		SwapChain(Device& deviceRef, VkExtent2D windowExtent, std::shared_ptr<SwapChain> previous);
 		~SwapChain();
 
 		SwapChain(const SwapChain&) = delete;            // Copy Constructor
@@ -126,7 +125,6 @@ namespace Aspen {
 		OffscreenPass offscreenPass;
 
 		Device& device;
-		Buffer& bufferManager;
 		VkExtent2D windowExtent{};
 
 		VkSwapchainKHR swapChain{};

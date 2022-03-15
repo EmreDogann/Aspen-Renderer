@@ -1,32 +1,28 @@
 #pragma once
 #include "pch.h"
 
-#include "Aspen/Core/buffer.hpp"
 #include "Aspen/Core/timer.hpp"
 #include "Aspen/Core/window.hpp"
 #include "Aspen/Math/math.hpp"
-#include "Aspen/Renderer/camera.hpp"
 #include "Aspen/Renderer/device.hpp"
 #include "Aspen/Renderer/renderer.hpp"
 #include "Aspen/Renderer/simple_render_system.hpp"
-#include "Aspen/Scene/components.hpp"
 #include "Aspen/Scene/entity.hpp"
-#include "Aspen/Scene/scene.hpp"
 #include "Aspen/System/camera_controller_system.hpp"
 #include "Aspen/System/camera_system.hpp"
 
 // Libs & defines
-#include <vulkan/vulkan_core.h>
 #define GLM_FORCE_RADIANS           // Ensures that GLM will expect angles to be specified in radians, not degrees.
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE // Tells GLM to expect depth values in the range 0-1 instead of -1 to 1.
-#include "ImGuizmo.h"
+#include <glm/gtc/type_ptr.hpp>
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
-#include <glm/glm.hpp>
-#include <glm/gtc/constants.hpp>
-#include <glm/gtc/type_ptr.hpp>
 #include <imgui_internal.h>
+#include "ImGuizmo.h"
+
+// #define BIND_EVENT_FN(x) std::bind(&x, this, std::placeholders::_1)
+#define BIND_EVENT_FN(fn) [this](auto&&... args) -> decltype(auto) { return this->fn(std::forward<decltype(args)>(args)...); }
 
 namespace Aspen {
 	class Application {
@@ -61,13 +57,12 @@ namespace Aspen {
 		bool OnWindowClose(WindowCloseEvent& e);
 		bool OnWindowResize(WindowResizeEvent& e);
 
-		static Application* s_Instance;
+		inline static Application* s_Instance = nullptr;
 
 		Window window{WIDTH, HEIGHT, "Hello Vulkan!"};
 		Device device{window};
-		Buffer bufferManager{};
-		Renderer renderer{window, device, bufferManager};
-		SimpleRenderSystem simpleRenderSystem{device, bufferManager, renderer};
+		Renderer renderer{window, device};
+		SimpleRenderSystem simpleRenderSystem{device, renderer};
 		Timer timer{};
 
 		Entity cameraEntity{}; // Empty entity to store the transformation of the camera.

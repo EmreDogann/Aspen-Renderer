@@ -1,12 +1,6 @@
 #include "Aspen/Core/application.hpp"
-#include <iostream>
-
-// #define BIND_EVENT_FN(x) std::bind(&x, this, std::placeholders::_1)
-#define BIND_EVENT_FN(fn) [this](auto&&... args) -> decltype(auto) { return this->fn(std::forward<decltype(args)>(args)...); }
 
 namespace Aspen {
-	Application* Application::s_Instance = nullptr;
-
 	Application::Application() {
 		s_Instance = this;
 		window.setEventCallback(BIND_EVENT_FN(Application::OnEvent));
@@ -69,6 +63,7 @@ namespace Aspen {
 
 		// Game Loop
 		while (m_Running) {
+
 			// Calculate the time taken of the previous frame.
 			currentFrameTime = timer.elapsedSeconds();
 			currentFrameTime = glm::min(currentFrameTime, MAX_FRAME_TIME);
@@ -86,7 +81,7 @@ namespace Aspen {
 
 			float aspect = renderer.getAspectRatio();
 			// camera.setOrthographicProjection(-1, 1, -1, 1, -1, 1, aspect);
-			cameraComponent.camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 10.0f);
+			cameraComponent.camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 100.0f);
 
 			if (auto* commandBuffer = renderer.beginFrame()) {
 
@@ -417,7 +412,7 @@ namespace Aspen {
 	}
 
 	// Temporary helper function, creates a 1x1x1 cube centered at offset
-	void createCubeModel(Device& device, Buffer& bufferManager, glm::vec3 offset, MeshComponent& meshComponent) {
+	void createCubeModel(Device& device, glm::vec3 offset, MeshComponent& meshComponent) {
 		meshComponent.vertices = {
 
 		    // Left face (white)
@@ -464,11 +459,11 @@ namespace Aspen {
 			v.position += offset;
 		}
 
-		bufferManager.makeBuffer(device, meshComponent);
+		Aspen::Model::makeBuffer(device, meshComponent);
 	}
 
 	// Temporary helper function, creates a quad.
-	void createFloorModel(Device& device, Buffer& bufferManager, glm::vec3 offset, MeshComponent& meshComponent) {
+	void createFloorModel(Device& device, glm::vec3 offset, MeshComponent& meshComponent) {
 		meshComponent.vertices = {
 
 		    // Top face (blue, remember y axis points down)
@@ -485,7 +480,7 @@ namespace Aspen {
 			v.position += offset;
 		}
 
-		bufferManager.makeBuffer(device, meshComponent);
+		Aspen::Model::makeBuffer(device, meshComponent);
 	}
 
 	void Application::loadGameObjects() {
@@ -496,7 +491,6 @@ namespace Aspen {
 
 		auto& floorMesh = floor.addComponent<MeshComponent>();
 		createFloorModel(device,
-		                 bufferManager,
 		                 {0.0f, 0.0f, 0.0f},
 		                 floorMesh); // Converts the unique pointer returned from the function to a shared pointer.
 
@@ -504,10 +498,10 @@ namespace Aspen {
 		auto& objectTransform = object.getComponent<TransformComponent>();
 		objectTransform.translation = {0.0f, 0.0f, 2.5f};
 		// objectTransform.scale = glm::vec3(3.0f); // Uniform scaling
-		objectTransform.scale = {3.0f, 1.0f, 3.0f}; // Non-Uniform scaling
+		objectTransform.scale = {3.0f, 3.0f, 3.0f}; // Non-Uniform scaling
 
 		auto& objectMesh = object.addComponent<MeshComponent>();
-		Buffer::createModelFromFile(device, objectMesh, "assets/models/flat_vase.obj");
+		Model::createModelFromFile(device, objectMesh, "assets/models/flat_vase.obj");
 		std::cout << "Vertex Count: " << objectMesh.vertices.size() << std::endl;
 
 		Entity floor2 = m_Scene->createEntity("Floor2");
@@ -517,7 +511,6 @@ namespace Aspen {
 
 		auto& floor2Mesh = floor2.addComponent<MeshComponent>();
 		createFloorModel(device,
-		                 bufferManager,
 		                 {0.0f, 0.0f, 0.0f},
 		                 floor2Mesh); // Converts the unique pointer returned from the function to a shared pointer.
 
@@ -525,10 +518,10 @@ namespace Aspen {
 		auto& object2Transform = object2.getComponent<TransformComponent>();
 		object2Transform.translation = {2.5f, 0.0f, 2.5f};
 		// object2Transform.scale = glm::vec3(3.0f); // Uniform scaling
-		object2Transform.scale = {3.0f, 1.0f, 3.0f}; // Non-Uniform scaling
+		object2Transform.scale = {3.0f, 3.0f, 3.0f}; // Non-Uniform scaling
 
 		auto& object2Mesh = object2.addComponent<MeshComponent>();
-		Buffer::createModelFromFile(device, object2Mesh, "assets/models/flat_vase.obj");
+		Model::createModelFromFile(device, object2Mesh, "assets/models/smooth_vase.obj");
 		std::cout << "Vertex Count: " << object2Mesh.vertices.size() << std::endl;
 	}
 } // namespace Aspen

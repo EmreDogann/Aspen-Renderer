@@ -1,18 +1,14 @@
 #pragma once
 
-#include "Aspen/Core/buffer.hpp"
 #include "Aspen/Core/window.hpp"
+#include "Aspen/Renderer/buffer.hpp"
 #include "Aspen/Renderer/device.hpp"
 #include "Aspen/Renderer/swap_chain.hpp"
-
-// Libs
-#include "imgui_impl_vulkan.h"
-#include <vulkan/vulkan_core.h>
 
 namespace Aspen {
 	class Renderer {
 	public:
-		Renderer(Window& window, Device& device, Buffer& bufferManager);
+		Renderer(Window& window, Device& device);
 		~Renderer();
 
 		Renderer(const Renderer&) = delete;
@@ -83,7 +79,6 @@ namespace Aspen {
 
 		Window& window;
 		Device& device;
-		Buffer& bufferManager;
 		std::unique_ptr<SwapChain> swapChain;
 		std::vector<VkCommandBuffer> commandBuffers;
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Aspen/Core/buffer.hpp"
+#include "Aspen/Core/model.hpp"
 #include "Aspen/Renderer/device.hpp"
 
 // Libs

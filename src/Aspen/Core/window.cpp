@@ -99,8 +99,8 @@ namespace Aspen {
 		glfwSetCursorPosCallback(window, [](GLFWwindow* window, double xOffset, double yOffset) {
 			WindowProps& windowProps = *static_cast<WindowProps*>(glfwGetWindowUserPointer(window));
 
-			MouseMovedEvent event(static_cast<float>(xOffset), static_cast<float>(yOffset));
-			windowProps.eventCallback(event);
+			// MouseMovedEvent event(static_cast<float>(xOffset), static_cast<float>(yOffset));
+			// windowProps.eventCallback(event);
 		});
 	}
 

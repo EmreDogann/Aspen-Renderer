@@ -6,8 +6,8 @@ namespace Aspen {
 		glm::mat4 normalMatrix{1.0f};
 	};
 
-	SimpleRenderSystem::SimpleRenderSystem(Device& device, Buffer& bufferManager, Renderer& renderer)
-	    : device(device), bufferManager(bufferManager), renderer(renderer) {
+	SimpleRenderSystem::SimpleRenderSystem(Device& device, Renderer& renderer)
+	    : device(device), renderer(renderer) {
 		createPipelineLayout();
 		pipeline = std::make_unique<Pipeline>(device, "assets/shaders/simple_shader.vert.spv", "assets/shaders/simple_shader.frag.spv");
 		createPipelines();
@@ -135,8 +135,8 @@ namespace Aspen {
 			push.normalMatrix = transform.computeNormalMatrix();
 
 			vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);
-			Aspen::Buffer::bind(commandBuffer, mesh.meshMemory);
-			Aspen::Buffer::draw(commandBuffer, static_cast<uint32_t>(mesh.indices.size()));
+			Aspen::Model::bind(commandBuffer, mesh.vertexBuffer, mesh.indexBuffer);
+			Aspen::Model::draw(commandBuffer, static_cast<uint32_t>(mesh.indices.size()));
 		}
 	}
 

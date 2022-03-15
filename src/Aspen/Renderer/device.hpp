@@ -1,10 +1,10 @@
 #pragma once
 #include "pch.h"
 
+#include "Aspen/Core/window.hpp"
+
 // Libs
 #include "vulkan/vulkan_core.h"
-
-#include "Aspen/Core/window.hpp"
 
 namespace Aspen {
 

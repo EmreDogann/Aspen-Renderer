@@ -118,8 +118,8 @@ namespace Aspen {
 
 	void CameraControllerSystem::mouseZoom(CameraControllerArcball& controller, const float& mouseDelta) {
 		controller.distance -= mouseDelta * controller.zoomSpeed;
-		if (controller.distance < 1.0f) {
-			controller.distance = 1.0f;
+		if (controller.distance < 0.0f) {
+			controller.distance = 0.0f;
 		}
 
 		// std::cout << "Distance: " << controller.distance << std::endl;

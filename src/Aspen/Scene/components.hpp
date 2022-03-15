@@ -1,12 +1,7 @@
 #pragma once
 
+#include "Aspen/Renderer/buffer.hpp"
 #include "Aspen/Renderer/camera.hpp"
-
-// Libs
-#include "glm/ext/matrix_transform.hpp"
-#include <glm/fwd.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <vulkan/vulkan.h>
 
 namespace Aspen {
 	struct TagComponent {
@@ -116,17 +111,10 @@ namespace Aspen {
 
 		std::vector<Vertex> vertices;
 		std::vector<uint32_t> indices;
-
-		struct MeshMemory {
-			VkBuffer vertexBuffer{};
-			VkDeviceMemory vertexBufferMemory{};
-
-			VkBuffer indexBuffer{};
-			VkDeviceMemory indexBufferMemory{};
-		} meshMemory{};
+		std::unique_ptr<Buffer> vertexBuffer;
+		std::unique_ptr<Buffer> indexBuffer;
 
 		MeshComponent() = default;
-		MeshComponent(const MeshComponent&) = default;
 	};
 
 	struct CameraComponent {
@@ -144,8 +132,8 @@ namespace Aspen {
 		float mouseSensitivity{0.5f};
 		glm::vec2 lastMousePosition{0.0f};
 
-		glm::vec3 focalPoint{2.5f, 0.0f, 2.5f};
-		glm::vec2 positionDisplacement{};
+		glm::vec3 focalPoint{0.0f, 0.0f, 2.5f};
+		glm::vec2 positionDisplacement{0.0f};
 		float distance = 2.0f;
 
 		float pitch = 0.0f;

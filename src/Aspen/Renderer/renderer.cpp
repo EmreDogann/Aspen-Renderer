@@ -2,7 +2,8 @@
 
 namespace Aspen {
 
-	Renderer::Renderer(Window& window, Device& device, Buffer& bufferManager) : window{window}, device{device}, bufferManager{bufferManager} {
+	Renderer::Renderer(Window& window, Device& device)
+	    : window{window}, device{device} {
 		recreateSwapChain();
 		createCommandBuffers();
 	}
@@ -46,12 +47,12 @@ namespace Aspen {
 		vkDeviceWaitIdle(device.device()); // Wait until the current swapchain is no longer being used.
 
 		if (swapChain == nullptr) {
-			swapChain = std::make_unique<SwapChain>(device, bufferManager, extent); // Create new swapchain with new extents.
+			swapChain = std::make_unique<SwapChain>(device, extent); // Create new swapchain with new extents.
 		} else {
 			std::shared_ptr<SwapChain> oldSwapChain = std::move(swapChain);
 
 			// Create new swapchain with new extents and pass through the old swap chain if it exists.
-			swapChain = std::make_unique<SwapChain>(device, bufferManager, extent, oldSwapChain);
+			swapChain = std::make_unique<SwapChain>(device, extent, oldSwapChain);
 
 			// Check if the old and new swap chains are compatible.
 			if (!oldSwapChain->compareSwapFormats(*swapChain)) {

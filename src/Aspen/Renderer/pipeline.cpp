@@ -1,9 +1,9 @@
 #include "Aspen/Renderer/pipeline.hpp"
-#include "vulkan/vulkan_core.h"
 
 namespace Aspen {
 
-	Pipeline::Pipeline(Device& device, const std::string& vertFilepath, const std::string& fragFilepath) : device(device) {
+	Pipeline::Pipeline(Device& device, const std::string& vertFilepath, const std::string& fragFilepath)
+	    : device(device) {
 		auto vertCode = readFile(vertFilepath);
 		auto fragCode = readFile(fragFilepath);
 
@@ -73,8 +73,8 @@ namespace Aspen {
 		// How to interpret the vertex buffer data.
 		// Bindings - The spacing between data and whether the data is per-vertex or per-instance.
 		// Attribute Descriptions - Type of the attributes passed to the veretx shader, which binding to load them from and at which offset.
-		auto bindingDescriptions = Buffer::getBindingDescriptions();
-		auto attributeDescriptions = Buffer::getAttributeDescriptions();
+		auto bindingDescriptions = Model::getBindingDescriptions();
+		auto attributeDescriptions = Model::getAttributeDescriptions();
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 		vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
@@ -133,7 +133,7 @@ namespace Aspen {
 
 		configInfo.inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 		configInfo.inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST; // Triangle_List = Every 3 verticies are grouped into a triangle.
-		configInfo.inputAssemblyInfo.primitiveRestartEnable = VK_FALSE; // If set to VK_TRUE when using a strip topology, we can specify an index value in an index buffer to breakup a strip.
+		configInfo.inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;              // If set to VK_TRUE when using a strip topology, we can specify an index value in an index buffer to breakup a strip.
 
 		// // Configure viewport - Describes the transformation between the pipeline output and our target image.
 		// // Transform from range -1 to 1 to range 0 to 1.

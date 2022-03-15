@@ -15,17 +15,17 @@ namespace Aspen {
 
 	Scene::~Scene() {
 		// Release all mesh component data from memory.
-		auto view = m_Registry.view<MeshComponent>();
-		for (auto entity : view) {
-			MeshComponent& mesh = view.get<MeshComponent>(entity);
-			// Clean up vertex buffer.
-			vkDestroyBuffer(device.device(), mesh.meshMemory.vertexBuffer, nullptr);
-			vkFreeMemory(device.device(), mesh.meshMemory.vertexBufferMemory, nullptr);
+		// auto view = m_Registry.view<MeshComponent>();
+		// for (auto entity : view) {
+		// 	MeshComponent& mesh = view.get<MeshComponent>(entity);
+		// 	// Clean up vertex buffer.
+		// 	vkDestroyBuffer(device.device(), mesh.meshMemory.vertexBuffer, nullptr);
+		// 	vkFreeMemory(device.device(), mesh.meshMemory.vertexBufferMemory, nullptr);
 
-			// Clean up index buffer.
-			vkDestroyBuffer(device.device(), mesh.meshMemory.indexBuffer, nullptr);
-			vkFreeMemory(device.device(), mesh.meshMemory.indexBufferMemory, nullptr);
-		}
+		// 	// Clean up index buffer.
+		// 	vkDestroyBuffer(device.device(), mesh.meshMemory.indexBuffer, nullptr);
+		// 	vkFreeMemory(device.device(), mesh.meshMemory.indexBufferMemory, nullptr);
+		// }
 	}
 
 	Entity Scene::createEntity(const std::string& name) {

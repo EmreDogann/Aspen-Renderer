@@ -1,6 +1,4 @@
 #include "Aspen/Renderer/device.hpp"
-#include <iterator>
-#include <stdexcept>
 
 namespace Aspen {
 
@@ -35,7 +33,8 @@ namespace Aspen {
 
 	// 1. Initialize Vulkan and picking a physical device.
 	// 2. Setup validation layers that will help us with debugging our Vulkan code.
-	Device::Device(Window& window) : window{window} {
+	Device::Device(Window& window)
+	    : window{window} {
 		// Create Vulkan Instance.
 		createInstance();
 
