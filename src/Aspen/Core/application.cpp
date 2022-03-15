@@ -471,11 +471,11 @@ namespace Aspen {
 	void createFloorModel(Device& device, Buffer& bufferManager, glm::vec3 offset, MeshComponent& meshComponent) {
 		meshComponent.vertices = {
 
-		    // Top face (orange, remember y axis points down)
-		    {{-.5f, .0f, -.5f}, {.9f, .6f, .1f}},
-		    {{.5f, .0f, .5f}, {.9f, .6f, .1f}},
-		    {{-.5f, .0f, .5f}, {.9f, .6f, .1f}},
-		    {{.5f, .0f, -.5f}, {.9f, .6f, .1f}},
+		    // Top face (blue, remember y axis points down)
+		    {{-.5f, .0f, -.5f}, {0.3f, 0.49f, 0.66f}},
+		    {{.5f, .0f, .5f}, {0.3f, 0.49f, 0.66f}},
+		    {{-.5f, .0f, .5f}, {0.3f, 0.49f, 0.66f}},
+		    {{.5f, .0f, -.5f}, {0.3f, 0.49f, 0.66f}},
 
 		};
 
