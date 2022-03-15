@@ -77,6 +77,8 @@ add_subdirectory("include/glm")
 
 add_subdirectory("include/entt")
 
+add_subdirectory("include/tinyobjloader")
+
 # Compile ImGui as a static library
 file(GLOB IMGUI_SOURCES "include/imgui/*.cpp")
 add_library(ImGui STATIC ${IMGUI_SOURCES})
@@ -113,7 +115,7 @@ if (WIN32)
     "include/imguizmo"
     )
 
-  target_link_libraries(${PROJECT_NAME} glfw glm EnTT ImGui ${Vulkan_LIBRARIES})
+  target_link_libraries(${PROJECT_NAME} glfw glm EnTT ImGui tinyobjloader ${Vulkan_LIBRARIES})
 elseif (UNIX)
     message(STATUS "CREATING BUILD FOR UNIX")
     target_include_directories(${PROJECT_NAME} PUBLIC
@@ -139,15 +141,30 @@ find_program(GLSL_VALIDATOR glslangValidator HINTS
   $ENV{VULKAN_SDK}/Bin32/
 )
 
-# Create ./build/shaders folder
-add_custom_target(make_shader_folder
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_SOURCE_DIR}/build/assets"
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_SOURCE_DIR}/build/assets/shaders")
+# Create ./build/assets folder
+add_custom_target("Make_Assets_Folder" ALL DEPENDS ${PROJECT_NAME})
 
-# get all .vert and .frag files in shaders directory
+add_custom_command(TARGET Make_Assets_Folder POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_SOURCE_DIR}/build/assets"
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_SOURCE_DIR}/build/assets/shaders"
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_SOURCE_DIR}/build/assets/models"
+)
+
+# install(DIRECTORY ${PROJECT_SOURCE_DIR}/assets DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/build
+#   FILES_MATCHING PATTERN "*" EXCLUDE
+# )
+
+# Get all .vert and .frag files in shaders directory
 file(GLOB_RECURSE GLSL_SOURCE_FILES
   "${PROJECT_SOURCE_DIR}/assets/shaders/*.frag"
   "${PROJECT_SOURCE_DIR}/assets/shaders/*.vert"
+)
+
+# Add this target to the ALL target which will make sure that it is executed when build the ALL target.
+add_custom_target(
+  "Compile_Shaders"
+  ALL
+  DEPENDS ${SPIRV_BINARY_FILES} "Make_Assets_Folder"
 )
 
 # Build all shader files.
@@ -155,18 +172,25 @@ foreach(GLSL ${GLSL_SOURCE_FILES})
   get_filename_component(FILE_NAME ${GLSL} NAME)
   set(SPIRV "${PROJECT_SOURCE_DIR}/build/assets/shaders/${FILE_NAME}.spv")
   add_custom_command(
-    OUTPUT ${SPIRV}
+    TARGET "Compile_Shaders" POST_BUILD
     COMMAND ${GLSL_VALIDATOR} -V ${GLSL} -o ${SPIRV}
     DEPENDS ${GLSL})
   list(APPEND SPIRV_BINARY_FILES ${SPIRV})
 endforeach(GLSL)
 
-# Add this target to the ALL target which will make sure that it is executed when build the ALL target.
 add_custom_target(
-    Shaders
-    ALL
-    DEPENDS ${SPIRV_BINARY_FILES}
+  "Copy_Assets"
+  ALL
+  DEPENDS "Make_Assets_Folder"
 )
 
-# Ensures that the shader folder is created before the shaders are built.
-add_dependencies(Shaders make_shader_folder)
+# Copy changed files from config to the binary folder after a successful build
+set(source_dir "${PROJECT_SOURCE_DIR}/assets/models")
+set(dest_dir "${PROJECT_SOURCE_DIR}/build/assets/models")
+add_custom_command(TARGET "Copy_Assets"
+  POST_BUILD
+  COMMAND ${CMAKE_COMMAND}
+    -Dsource_dir="${source_dir}"
+    -Ddest_dir="${dest_dir}"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/update_directory.cmake"
+)
