@@ -7,34 +7,35 @@
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan_core.h>
 
+#include "Aspen/Core/input.hpp"
 #include "Aspen/Events/application_event.hpp"
 #include "Aspen/Events/key_event.hpp"
 #include "Aspen/Events/mouse_event.hpp"
 
 namespace Aspen {
 
-	class AspenWindow {
+	class Window {
 	public:
-		using EventCallbackFn = std::function<void(Event &)>;
+		using EventCallbackFn = std::function<void(Event&)>;
 
-		AspenWindow(int width, int height, std::string name);
-		~AspenWindow();
+		Window(int width, int height, std::string name);
+		~Window();
 
 		// Remove copy constructor and operator to prevent accidental copy creation of window, possibly leading to a dangling pointer.
-		AspenWindow(const AspenWindow &) = delete;
-		AspenWindow &operator=(const AspenWindow &);
+		Window(const Window&) = delete;
+		Window& operator=(const Window&);
 
-		AspenWindow(const AspenWindow &&) = delete;
-		AspenWindow &operator=(const AspenWindow &&) = delete;
+		Window(const Window&&) = delete;
+		Window& operator=(const Window&&) = delete;
 
-		void createWindowSurface(VkInstance instance, VkSurfaceKHR *surface);
+		void createWindowSurface(VkInstance instance, VkSurfaceKHR* surface);
 
 		// Process window level events (such as keystrokes).
 		void OnUpdate() {
 			glfwPollEvents();
 		}
 
-		void setEventCallback(const EventCallbackFn &callback) {
+		void setEventCallback(const EventCallbackFn& callback) {
 			windowProps.eventCallback = callback;
 		}
 
@@ -42,7 +43,7 @@ namespace Aspen {
 			return {static_cast<uint32_t>(windowProps.width), static_cast<uint32_t>(windowProps.height)};
 		}
 
-		GLFWwindow *getGLFWwindow() const {
+		GLFWwindow* getGLFWwindow() const {
 			return window;
 		}
 
@@ -56,10 +57,11 @@ namespace Aspen {
 	private:
 		void initWindow();
 
-		GLFWwindow *window{};
+		GLFWwindow* window{};
 
 		struct WindowProps {
-			WindowProps(int width, int height, std::string name) : width{width}, height{height}, windowName{std::move(name)} {}
+			WindowProps(int width, int height, std::string name)
+			    : width{width}, height{height}, windowName{std::move(name)} {}
 			std::string windowName;
 			int width, height;
 			bool framebufferResized = false;

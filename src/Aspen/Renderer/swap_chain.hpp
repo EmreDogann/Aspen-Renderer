@@ -9,7 +9,7 @@
 
 namespace Aspen {
 
-	class AspenSwapChain {
+	class SwapChain {
 	public:
 		// Framebuffer for offscreen rendering
 		struct FrameBufferAttachment {
@@ -29,15 +29,15 @@ namespace Aspen {
 
 		static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
-		AspenSwapChain(AspenDevice& deviceRef, Buffer& bufferManager, VkExtent2D windowExtent);
-		AspenSwapChain(AspenDevice& deviceRef, Buffer& bufferManager, VkExtent2D windowExtent, std::shared_ptr<AspenSwapChain> previous);
-		~AspenSwapChain();
+		SwapChain(Device& deviceRef, Buffer& bufferManager, VkExtent2D windowExtent);
+		SwapChain(Device& deviceRef, Buffer& bufferManager, VkExtent2D windowExtent, std::shared_ptr<SwapChain> previous);
+		~SwapChain();
 
-		AspenSwapChain(const AspenSwapChain&) = delete;            // Copy Constructor
-		AspenSwapChain& operator=(const AspenSwapChain&) = delete; // Copy Assignment Operator
+		SwapChain(const SwapChain&) = delete;            // Copy Constructor
+		SwapChain& operator=(const SwapChain&) = delete; // Copy Assignment Operator
 
-		AspenSwapChain(AspenSwapChain&&) = delete;            // Move Constructor
-		AspenSwapChain& operator=(AspenSwapChain&&) = delete; // Move Assignment Operator
+		SwapChain(SwapChain&&) = delete;            // Move Constructor
+		SwapChain& operator=(SwapChain&&) = delete; // Move Assignment Operator
 
 		VkFramebuffer getFrameBuffer(int index) {
 			return swapChainFramebuffers[index];
@@ -88,7 +88,7 @@ namespace Aspen {
 		VkResult acquireNextImage(uint32_t* imageIndex);
 		VkResult submitCommandBuffers(const VkCommandBuffer* buffers, const uint32_t* imageIndex);
 
-		bool compareSwapFormats(const AspenSwapChain& swapChain) const {
+		bool compareSwapFormats(const SwapChain& swapChain) const {
 			return swapChain.swapChainDepthFormat == swapChainDepthFormat && swapChain.swapChainImageFormat == swapChainImageFormat;
 		}
 
@@ -125,12 +125,12 @@ namespace Aspen {
 
 		OffscreenPass offscreenPass;
 
-		AspenDevice& device;
+		Device& device;
 		Buffer& bufferManager;
 		VkExtent2D windowExtent{};
 
 		VkSwapchainKHR swapChain{};
-		std::shared_ptr<AspenSwapChain> oldSwapChain{};
+		std::shared_ptr<SwapChain> oldSwapChain{};
 
 		std::vector<VkSemaphore> imageAvailableSemaphores{};
 		std::vector<VkSemaphore> renderFinishedSemaphores{};

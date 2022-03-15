@@ -1,19 +1,23 @@
 #include "Aspen/Core/application.hpp"
 #include <iostream>
 
-#define BIND_EVENT_FN(x) std::bind(&x, this, std::placeholders::_1)
+// #define BIND_EVENT_FN(x) std::bind(&x, this, std::placeholders::_1)
+#define BIND_EVENT_FN(fn) [this](auto&&... args) -> decltype(auto) { return this->fn(std::forward<decltype(args)>(args)...); }
 
 namespace Aspen {
+	Application* Application::s_Instance = nullptr;
+
 	Application::Application() {
+		s_Instance = this;
+		window.setEventCallback(BIND_EVENT_FN(Application::OnEvent));
 		setupImGui();
 
-		aspenWindow.setEventCallback(BIND_EVENT_FN(Application::OnEvent));
-
-		m_Scene = std::make_shared<Scene>(aspenDevice);
+		m_Scene = std::make_shared<Scene>(device);
 
 		// Setup runtime camera entity.
 		cameraEntity = m_Scene->createEntity("Camera");
 		cameraEntity.addComponent<CameraComponent>();
+		cameraEntity.addComponent<CameraControllerArcball>();
 
 		loadGameObjects();
 	}
@@ -33,27 +37,27 @@ namespace Aspen {
 		ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
 		// Initialize ImGui for GLFW
-		ImGui_ImplGlfw_InitForVulkan(aspenWindow.getGLFWwindow(), true);
+		ImGui_ImplGlfw_InitForVulkan(window.getGLFWwindow(), true);
 
 		// Initialize ImGui for Vulkan
 		ImGui_ImplVulkan_InitInfo init_info = {};
-		init_info.Instance = aspenDevice.instance();
-		init_info.PhysicalDevice = aspenDevice.physicalDevice();
-		init_info.Device = aspenDevice.device();
-		init_info.Queue = aspenDevice.graphicsQueue();
-		init_info.DescriptorPool = aspenDevice.ImGuiDescriptorPool();
-		init_info.MinImageCount = aspenRenderer.getSwapChainImageCount();
-		init_info.ImageCount = aspenRenderer.getSwapChainImageCount();
+		init_info.Instance = device.instance();
+		init_info.PhysicalDevice = device.physicalDevice();
+		init_info.Device = device.device();
+		init_info.Queue = device.graphicsQueue();
+		init_info.DescriptorPool = device.ImGuiDescriptorPool();
+		init_info.MinImageCount = renderer.getSwapChainImageCount();
+		init_info.ImageCount = renderer.getSwapChainImageCount();
 		init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 
-		ImGui_ImplVulkan_Init(&init_info, aspenRenderer.getPresentRenderPass());
+		ImGui_ImplVulkan_Init(&init_info, renderer.getPresentRenderPass());
 
 		// Create and upload font textures to GPU memory.
-		VkCommandBuffer commandBuffer = aspenDevice.beginSingleTimeCommandBuffers();
+		VkCommandBuffer commandBuffer = device.beginSingleTimeCommandBuffers();
 		ImGui_ImplVulkan_CreateFontsTexture(commandBuffer);
-		aspenDevice.endSingleTimeCommandBuffers(commandBuffer);
+		device.endSingleTimeCommandBuffers(commandBuffer);
 
-		AspenSwapChain::OffscreenPass offscreenPass = aspenRenderer.getOffscreenPass();
+		SwapChain::OffscreenPass offscreenPass = renderer.getOffscreenPass();
 		viewportTexture = ImGui_ImplVulkan_AddTexture(offscreenPass.sampler, offscreenPass.color.view, offscreenPass.descriptor.imageLayout);
 
 		// Destroy font textures from CPU memory.
@@ -61,81 +65,113 @@ namespace Aspen {
 	}
 
 	void Application::run() {
-		std::cout << "maxPushConstantSize = " << aspenDevice.properties.limits.maxPushConstantsSize << "\n";
+		std::cout << "maxPushConstantSize = " << device.properties.limits.maxPushConstantsSize << "\n";
 
 		// Game Loop
 		while (m_Running) {
-			aspenWindow.OnUpdate(); // Process window level events.
-			// m_Scene->OnUpdate();
-
-			auto frameTime = timer.elapsedSeconds();
-			frameTime = glm::min(frameTime, MAX_FRAME_TIME);
+			// Calculate the time taken of the previous frame.
+			currentFrameTime = timer.elapsedSeconds();
+			currentFrameTime = glm::min(currentFrameTime, MAX_FRAME_TIME);
 			timer.reset();
 
-			// Update the camera position and rotation.
-			auto [cameraComponent, cameraTransform] = cameraEntity.getComponent<CameraComponent, TransformComponent>();
-			cameraController.moveInPlaneXZ(aspenWindow.getGLFWwindow(), frameTime, cameraTransform);
-			cameraComponent.camera.setViewYXZ(cameraTransform.translation, cameraTransform.rotation);
+			window.OnUpdate(); // Process window level events.
+			// m_Scene->OnUpdate();
 
-			float aspect = aspenRenderer.getAspectRatio();
+			// Update the camera position and rotation.
+			auto [cameraComponent, cameraArcball, cameraTransform] = cameraEntity.getComponent<CameraComponent, CameraControllerArcball, TransformComponent>();
+			CameraControllerSystem::OnUpdate(cameraArcball, {renderer.getSwapChainExtent().width, renderer.getSwapChainExtent().height});
+			CameraSystem::OnUpdateArcball(cameraTransform, cameraArcball, currentFrameTime);
+			// cameraController.OnUpdate(cameraTransform, currentFrameTime, {renderer.getSwapChainExtent().width, renderer.getSwapChainExtent().height});
+			cameraComponent.camera.setView(cameraTransform.translation, cameraTransform.rotation);
+
+			float aspect = renderer.getAspectRatio();
 			// camera.setOrthographicProjection(-1, 1, -1, 1, -1, 1, aspect);
 			cameraComponent.camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 10.0f);
 
-			if (auto* commandBuffer = aspenRenderer.beginFrame()) {
+			if (auto* commandBuffer = renderer.beginFrame()) {
 
 				/*
 				    Render Scene to texture - Offscreen rendering
 				*/
-				aspenRenderer.beginOffscreenRenderPass(commandBuffer);
+				renderer.beginOffscreenRenderPass(commandBuffer);
 
 				simpleRenderSystem.renderGameObjects(commandBuffer, m_Scene, cameraComponent.camera);
 
-				aspenRenderer.endRenderPass(commandBuffer);
+				renderer.endRenderPass(commandBuffer);
 
 				/*
 				    Render UI (render scene from texture into a UI window)
 				*/
-				aspenRenderer.beginPresentRenderPass(commandBuffer);
+				renderer.beginPresentRenderPass(commandBuffer);
 
 				// simpleRenderSystem.renderGameObjects(commandBuffer, m_Scene, cameraComponent.camera);
 				simpleRenderSystem.renderUI(commandBuffer);
 				renderUI(commandBuffer, cameraComponent.camera);
 
-				aspenRenderer.endRenderPass(commandBuffer);
-				aspenRenderer.endFrame();
+				renderer.endRenderPass(commandBuffer);
+				renderer.endFrame();
 			}
+
+			// Update input manager state.
+			Input::OnUpdate();
 		}
 
-		vkDeviceWaitIdle(aspenDevice.device()); // Block CPU until all GPU operations have completed.
+		vkDeviceWaitIdle(device.device()); // Block CPU until all GPU operations have completed.
 	}
 
-	void Application::renderUI(VkCommandBuffer commandBuffer, AspenCamera camera) {
+	void Application::renderUI(VkCommandBuffer commandBuffer, Camera camera) {
 		// Start the Dear ImGui frame
 		ImGui_ImplVulkan_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 		ImGuizmo::BeginFrame();
 
+		ImGuiID dock_left_id = ImGui::GetID("Viewport");
+		ImGuiID dock_right_id = ImGui::GetID("Settings");
 		// Base Dockspace
 		{
-			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0)); // Disable window padding
-			// ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);         // Disable window border
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f)); // Disable window padding
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);            // Disable window border
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);              // Disable window rounding
 
-			const bool use_work_area = true;
 			const ImGuiViewport* viewport = ImGui::GetMainViewport();
-			ImGui::SetNextWindowPos(use_work_area ? viewport->WorkPos : viewport->Pos);
-			ImGui::SetNextWindowSize(use_work_area ? viewport->WorkSize : viewport->Size);
+			ImGui::SetNextWindowPos(viewport->WorkPos);
+			ImGui::SetNextWindowSize(viewport->WorkSize);
 			ImGui::SetNextWindowViewport(viewport->ID);
 
-			ImGui::Begin("Viewport",
+			ImGui::Begin("Docking Window",
 			             nullptr,
-			             ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
-			                 ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDocking);
+			             ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoNavFocus |
+			                 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDocking |
+			                 ImGuiWindowFlags_NoFocusOnAppearing);
 
-			ImGui::PopStyleVar(1);
+			ImGui::PopStyleVar(3);
 
-			ImGuiID dockspace_id = ImGui::GetID("DockSpace");
-			ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_PassthruCentralNode);
+			ImGuiDockNodeFlags dockspaceFlags = ImGuiDockNodeFlags_NoTabBar;
+			ImGuiID dockspaceID = ImGui::GetID("MyDockSpace");
+			ImGui::DockSpace(dockspaceID, ImVec2(0.0f, 0.0f), dockspaceFlags);
+
+			static bool firstTime = true;
+			if (firstTime) {
+				firstTime = false;
+
+				ImGui::DockBuilderRemoveNode(dockspaceID);
+				ImGui::DockBuilderAddNode(dockspaceID, ImGuiDockNodeFlags_None);
+
+				ImGuiID dock_main_id = dockspaceID;
+				dock_left_id = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Left, 0.85f, nullptr, &dock_main_id);
+				dock_right_id = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Right, 0.15f, nullptr, &dock_main_id);
+
+				ImGui::DockBuilderDockWindow("Viewport", dock_left_id);
+				ImGui::DockBuilderDockWindow("Dear ImGui Demo", dock_right_id);
+				// ImGui::DockBuilderDockWindow("Settings", dock_right_id);
+
+				// Disable tab bar for custom toolbar
+				// ImGuiDockNode* node = ImGui::DockBuilderGetNode(dock_right_id);
+				// node->LocalFlags |= ImGuiDockNodeFlags_NoTabBar;
+
+				ImGui::DockBuilderFinish(dockspaceID);
+			}
 
 			ImGui::End();
 		}
@@ -145,25 +181,38 @@ namespace Aspen {
 			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0)); // Disable window padding
 			ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);         // Disable window border
 
-			const bool use_work_area = true;
-			const ImGuiViewport* viewport = ImGui::GetMainViewport();
-			ImGui::SetNextWindowPos(use_work_area ? viewport->WorkPos : viewport->Pos);
-			ImGui::SetNextWindowSize(use_work_area ? viewport->WorkSize : viewport->Size);
-			// ImGui::SetNextWindowViewport(viewport->ID);
-
-			ImGui::Begin("Scene",
+			ImGui::SetNextWindowDockID(dock_left_id, ImGuiCond_Once);
+			ImGui::Begin("Viewport",
 			             nullptr,
-			             ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoNavFocus |
-			                 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoNav);
+			             ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoMove |
+			                 ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoNav);
 
 			ImGui::PopStyleVar(2);
+			ImVec2 viewportOffset = ImGui::GetCursorPos();
 
-			// std::cout << viewport->WorkSize.x << ", " << viewport->WorkSize.y << std::endl;
-			// std::cout << ImGui::GetContentRegionAvail().x << ", " << ImGui::GetContentRegionAvail().y << std::endl;
+			bool sceneHovered = ImGui::IsWindowHovered();
 
-			ImGui::Image((ImTextureID)viewportTexture, ImVec2((float)aspenRenderer.getSwapChainExtent().width, (float)aspenRenderer.getSwapChainExtent().height));
+			ImVec2 scenePanelSize = ImGui::GetContentRegionAvail();
+			viewportSize = {scenePanelSize.x, scenePanelSize.y};
 
-			if (cube && gizmoType != -1) {
+			ImGui::Image((ImTextureID)viewportTexture,
+			             ImVec2(static_cast<float>(renderer.getSwapChainExtent().width), static_cast<float>(renderer.getSwapChainExtent().height)));
+
+			ImVec2 windowSize = ImGui::GetWindowSize();
+			ImVec2 minBounds = ImGui::GetWindowPos();
+			minBounds.x += viewportOffset.x;
+			minBounds.y += viewportOffset.y;
+
+			ImVec2 maxBound = {minBounds.x + windowSize.x, minBounds.y + windowSize.y};
+			viewportBounds[0] = {minBounds.x, minBounds.y};
+			viewportBounds[1] = {maxBound.x, maxBound.y};
+
+			viewportSize = viewportBounds[1] - viewportBounds[0];
+
+			// std::cout << "Min Bounds: " << viewportBounds[0].x << ", " << viewportBounds[0].y << std::endl;
+			// std::cout << "Max Bounds: " << viewportBounds[1].x << ", " << viewportBounds[1].y << std::endl;
+
+			if (object && gizmoType != -1) {
 				ImGuizmo::SetOrthographic(false);
 				ImGuizmo::SetDrawlist();
 
@@ -180,7 +229,7 @@ namespace Aspen {
 				cameraProjection[1][1] *= -1;
 
 				// Get entity's transform component
-				auto& cubeTranform = cube.getComponent<TransformComponent>().transform();
+				auto& objectTranform = object.getComponent<TransformComponent>().transform();
 
 				// Snapping
 				float snapValue = 0.5f; // Snap to 0.5m for translation/scale.
@@ -197,29 +246,40 @@ namespace Aspen {
 				                     glm::value_ptr(cameraProjection),
 				                     static_cast<ImGuizmo::OPERATION>(gizmoType),
 				                     ImGuizmo::LOCAL,
-				                     glm::value_ptr(cubeTranform),
+				                     glm::value_ptr(objectTranform),
 				                     nullptr,
 				                     snapping ? snapValues : nullptr);
 
 				if (ImGuizmo::IsUsing()) {
-					auto& cubeComponent = cube.getComponent<TransformComponent>();
+					auto& objectComponent = object.getComponent<TransformComponent>();
 
 					// Decompose the transformation matrix into translation, rotation, and scale.
 					glm::vec3 translation, rotation, scale;
-					Math::decomposeTransform(cubeTranform, translation, rotation, scale);
-
-					// Fix gimbal lock but adding a delta change in rotation.
-					glm::vec3 deltaRotation = rotation - cubeComponent.rotation;
+					Math::decomposeTransform(objectTranform, translation, rotation, scale);
 
 					// Apply the new transformation values.
-					cubeComponent.translation = translation;
-					cubeComponent.rotation += deltaRotation;
-					cubeComponent.scale = scale;
+					objectComponent.translation = translation;
+					objectComponent.rotation = glm::normalize(glm::quat(rotation));
+					objectComponent.scale = scale;
 				}
 			}
 			ImGui::End();
 		}
 
+		ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoMove |
+		                                ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoNav;
+		ImGuiWindowFlags window_flags2 = ImGuiWindowFlags_MenuBar;
+
+		ImGui::SetNextWindowDockID(dock_right_id, ImGuiCond_Once);
+		ImGui::SetNextWindowBgAlpha(0.35f); // Transparent background
+		// ImGui::Begin("Settings", nullptr, window_flags);
+		// ImGuiIO& io = ImGui::GetIO();
+		// ImGui::Text("Performance Metrics");
+		// ImGui::Separator();
+
+		// ImGui::Text("Average over 120 frames: %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+		// ImGui::Text("%d vertices, %d indices (%d triangles)", io.MetricsRenderVertices, io.MetricsRenderIndices,
+		// io.MetricsRenderIndices / 3); ImGui::End();
 		ImGui::ShowDemoWindow();
 
 		// Performance Metrics Window
@@ -228,8 +288,8 @@ namespace Aspen {
 			static bool p_open = true;
 
 			ImGuiIO& io = ImGui::GetIO();
-			ImGuiWindowFlags window_flags =
-			    ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
+			ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings |
+			                                ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
 
 			if (corner != -1) {
 				const float PAD = 10.0f;
@@ -285,10 +345,12 @@ namespace Aspen {
 		dispatcher.Dispatch<WindowCloseEvent>(BIND_EVENT_FN(Application::OnWindowClose));
 		dispatcher.Dispatch<WindowResizeEvent>(BIND_EVENT_FN(Application::OnWindowResize));
 
+		// cameraController.OnEvent(e);
+
 		if (e.GetEventType() == EventType::KeyPressed) {
-			KeyPressedEvent& keyEvent = dynamic_cast<KeyPressedEvent&>(e);
+			auto& keyEvent = dynamic_cast<KeyPressedEvent&>(e);
+			// Gizmo Shorcuts
 			switch (keyEvent.GetKeyCode()) {
-				// Gizmo Shorcuts
 				case Key::Q:
 					gizmoType = -1;
 					break;
@@ -306,7 +368,7 @@ namespace Aspen {
 					break;
 			}
 		} else if (e.GetEventType() == EventType::KeyReleased) {
-			KeyReleasedEvent& keyEvent = dynamic_cast<KeyReleasedEvent&>(e);
+			auto& keyEvent = dynamic_cast<KeyReleasedEvent&>(e);
 			switch (keyEvent.GetKeyCode()) {
 				// Gizmo Shorcuts
 				case Key::LeftControl:
@@ -323,36 +385,39 @@ namespace Aspen {
 	}
 
 	bool Application::OnWindowResize(WindowResizeEvent& e) {
-		aspenWindow.resetWindowResizedFlag();
-		aspenRenderer.recreateSwapChain();
+		window.resetWindowResizedFlag();
+		renderer.recreateSwapChain();
 		simpleRenderSystem.onResize();
 
-		AspenSwapChain::OffscreenPass offscreenPass = aspenRenderer.getOffscreenPass();
-		viewportTexture = ImGui_ImplVulkan_UpdateTexture(viewportTexture, offscreenPass.sampler, offscreenPass.color.view, offscreenPass.descriptor.imageLayout);
+		SwapChain::OffscreenPass offscreenPass = renderer.getOffscreenPass();
+		viewportTexture =
+		    ImGui_ImplVulkan_UpdateTexture(viewportTexture, offscreenPass.sampler, offscreenPass.color.view, offscreenPass.descriptor.imageLayout);
 
 		// createPipeline(); // Right now this is not required as the new render pass will be compatible with the old one but is put here for future proofing.
 
 		// The perspective must be recalculated as the aspect ratio might have changed.
-		float aspect = aspenRenderer.getAspectRatio();
+		float aspect = renderer.getAspectRatio();
+		std::cout << aspect << std::endl;
 
-		AspenCamera& camera = cameraEntity.getComponent<CameraComponent>().camera;
+		Camera& camera = cameraEntity.getComponent<CameraComponent>().camera;
 		camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 10.0f);
 
-		// if (auto* commandBuffer = aspenRenderer.beginFrame()) {
-		// 	aspenRenderer.beginRenderPass(commandBuffer);
+		// if (auto* commandBuffer = renderer.beginFrame()) {
+		// 	renderer.beginRenderPass(commandBuffer);
 
 		// 	simpleRenderSystem.renderGameObjects(commandBuffer, m_Scene, camera);
 
 		// 	renderUI(commandBuffer, camera);
 
-		// 	aspenRenderer.endRenderPass(commandBuffer);
-		// 	aspenRenderer.endFrame();
+		// 	renderer.endRenderPass(commandBuffer);
+		// 	renderer.endFrame();
 		// }
+
 		return true;
 	}
 
 	// Temporary helper function, creates a 1x1x1 cube centered at offset
-	void createCubeModel(AspenDevice& device, Buffer& bufferManager, glm::vec3 offset, MeshComponent& meshComponent) {
+	void createCubeModel(Device& device, Buffer& bufferManager, glm::vec3 offset, MeshComponent& meshComponent) {
 		meshComponent.vertices = {
 
 		    // Left face (white)
@@ -399,16 +464,50 @@ namespace Aspen {
 			v.position += offset;
 		}
 
-		bufferManager.makeBuffer(meshComponent.vertices, meshComponent.indices, meshComponent.vertexMemory);
+		bufferManager.makeBuffer(device, meshComponent);
+	}
+
+	// Temporary helper function, creates a quad.
+	void createFloorModel(Device& device, Buffer& bufferManager, glm::vec3 offset, MeshComponent& meshComponent) {
+		meshComponent.vertices = {
+
+		    // Top face (orange, remember y axis points down)
+		    {{-.5f, .0f, -.5f}, {.9f, .6f, .1f}},
+		    {{.5f, .0f, .5f}, {.9f, .6f, .1f}},
+		    {{-.5f, .0f, .5f}, {.9f, .6f, .1f}},
+		    {{.5f, .0f, -.5f}, {.9f, .6f, .1f}},
+
+		};
+
+		meshComponent.indices = {0, 1, 2, 0, 3, 1};
+
+		for (auto& v : meshComponent.vertices) {
+			v.position += offset;
+		}
+
+		bufferManager.makeBuffer(device, meshComponent);
 	}
 
 	void Application::loadGameObjects() {
-		cube = m_Scene->createEntity("Cube");
-		auto& cubeTransform = cube.getComponent<TransformComponent>();
-		cubeTransform.translation = {0.0f, 0.0f, 2.5f};
-		cubeTransform.scale = {0.5f, 0.5f, 0.5f};
+		floor = m_Scene->createEntity("Floor");
+		auto& floorTransform = floor.getComponent<TransformComponent>();
+		floorTransform.translation = {0.0f, 0.0f, 2.5f};
+		floorTransform.scale = {2.0f, 2.0f, 2.0f};
 
-		auto& cubeMesh = cube.addComponent<MeshComponent>();
-		createCubeModel(aspenDevice, bufferManager, {0.0f, 0.0f, 0.0f}, cubeMesh); // Converts the unique pointer returned from the function to a shared pointer.
+		auto& floorMesh = floor.addComponent<MeshComponent>();
+		createFloorModel(device,
+		                 bufferManager,
+		                 {0.0f, 0.0f, 0.0f},
+		                 floorMesh); // Converts the unique pointer returned from the function to a shared pointer.
+
+		object = m_Scene->createEntity("Vase");
+		auto& objectTransform = object.getComponent<TransformComponent>();
+		objectTransform.translation = {0.0f, 0.0f, 2.5f};
+		// objectTransform.scale = glm::vec3(3.0f); // Uniform scaling
+		objectTransform.scale = {3.0f, 1.0f, 3.0f}; // Non-Uniform scaling
+
+		auto& objectMesh = object.addComponent<MeshComponent>();
+		Buffer::createModelFromFile(device, objectMesh, "assets/models/flat_vase.obj");
+		std::cout << "Vertex Count: " << objectMesh.vertices.size() << std::endl;
 	}
 } // namespace Aspen

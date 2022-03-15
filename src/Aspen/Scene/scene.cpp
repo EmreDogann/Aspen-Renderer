@@ -2,7 +2,8 @@
 #include "entity.hpp"
 
 namespace Aspen {
-	Scene::Scene(AspenDevice& device) : device(device) {
+	Scene::Scene(Device& device)
+	    : device(device) {
 		// auto entity = createEntity();
 
 		// m_Registry.emplace<TransformComponent>(entity);
@@ -18,12 +19,12 @@ namespace Aspen {
 		for (auto entity : view) {
 			MeshComponent& mesh = view.get<MeshComponent>(entity);
 			// Clean up vertex buffer.
-			vkDestroyBuffer(device.device(), mesh.vertexMemory.vertexBuffer, nullptr);
-			vkFreeMemory(device.device(), mesh.vertexMemory.vertexBufferMemory, nullptr);
+			vkDestroyBuffer(device.device(), mesh.meshMemory.vertexBuffer, nullptr);
+			vkFreeMemory(device.device(), mesh.meshMemory.vertexBufferMemory, nullptr);
 
 			// Clean up index buffer.
-			vkDestroyBuffer(device.device(), mesh.vertexMemory.indexBuffer, nullptr);
-			vkFreeMemory(device.device(), mesh.vertexMemory.indexBufferMemory, nullptr);
+			vkDestroyBuffer(device.device(), mesh.meshMemory.indexBuffer, nullptr);
+			vkFreeMemory(device.device(), mesh.meshMemory.indexBufferMemory, nullptr);
 		}
 	}
 
@@ -38,7 +39,7 @@ namespace Aspen {
 	}
 
 	void Scene::OnUpdate() {
-		AspenCamera* mainCamera = nullptr;
+		Camera* mainCamera = nullptr;
 
 		// Find the main camera in the scene.
 		auto view = m_Registry.view<TransformComponent, CameraComponent>();

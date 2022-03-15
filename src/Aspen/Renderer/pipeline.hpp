@@ -31,16 +31,16 @@ namespace Aspen {
 		~PipelineConfigInfo() = default;
 	};
 
-	class AspenPipeline {
+	class Pipeline {
 	public:
-		AspenPipeline(AspenDevice& device, const std::string& vertFilepath, const std::string& fragFilepath);
-		~AspenPipeline();
+		Pipeline(Device& device, const std::string& vertFilepath, const std::string& fragFilepath);
+		~Pipeline();
 
-		AspenPipeline(const AspenPipeline&) = delete;
-		AspenPipeline& operator=(const AspenPipeline&) = delete;
+		Pipeline(const Pipeline&) = delete;
+		Pipeline& operator=(const Pipeline&) = delete;
 
-		AspenPipeline(AspenPipeline&&) = delete;            // Move Constructor
-		AspenPipeline& operator=(AspenPipeline&&) = delete; // Move Assignment Operator
+		Pipeline(Pipeline&&) = delete;            // Move Constructor
+		Pipeline& operator=(Pipeline&&) = delete; // Move Assignment Operator
 
 		void bind(VkCommandBuffer commandBuffer, VkPipeline& pipeline);
 		static void defaultPipelineConfigInfo(PipelineConfigInfo& configInfo);
@@ -59,7 +59,7 @@ namespace Aspen {
 
 		void createShaderModule(const std::vector<char>& code, VkShaderModule* shaderModule);
 
-		AspenDevice& aspenDevice;
+		Device& device;
 		VkPipeline presentGraphicsPipeline{};
 		VkPipeline offscreenGraphicsPipeline{};
 		VkShaderModule vertShaderModule{};

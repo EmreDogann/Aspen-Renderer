@@ -1,4 +1,5 @@
 #pragma once
+#include "pch.h"
 
 // Libs
 #include "vulkan/vulkan_core.h"
@@ -25,7 +26,7 @@ namespace Aspen {
 		}
 	};
 
-	class AspenDevice {
+	class Device {
 	public:
 #ifdef NDEBUG
 		const bool enableValidationLayers = false;
@@ -33,14 +34,14 @@ namespace Aspen {
 		const bool enableValidationLayers = true;
 #endif
 
-		explicit AspenDevice(AspenWindow& window);
-		~AspenDevice();
+		explicit Device(Window& window);
+		~Device();
 
 		// Not copyable or movable
-		AspenDevice(const AspenDevice&) = delete;
-		AspenDevice& operator=(const AspenDevice&) = delete;
-		AspenDevice(AspenDevice&&) = delete;
-		AspenDevice& operator=(AspenDevice&&) = delete;
+		Device(const Device&) = delete;
+		Device& operator=(const Device&) = delete;
+		Device(Device&&) = delete;
+		Device& operator=(Device&&) = delete;
 
 		VkCommandPool getGraphicsCommandPool() {
 			return graphicsCommandPool;
@@ -134,7 +135,7 @@ namespace Aspen {
 		VkInstance instance_{};
 		VkDebugUtilsMessengerEXT debugMessenger{};
 		VkPhysicalDevice physicalDevice_ = VK_NULL_HANDLE;
-		AspenWindow& window;
+		Window& window;
 		VkCommandPool graphicsCommandPool{};
 		VkCommandPool transferCommandPool{};
 

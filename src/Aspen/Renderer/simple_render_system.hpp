@@ -17,7 +17,7 @@
 namespace Aspen {
 	class SimpleRenderSystem {
 	public:
-		SimpleRenderSystem(AspenDevice& device, Buffer& bufferManager, AspenRenderer& renderer);
+		SimpleRenderSystem(Device& device, Buffer& bufferManager, Renderer& renderer);
 		~SimpleRenderSystem();
 
 		SimpleRenderSystem(const SimpleRenderSystem&) = delete;
@@ -26,7 +26,7 @@ namespace Aspen {
 		SimpleRenderSystem(SimpleRenderSystem&&) = delete;            // Move Constructor
 		SimpleRenderSystem& operator=(SimpleRenderSystem&&) = delete; // Move Assignment Operator
 
-		void renderGameObjects(VkCommandBuffer commandBuffer, std::shared_ptr<Scene>& scene, const AspenCamera& camera);
+		void renderGameObjects(VkCommandBuffer commandBuffer, std::shared_ptr<Scene>& scene, const Camera& camera);
 		void renderUI(VkCommandBuffer commandBuffer);
 		void onResize();
 
@@ -40,11 +40,11 @@ namespace Aspen {
 		void createDescriptorSet();
 		void createPipelines();
 
-		AspenDevice& aspenDevice;
+		Device& device;
 		Buffer& bufferManager;
-		AspenRenderer& renderer;
+		Renderer& renderer;
 
-		std::unique_ptr<AspenPipeline> aspenPipeline;
+		std::unique_ptr<Pipeline> pipeline;
 		VkPipelineLayout pipelineLayout{};
 
 		VkDescriptorSetLayout descriptorSetLayout{};

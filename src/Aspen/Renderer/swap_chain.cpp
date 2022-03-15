@@ -3,11 +3,11 @@
 
 namespace Aspen {
 
-	AspenSwapChain::AspenSwapChain(AspenDevice& deviceRef, Buffer& bufferManager, VkExtent2D extent) : device{deviceRef}, bufferManager{bufferManager}, windowExtent{extent} {
+	SwapChain::SwapChain(Device& deviceRef, Buffer& bufferManager, VkExtent2D extent) : device{deviceRef}, bufferManager{bufferManager}, windowExtent{extent} {
 		init();
 	}
 
-	AspenSwapChain::AspenSwapChain(AspenDevice& deviceRef, Buffer& bufferManager, VkExtent2D extent, std::shared_ptr<AspenSwapChain> previous)
+	SwapChain::SwapChain(Device& deviceRef, Buffer& bufferManager, VkExtent2D extent, std::shared_ptr<SwapChain> previous)
 	    : device{deviceRef}, bufferManager{bufferManager}, windowExtent{extent}, oldSwapChain{std::move(previous)} {
 		init();
 
@@ -15,7 +15,7 @@ namespace Aspen {
 		oldSwapChain = nullptr;
 	}
 
-	void AspenSwapChain::init() {
+	void SwapChain::init() {
 		createSwapChain();
 		createImageViews();
 		createSamplers();
@@ -25,7 +25,7 @@ namespace Aspen {
 		createSyncObjects();
 	}
 
-	AspenSwapChain::~AspenSwapChain() {
+	SwapChain::~SwapChain() {
 		// Release memory of image views.
 		for (auto* imageView : swapChainImageViews) {
 			vkDestroyImageView(device.device(), imageView, nullptr);
@@ -86,7 +86,7 @@ namespace Aspen {
 	}
 
 	// Get the next available image in the swap chain to use for rendering operations.
-	VkResult AspenSwapChain::acquireNextImage(uint32_t* imageIndex) {
+	VkResult SwapChain::acquireNextImage(uint32_t* imageIndex) {
 		vkWaitForFences(device.device(), 1, &inFlightFences[currentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max());
 
 		VkResult result =
@@ -100,7 +100,7 @@ namespace Aspen {
 		return result;
 	}
 
-	VkResult AspenSwapChain::submitCommandBuffers(const VkCommandBuffer* buffers, const uint32_t* imageIndex) {
+	VkResult SwapChain::submitCommandBuffers(const VkCommandBuffer* buffers, const uint32_t* imageIndex) {
 		// If the current image is in flight, wait for that image's fence to be signaled so we don't send more frames than desired.
 		if (imagesInFlight[*imageIndex] != VK_NULL_HANDLE) {
 			vkWaitForFences(device.device(), 1, &imagesInFlight[*imageIndex], VK_TRUE, UINT64_MAX); // VK_TRUE means it will wait for all fences in the array to be signaled.
@@ -159,7 +159,7 @@ namespace Aspen {
 	}
 
 	// Creates the swap chain.
-	void AspenSwapChain::createSwapChain() {
+	void SwapChain::createSwapChain() {
 		// Get the supoprted swap chain details (format, present modes, extent).
 		SwapChainSupportDetails swapChainSupport = device.getSwapChainSupport();
 
@@ -243,7 +243,7 @@ namespace Aspen {
 	}
 
 	// Create image views for all swap chain images for use as color targets.
-	void AspenSwapChain::createImageViews() {
+	void SwapChain::createImageViews() {
 		swapChainImageViews.resize(swapChainImages.size()); // Resize to the number of swap chain images.
 
 		// Iterate through every swap chain image and create an image view for it.
@@ -313,7 +313,7 @@ namespace Aspen {
 		}
 	}
 
-	void AspenSwapChain::createSamplers() {
+	void SwapChain::createSamplers() {
 		/*
 		    Create sampler for offscreen rendering.
 		*/
@@ -338,7 +338,7 @@ namespace Aspen {
 
 	// Setup the contents of the renderpass and a subpass.
 	// Right now, there is one depth attachment and one color attachment.
-	void AspenSwapChain::createRenderPasses() {
+	void SwapChain::createRenderPasses() {
 		// Main Render Pass
 		{
 			// Define the color attachment.
@@ -506,7 +506,7 @@ namespace Aspen {
 	}
 
 	// Create a framebuffer object for every image in the swap chain.
-	void AspenSwapChain::createFramebuffers() {
+	void SwapChain::createFramebuffers() {
 		swapChainFramebuffers.resize(imageCount());
 		for (size_t i = 0; i < imageCount(); i++) {
 			std::array<VkImageView, 2> attachments = {swapChainImageViews[i], depthImageViews[i]};
@@ -553,7 +553,7 @@ namespace Aspen {
 		offscreenPass.descriptor.sampler = offscreenPass.sampler;
 	}
 
-	void AspenSwapChain::createDepthResources() {
+	void SwapChain::createDepthResources() {
 		VkFormat depthFormat = findDepthFormat();
 		swapChainDepthFormat = depthFormat;
 		VkExtent2D swapChainExtent = getSwapChainExtent();
@@ -635,7 +635,7 @@ namespace Aspen {
 	}
 
 	// Create semaphores and fences for every frame.
-	void AspenSwapChain::createSyncObjects() {
+	void SwapChain::createSyncObjects() {
 		imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
 		renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
 		inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
@@ -658,7 +658,7 @@ namespace Aspen {
 	}
 
 	// Select a swap surface with the desired format and color space.
-	VkSurfaceFormatKHR AspenSwapChain::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
+	VkSurfaceFormatKHR SwapChain::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
 		// Find a swap surface format which is SRGB and supports the SRGB color space.
 		for (const auto& availableFormat : availableFormats) {
 			if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
@@ -676,7 +676,7 @@ namespace Aspen {
 	// 2. VK_PRESENT_MODE_IMMEDIATE_KHR
 	// 3. VK_PRESENT_MODE_FIFO_KHR - This present mode is always guarenteed to be
 	// available so is the safe pick.
-	VkPresentModeKHR AspenSwapChain::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes) {
+	VkPresentModeKHR SwapChain::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes) {
 		for (const auto& availablePresentMode : availablePresentModes) {
 			if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
 				std::cout << "Present mode: Mailbox" << std::endl;
@@ -698,7 +698,7 @@ namespace Aspen {
 	// Select the pixel resolution of the swap chain images.
 	// Some high DPI displays (such as Apple's retina displays) do not have a 1:1
 	// between screen coordinates and pixels so pixel resolutions must be used.
-	VkExtent2D AspenSwapChain::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) {
+	VkExtent2D SwapChain::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) {
 		// Some window managers allow us to set a range of resolution for the swap
 		// chain images. This is indicated by the window manage setting the
 		// currentExtent width and height to the max value of uint32_t.
@@ -718,7 +718,7 @@ namespace Aspen {
 		}
 	}
 
-	VkFormat AspenSwapChain::findDepthFormat() {
+	VkFormat SwapChain::findDepthFormat() {
 		return device.findSupportedFormat({VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT}, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 	}
 

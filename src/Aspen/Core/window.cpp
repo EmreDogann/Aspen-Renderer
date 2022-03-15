@@ -1,21 +1,21 @@
 #include "Aspen/Core/window.hpp"
-#include <string>
 
 namespace Aspen {
 	static void GLFWErrorCallback(int error, const char* description) {
 		throw std::runtime_error(std::string("GLFW Error (") + std::to_string(error) + std::string("): ") + description);
 	}
 
-	AspenWindow::AspenWindow(int width, int height, std::string name) : windowProps(width, height, std::move(name)) {
+	Window::Window(int width, int height, std::string name)
+	    : windowProps(width, height, std::move(name)) {
 		initWindow();
 	}
 
-	AspenWindow::~AspenWindow() {
+	Window::~Window() {
 		glfwDestroyWindow(window);
 		glfwTerminate();
 	}
 
-	void AspenWindow::initWindow() {
+	void Window::initWindow() {
 		glfwInit();
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); // Prevent GLFW from creating an OpenGL context.
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);    // Prevent GLFW from making the window resizeable.
@@ -92,6 +92,8 @@ namespace Aspen {
 
 			MouseScrolledEvent event(static_cast<float>(xOffset), static_cast<float>(yOffset));
 			windowProps.eventCallback(event);
+
+			Input::UpdateMouseScroll(xOffset, yOffset);
 		});
 
 		glfwSetCursorPosCallback(window, [](GLFWwindow* window, double xOffset, double yOffset) {
@@ -102,7 +104,7 @@ namespace Aspen {
 		});
 	}
 
-	void AspenWindow::createWindowSurface(VkInstance instance, VkSurfaceKHR* surface) {
+	void Window::createWindowSurface(VkInstance instance, VkSurfaceKHR* surface) {
 		if (glfwCreateWindowSurface(instance, window, nullptr, surface) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create window surface!");
 		}

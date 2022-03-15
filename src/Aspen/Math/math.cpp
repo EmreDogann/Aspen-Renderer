@@ -42,9 +42,16 @@ namespace Aspen::Math {
 		scale.x = length(Row[0]); // v3Length(Row[0]);
 		Row[0] = detail::scale(Row[0], static_cast<T>(1));
 
+		//	Make 2nd row orthogonal to 1st.
+		Row[1] = detail::combine(Row[1], Row[0], static_cast<T>(1), -dot(Row[0], Row[1]));
+
 		// Now, compute Y scale and normalize 2nd row.
 		scale.y = length(Row[1]);
 		Row[1] = detail::scale(Row[1], static_cast<T>(1));
+
+		// Orthogonalize 3rd row.
+		Row[2] = detail::combine(Row[2], Row[0], static_cast<T>(1), -dot(Row[0], Row[2]));
+		Row[2] = detail::combine(Row[2], Row[1], static_cast<T>(1), -dot(Row[1], Row[2]));
 
 		// Next, get Z scale and normalize 3rd row.
 		scale.z = length(Row[2]);
@@ -53,6 +60,7 @@ namespace Aspen::Math {
 		// At this point, the matrix (in rows[]) is orthonormal.
 		// Check for a coordinate system flip.  If the determinant
 		// is -1, then negate the matrix and the scaling factors.
+#if 0
 		Pdum3 = cross(Row[1], Row[2]); // v3Cross(row[1], row[2], Pdum3);
 		if (dot(Row[0], Pdum3) < 0) {
 			for (length_t i = 0; i < 3; i++) {
@@ -60,6 +68,7 @@ namespace Aspen::Math {
 				Row[i] *= static_cast<T>(-1);
 			}
 		}
+#endif
 
 		// Now, get the rotations out, as described in the gem.
 

@@ -1,64 +1,74 @@
-#include "Aspen/Scene/camera_controller.hpp"
+// #include "Aspen/Scene/camera_controller.hpp"
+// #include "Aspen/Core/input.hpp"
+// #include <iostream>
 
-namespace Aspen {
-	void CameraController::moveInPlaneXZ(GLFWwindow* window, float dt, TransformComponent& transform) {
-		glm::vec3 rotate{0};
-		if (glfwGetKey(window, keys.lookRight) == GLFW_PRESS) {
-			rotate.y += 1.0f;
-		}
-		if (glfwGetKey(window, keys.lookLeft) == GLFW_PRESS) {
-			rotate.y -= 1.0f;
-		}
+// namespace Aspen {
+// 	void CameraController::OnUpdate(TransformComponent& transform, float timeStep, glm::vec2 viewportSize) {
+// 		if (Input::IsKeyPressed(Key::LeftAlt)) {
+// 			const glm::vec2& mouse{Input::GetMouseX(), Input::GetMouseY()};
+// 			glm::vec2 deltaAngle = glm::vec2{2 * glm::pi<float>() / viewportSize.x, glm::pi<float>() / viewportSize.y};
+// 			glm::vec2 delta = (mouse - lastMousePosition) * mouseSensitivity;
+// 			lastMousePosition = mouse;
 
-		if (glfwGetKey(window, keys.lookUp) == GLFW_PRESS) {
-			rotate.x += 1.0f;
-		}
-		if (glfwGetKey(window, keys.lookDown) == GLFW_PRESS) {
-			rotate.x -= 1.0f;
-		}
+// 			if (Input::IsMouseButtonPressed(Mouse::ButtonMiddle)) {
+// 				mousePan(delta * deltaAngle);
+// 			} else if (Input::IsMouseButtonPressed(Mouse::ButtonLeft)) {
+// 				mouseOrbit(delta * deltaAngle);
+// 			} else if (Input::IsMouseButtonPressed(Mouse::ButtonRight)) {
+// 				mouseZoom(delta.y);
+// 			}
+// 		}
+// 		// updateTransform();
+// 		glm::vec3 offset = glm::rotate(transform.rotation, glm::vec3(0.0f, 0.0f, 1.0f)) * distance;
+// 		transform.translation = focalPoint - offset;
+// 	}
 
-		// Check that rotate is non-zero.
-		// Epsilon is the smallest possible value of a float (but not zero). By comparing, to epsilon instead of 0, we can account for minor rounding errors with floating point numbers.
-		if (glm::dot(rotate, rotate) > glm::epsilon<float>()) {
-			// The rotate object is normalized so that the object doesn't rotate faster diagonally than in just the horizontal or vertical direction.
-			transform.rotation += lookSpeed * dt * glm::normalize(rotate);
-		}
+// 	void CameraController::OnEvent(Event& e) {
+// 		EventDispatcher dispatcher(e);
+// 		dispatcher.Dispatch<MouseScrolledEvent>(BIND_EVENT_FN(CameraController::OnMouseScroll));
+// 	}
 
-		transform.rotation.x = glm::clamp(transform.rotation.x, -1.5f, 1.5f);        // Limit pitch values between roughly +/- 85ish degrees.
-		transform.rotation.y = glm::mod(transform.rotation.y, glm::two_pi<float>()); // Prevent yaw from going over 360 degrees.
+// 	bool CameraController::OnMouseScroll(MouseScrolledEvent& e) {
+// 		float delta = e.GetYOffset() * 0.1f;
+// 		mouseZoom(delta);
+// 		updateTransform();
+// 		return false;
+// 	}
 
-		float pitch = transform.rotation.x;
-		float yaw = transform.rotation.y;
-		const glm::vec3 forwardDir{sin(yaw), -sin(pitch), cos(yaw)};
-		const glm::vec3 rightDir{forwardDir.z, 0.0f, -forwardDir.x};
-		const glm::vec3 upDir = glm::cross(forwardDir, rightDir);
+// 	void CameraController::mousePan(const glm::vec2& mouseDelta) {
+// 		focalPoint += glm::rotate(cameraTransform->rotation, glm::vec3(1.0f, 0.0f, 0.0f)) * mouseDelta.x * distance;
+// 		focalPoint += glm::rotate(cameraTransform->rotation, glm::vec3(0.0f, 1.0f, 0.0f)) * mouseDelta.y * distance;
+// 		std::cout << focalPoint.x << ", " << focalPoint.y << ", " << focalPoint.z << std::endl;
+// 	}
 
-		glm::vec3 moveDir{0};
+// 	void CameraController::mouseOrbit(const glm::vec2& mouseDelta) {
+// 		const glm::vec3 rightDir{glm::rotate(cameraTransform->rotation, glm::vec3(1.0f, 0.0f, 0.0f))};
 
-		if (glfwGetKey(window, keys.moveForward) == GLFW_PRESS) {
-			moveDir += forwardDir;
-		}
-		if (glfwGetKey(window, keys.moveBackward) == GLFW_PRESS) {
-			moveDir -= forwardDir;
-		}
+// 		glm::vec2 rotate = orbitSpeed * mouseDelta;
+// 		glm::quat pitch = glm::angleAxis(glm::radians(rotate.y), rightDir);
+// 		glm::quat yaw = glm::angleAxis(glm::radians(-rotate.x), glm::vec3(0.0f, 1.0f, 0.0f));
+// 		cameraTransform->rotation = glm::normalize(pitch * yaw * cameraTransform->rotation);
+// 	}
 
-		if (glfwGetKey(window, keys.moveRight) == GLFW_PRESS) {
-			moveDir += rightDir;
-		}
-		if (glfwGetKey(window, keys.moveLeft) == GLFW_PRESS) {
-			moveDir -= rightDir;
-		}
+// 	void CameraController::mouseLook(const glm::vec2& mouseDelta) {
+// 		const glm::vec3 rightDir{glm::rotate(cameraTransform->rotation, glm::vec3(1.0f, 0.0f, 0.0f))};
 
-		if (glfwGetKey(window, keys.moveUp) == GLFW_PRESS) {
-			moveDir += upDir;
-		}
-		if (glfwGetKey(window, keys.moveDown) == GLFW_PRESS) {
-			moveDir -= upDir;
-		}
+// 		// The rotate object is normalized so that the object doesn't rotate faster diagonally than in just the horizontal or vertical direction.
+// 		glm::vec2 rotate = orbitSpeed * glm::normalize(mouseDelta);
+// 		glm::quat pitch = glm::angleAxis(glm::radians(rotate.y), rightDir);
+// 		glm::quat yaw = glm::angleAxis(glm::radians(rotate.x), glm::vec3(0.0f, 1.0f, 0.0f));
+// 		cameraTransform->rotation = glm::normalize(pitch * yaw * cameraTransform->rotation);
+// 		// transform.rotation += glm::quat(lookSpeed * dt * glm::normalize(rotate));
+// 	}
+// 	void CameraController::mouseZoom(const float mouseDelta) {
+// 		const glm::vec3 forwardDir{glm::rotate(cameraTransform->rotation, glm::vec3(0.0f, 0.0f, 1.0f))};
 
-		if (glm::dot(moveDir, moveDir) > glm::epsilon<float>()) {
-			// The rotate object is normalized so that the object doesn't rotate faster diagonally than in just the horizontal or vertical direction.
-			transform.translation += moveSpeed * dt * glm::normalize(moveDir);
-		}
-	}
-} // namespace Aspen
+// 		distance -= mouseDelta * zoomSpeed;
+// 		if (distance < 1.0f) {
+// 			// focalPoint += forwardDir;
+// 			distance = 1.0f;
+// 		}
+
+// 		std::cout << "Distance: " << distance << std::endl;
+// 	}
+// } // namespace Aspen

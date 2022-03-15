@@ -35,7 +35,7 @@ namespace Aspen {
 
 	// 1. Initialize Vulkan and picking a physical device.
 	// 2. Setup validation layers that will help us with debugging our Vulkan code.
-	AspenDevice::AspenDevice(AspenWindow& window) : window{window} {
+	Device::Device(Window& window) : window{window} {
 		// Create Vulkan Instance.
 		createInstance();
 
@@ -71,7 +71,7 @@ namespace Aspen {
 		// vkMapMemory(device_, stagingBufferMemory, 0, stagingBufferSize, 0, nullptr);
 	}
 
-	AspenDevice::~AspenDevice() {
+	Device::~Device() {
 		vkDestroySemaphore(device_, transferSemaphore_, nullptr);
 
 		vkDestroyCommandPool(device_, graphicsCommandPool, nullptr);
@@ -92,7 +92,7 @@ namespace Aspen {
 
 	// This is setting up the application runtime's connection with the Vulkan runtime.
 	// Essentially, this is what allows our CPU to communicate with the GPU.
-	void AspenDevice::createInstance() {
+	void Device::createInstance() {
 		// Chech all validation layers that are requested are available.
 		if (enableValidationLayers && !checkValidationLayerSupport()) {
 			throw std::runtime_error("Validation layers requested, but not available!");
@@ -101,7 +101,7 @@ namespace Aspen {
 		// Enter information about our application.
 		VkApplicationInfo appInfo = {};
 		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-		appInfo.pApplicationName = "AspenRenderer App";
+		appInfo.pApplicationName = "Renderer App";
 		appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
 		appInfo.pEngineName = "No Engine";
 		appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
@@ -140,7 +140,7 @@ namespace Aspen {
 	}
 
 	// Choose a suitable physical device.
-	void AspenDevice::pickPhysicalDevice() {
+	void Device::pickPhysicalDevice() {
 		uint32_t deviceCount = 0;
 		vkEnumeratePhysicalDevices(instance_, &deviceCount, nullptr); // Get the number of physical devices.
 
@@ -171,7 +171,7 @@ namespace Aspen {
 	}
 
 	// Create a logical device object using the suitable physical device.
-	void AspenDevice::createLogicalDevice() {
+	void Device::createLogicalDevice() {
 		// Get the suuported queue families.
 		QueueFamilyIndices indices = findQueueFamilies(physicalDevice_);
 
@@ -228,7 +228,7 @@ namespace Aspen {
 	}
 
 	// Create the command pool.
-	void AspenDevice::createCommandPool() {
+	void Device::createCommandPool() {
 		QueueFamilyIndices queueFamilyIndices = findPhysicalQueueFamilies();
 
 		// Create the graphics command pool.
@@ -258,7 +258,7 @@ namespace Aspen {
 		}
 	}
 
-	void AspenDevice::createDescriptorPool() {
+	void Device::createDescriptorPool() {
 		VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 8}, {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 6}};
 
 		VkDescriptorPoolCreateInfo poolInfo = {};
@@ -274,7 +274,7 @@ namespace Aspen {
 	}
 
 	// Create semaphores and fences for transfer operations.
-	void AspenDevice::createSyncObjects() {
+	void Device::createSyncObjects() {
 		VkSemaphoreCreateInfo semaphoreInfo = {};
 		semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 		if (vkCreateSemaphore(device_, &semaphoreInfo, nullptr, &transferSemaphore_) != VK_SUCCESS) {
@@ -283,12 +283,12 @@ namespace Aspen {
 	}
 
 	// Create window surface (will call glfw's window surface creation function).
-	void AspenDevice::createSurface() {
+	void Device::createSurface() {
 		window.createWindowSurface(instance_, &surface_);
 	}
 
 	// Check several properties to see if the device is suitable for what we want to use the application for.
-	bool AspenDevice::isDeviceSuitable(VkPhysicalDevice device) {
+	bool Device::isDeviceSuitable(VkPhysicalDevice device) {
 		// Get the types of queues that this device supports.
 		QueueFamilyIndices indices = findQueueFamilies(device);
 
@@ -310,7 +310,7 @@ namespace Aspen {
 	}
 
 	// Set the type of debug messages to display.
-	void AspenDevice::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
+	void Device::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
 		createInfo = {};
 		createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
 		createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
@@ -320,7 +320,7 @@ namespace Aspen {
 	}
 
 	// Create the debug messenger.
-	void AspenDevice::setupDebugMessenger() {
+	void Device::setupDebugMessenger() {
 		if (!enableValidationLayers) {
 			return;
 		}
@@ -332,7 +332,7 @@ namespace Aspen {
 	}
 
 	// Check if all requested validation layers are available.
-	bool AspenDevice::checkValidationLayerSupport() {
+	bool Device::checkValidationLayerSupport() {
 
 		// Grab the currently available layers.
 		uint32_t layerCount = 0;
@@ -362,7 +362,7 @@ namespace Aspen {
 
 	// Get the required extensions for Vulkan to interface with the window system.
 	// Optionally add validation debug layers to the list of extensions to use.
-	std::vector<const char*> AspenDevice::getRequiredExtensions() const {
+	std::vector<const char*> Device::getRequiredExtensions() const {
 		uint32_t glfwExtensionCount = 0;
 		const char** glfwExtensions = nullptr;
 		glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
@@ -377,7 +377,7 @@ namespace Aspen {
 	}
 
 	// Print out the available extensions from GLFW and which ones were required by the application.
-	void AspenDevice::hasGflwRequiredInstanceExtensions() {
+	void Device::hasGflwRequiredInstanceExtensions() {
 		uint32_t extensionCount = 0;
 		vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
 		std::vector<VkExtensionProperties> extensions(extensionCount);
@@ -401,7 +401,7 @@ namespace Aspen {
 	}
 
 	// Get the features that are supported by this physical device.
-	bool AspenDevice::checkDeviceExtensionSupport(VkPhysicalDevice device) {
+	bool Device::checkDeviceExtensionSupport(VkPhysicalDevice device) {
 		uint32_t extensionCount = 0;
 		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
 
@@ -418,7 +418,7 @@ namespace Aspen {
 	}
 
 	// Look for queue families which supports our desired queue flags.
-	QueueFamilyIndices AspenDevice::findQueueFamilies(VkPhysicalDevice device) {
+	QueueFamilyIndices Device::findQueueFamilies(VkPhysicalDevice device) {
 		QueueFamilyIndices indices;
 
 		// Get the number of supported queue families.
@@ -464,7 +464,7 @@ namespace Aspen {
 	// E.g. min/max number of images in swap chain, min/max width and height of images
 	// Surface formats (pixel format, color space, etc.)
 	// Available presentation modes
-	SwapChainSupportDetails AspenDevice::querySwapChainSupport(VkPhysicalDevice device) {
+	SwapChainSupportDetails Device::querySwapChainSupport(VkPhysicalDevice device) {
 		SwapChainSupportDetails details;
 		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface_, &details.capabilities);
 
@@ -490,7 +490,7 @@ namespace Aspen {
 		return details;
 	}
 
-	VkFormat AspenDevice::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
+	VkFormat Device::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
 		for (VkFormat format : candidates) {
 			VkFormatProperties props;
 			vkGetPhysicalDeviceFormatProperties(physicalDevice_, format, &props);
@@ -505,7 +505,7 @@ namespace Aspen {
 	}
 
 	// Find the appropriate memory type based on the requirements of the buffer and our application.
-	uint32_t AspenDevice::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+	uint32_t Device::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
 		VkPhysicalDeviceMemoryProperties memProperties;
 		vkGetPhysicalDeviceMemoryProperties(physicalDevice_, &memProperties); // Get the available types of memory offered by the physical device.
 
@@ -521,7 +521,7 @@ namespace Aspen {
 	}
 
 	// Create arbitrary buffers.
-	void AspenDevice::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
+	void Device::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
 		VkBufferCreateInfo bufferInfo{};
 		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 		bufferInfo.size = size;                             // size of the buffer in bytes.
@@ -554,7 +554,7 @@ namespace Aspen {
 	}
 
 	// Create a temporary command buffer for the purposes of copying from the staging buffer.
-	VkCommandBuffer AspenDevice::beginSingleTimeCommandBuffers() {
+	VkCommandBuffer Device::beginSingleTimeCommandBuffers() {
 		VkCommandBufferAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -574,7 +574,7 @@ namespace Aspen {
 	}
 
 	// End the temporary command buffer recording, submit it to the queue and wait for submission to complete, then free the command buffer.
-	void AspenDevice::endSingleTimeCommandBuffers(VkCommandBuffer commandBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
+	void Device::endSingleTimeCommandBuffers(VkCommandBuffer commandBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
 		// TODO: Synchronize queues and transfer ownership from one queue to another.
 		// VkBufferMemoryBarrier bufferMemoryBarrier{};
 		// bufferMemoryBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
@@ -605,7 +605,7 @@ namespace Aspen {
 	}
 
 	// Copy the contents of the staging buffer to a device local buffer.
-	void AspenDevice::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
+	void Device::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
 		VkCommandBuffer commandBuffer = beginSingleTimeCommandBuffers();
 
 		VkBufferCopy copyRegion{};
@@ -617,7 +617,7 @@ namespace Aspen {
 		endSingleTimeCommandBuffers(commandBuffer, dstBuffer, size);
 	}
 
-	void AspenDevice::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount) {
+	void Device::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount) {
 		VkCommandBuffer commandBuffer = beginSingleTimeCommandBuffers();
 
 		VkBufferImageCopy region{};
@@ -637,7 +637,7 @@ namespace Aspen {
 		endSingleTimeCommandBuffers(commandBuffer);
 	}
 
-	void AspenDevice::createImageWithInfo(const VkImageCreateInfo& imageInfo, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) {
+	void Device::createImageWithInfo(const VkImageCreateInfo& imageInfo, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) {
 		if (vkCreateImage(device_, &imageInfo, nullptr, &image) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create image!");
 		}
@@ -660,7 +660,7 @@ namespace Aspen {
 	}
 
 	// Initialize ImGui and pass in Vulkan handles.
-	void AspenDevice::initImGuiBackend() {
+	void Device::initImGuiBackend() {
 		VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
 		                                    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
 		                                    {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},

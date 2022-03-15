@@ -1,32 +1,21 @@
 #pragma once
+#include "pch.h"
 
 #include "Aspen/Renderer/device.hpp"
+#include "Aspen/Scene/components.hpp"
+#include "Aspen/Utils/utils.hpp"
 
 // Libs & defines
 #define GLM_FORCE_RADIANS           // Ensures that GLM will expect angles to be specified in radians, not degrees.
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE // Tells GLM to expect depth values in the range 0-1 instead of -1 to 1.
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/glm.hpp>
+#include <glm/gtx/hash.hpp>
 
 namespace Aspen {
-	struct VertexMemory {
-		VkBuffer vertexBuffer{};
-		VkDeviceMemory vertexBufferMemory{};
-
-		VkBuffer indexBuffer{};
-		VkDeviceMemory indexBufferMemory{};
-	};
-
 	class Buffer {
 	public:
-		struct Vertex {
-			glm::vec3 position;
-			glm::vec3 color;
-
-			static std::vector<VkVertexInputBindingDescription> getBindingDescriptions();
-			static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions();
-		};
-
-		Buffer(AspenDevice& aspenDevice) : aspenDevice(aspenDevice){};
+		Buffer() = default;
 		~Buffer() = default;
 
 		Buffer(const Buffer&) = delete;
@@ -35,15 +24,17 @@ namespace Aspen {
 		Buffer(const Buffer&&) = delete;
 		Buffer& operator=(const Buffer&&) = delete;
 
-		void makeBuffer(const std::vector<Vertex>& vertices, const std::vector<uint16_t>& indices, VertexMemory& vertexMemory);
+		static void makeBuffer(Device& device, MeshComponent& mesh);
+		static void createModelFromFile(Device& device, MeshComponent& mesh, const std::string& filePath);
 
-		void bind(VkCommandBuffer commandBuffer, VertexMemory& vertexMemory);
-		void draw(VkCommandBuffer commandBuffer, const uint32_t count) const;
+		static void bind(VkCommandBuffer commandBuffer, MeshComponent::MeshMemory& meshMemory);
+		static void draw(VkCommandBuffer commandBuffer, const uint32_t count);
+
+		static std::vector<VkVertexInputBindingDescription> getBindingDescriptions();
+		static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions();
 
 	private:
-		void createVertexBuffers(const std::vector<Vertex>& vertices, VertexMemory& vertexMemory);
-		void createIndexBuffers(const std::vector<uint16_t>& indices, VertexMemory& vertexMemory);
-
-		AspenDevice& aspenDevice;
+		static void createVertexBuffers(Device& device, const std::vector<MeshComponent::Vertex>& vertices, MeshComponent::MeshMemory& meshMemory);
+		static void createIndexBuffers(Device& device, const std::vector<uint32_t>& indices, MeshComponent::MeshMemory& meshMemory);
 	};
 } // namespace Aspen

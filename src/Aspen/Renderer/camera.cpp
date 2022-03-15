@@ -2,7 +2,7 @@
 
 namespace Aspen {
 	// Set projection matrix to be the orthographic projection matrix.
-	void AspenCamera::setOrthographicProjection(float left, float right, float top, float bottom, float near, float far, float aspect) {
+	void Camera::setOrthographicProjection(float left, float right, float top, float bottom, float near, float far, float aspect) {
 		projectionMatrix = glm::mat4{1.0f};
 
 		// Change dimension scaling if height > width or vice versa.
@@ -23,7 +23,7 @@ namespace Aspen {
 	}
 
 	// Set projection matrix to be the perspective projection matrix.
-	void AspenCamera::setPerspectiveProjection(float fovY, float aspect, float near, float far) {
+	void Camera::setPerspectiveProjection(float fovY, float aspect, float near, float far) {
 		assert(glm::abs(aspect - std::numeric_limits<float>::epsilon()) > 0.0f);
 
 		// Change dimension scaling if height > width or vice versa.
@@ -50,7 +50,7 @@ namespace Aspen {
 	// With the view matrix we want to move all objects from world space to the camera's 'local object space'. This is why the translation is negative and the rotation is the inverse.
 
 	// Construct a view matrix which will translate the camera back to the origin, and align it's forward direction with the +z axis.
-	void AspenCamera::setViewDirection(glm::vec3 position, glm::vec3 direction, glm::vec3 up) {
+	void Camera::setViewDirection(glm::vec3 position, glm::vec3 direction, glm::vec3 up) {
 		// Construct an orthonormal basis.
 		// Three vectors of unit length and are all orthogonal (90 degrees) to each other.
 		const glm::vec3 w{glm::normalize(direction)};
@@ -83,45 +83,59 @@ namespace Aspen {
 	}
 
 	// Construct a view matrix which will align the camera to a position in space.
-	void AspenCamera::setViewTarget(glm::vec3 position, glm::vec3 target, glm::vec3 up) {
+	void Camera::setViewTarget(glm::vec3 position, glm::vec3 target, glm::vec3 up) {
 		assert((target - position).length() != 0.0f); // Ensure the direction is non-zero.
 		setViewDirection(position, target - position, up);
 	}
 
 	// Construct a view matrix which will rotate the camera's forward direction with the rotation vector specified.
-	void AspenCamera::setViewYXZ(glm::vec3 position, glm::vec3 rotation) {
-		const float c3 = glm::cos(rotation.z);
-		const float s3 = glm::sin(rotation.z);
-		const float c2 = glm::cos(rotation.x);
-		const float s2 = glm::sin(rotation.x);
-		const float c1 = glm::cos(rotation.y);
-		const float s1 = glm::sin(rotation.y);
+	// void Camera::setViewYXZ(glm::vec3 position, glm::vec3 rotation) {
+	// 	const float c3 = glm::cos(rotation.z);
+	// 	const float s3 = glm::sin(rotation.z);
+	// 	const float c2 = glm::cos(rotation.x);
+	// 	const float s2 = glm::sin(rotation.x);
+	// 	const float c1 = glm::cos(rotation.y);
+	// 	const float s1 = glm::sin(rotation.y);
 
-		const glm::vec3 u{(c1 * c3 + s1 * s2 * s3), (c2 * s3), (c1 * s2 * s3 - c3 * s1)};
-		const glm::vec3 v{(c3 * s1 * s2 - c1 * s3), (c2 * c3), (c1 * c3 * s2 + s1 * s3)};
-		const glm::vec3 w{(c2 * s1), (-s2), (c1 * c2)};
+	// 	const glm::vec3 u{(c1 * c3 + s1 * s2 * s3), (c2 * s3), (c1 * s2 * s3 - c3 * s1)};
+	// 	const glm::vec3 v{(c3 * s1 * s2 - c1 * s3), (c2 * c3), (c1 * c3 * s2 + s1 * s3)};
+	// 	const glm::vec3 w{(c2 * s1), (-s2), (c1 * c2)};
 
-		// Compute the inverse model matrix.
-		viewMatrix = glm::mat4{1.0f};
-		// Rotation Matrix components
-		// Row 1
-		viewMatrix[0][0] = u.x;
-		viewMatrix[1][0] = u.y;
-		viewMatrix[2][0] = u.z;
+	// 	// Compute the inverse model matrix.
+	// 	viewMatrix = glm::mat4{1.0f};
+	// 	// Rotation Matrix components
+	// 	// Row 1
+	// 	viewMatrix[0][0] = u.x;
+	// 	viewMatrix[1][0] = u.y;
+	// 	viewMatrix[2][0] = u.z;
 
-		// Row 2
-		viewMatrix[0][1] = v.x;
-		viewMatrix[1][1] = v.y;
-		viewMatrix[2][1] = v.z;
+	// 	// Row 2
+	// 	viewMatrix[0][1] = v.x;
+	// 	viewMatrix[1][1] = v.y;
+	// 	viewMatrix[2][1] = v.z;
 
-		// Row 3
-		viewMatrix[0][2] = w.x;
-		viewMatrix[1][2] = w.y;
-		viewMatrix[2][2] = w.z;
+	// 	// Row 3
+	// 	viewMatrix[0][2] = w.x;
+	// 	viewMatrix[1][2] = w.y;
+	// 	viewMatrix[2][2] = w.z;
 
-		// Translation matrix components.
-		viewMatrix[3][0] = -glm::dot(u, position); // Row 1
-		viewMatrix[3][1] = -glm::dot(v, position); // Row 2
-		viewMatrix[3][2] = -glm::dot(w, position); // Row 3
+	// 	// Translation matrix components.
+	// 	viewMatrix[3][0] = -glm::dot(u, position); // Row 1
+	// 	viewMatrix[3][1] = -glm::dot(v, position); // Row 2
+	// 	viewMatrix[3][2] = -glm::dot(w, position); // Row 3
+	// }
+
+	// Construct a view matrix which will rotate the camera's forward direction with the rotation vector specified.
+	void Camera::setView(glm::vec3 position, glm::vec3 rotation) {
+		glm::mat4 transformMat{1.0f};
+		transformMat = glm::translate(transformMat, -position);
+		transformMat = glm::rotate(transformMat, 0.0f, rotation);
+		viewMatrix = glm::inverse(transformMat);
+	}
+
+	void Camera::setView(glm::vec3 position, glm::quat rotation) {
+		glm::mat4 transformMat{1.0f};
+		viewMatrix = glm::inverse(glm::translate(transformMat, position) * glm::toMat4(rotation));
+		// viewMatrix = glm::inverse(glm::toMat4(rotation)) * glm::translate(transformMat, -position);
 	}
 } // namespace Aspen

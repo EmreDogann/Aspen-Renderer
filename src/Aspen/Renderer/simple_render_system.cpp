@@ -1,21 +1,21 @@
 #include "Aspen/Renderer/simple_render_system.hpp"
-#include "vulkan/vulkan_core.h"
 
 namespace Aspen {
 	struct SimplePushConstantData {
-		glm::mat4 transform{1.f};
-		alignas(16) glm::vec3 color;
+		glm::mat4 transform{1.0f};
+		glm::mat4 normalMatrix{1.0f};
 	};
 
-	SimpleRenderSystem::SimpleRenderSystem(AspenDevice& device, Buffer& bufferManager, AspenRenderer& renderer) : aspenDevice(device), bufferManager(bufferManager), renderer(renderer) {
+	SimpleRenderSystem::SimpleRenderSystem(Device& device, Buffer& bufferManager, Renderer& renderer)
+	    : device(device), bufferManager(bufferManager), renderer(renderer) {
 		createPipelineLayout();
-		aspenPipeline = std::make_unique<AspenPipeline>(aspenDevice, "assets/shaders/simple_shader.vert.spv", "assets/shaders/simple_shader.frag.spv");
+		pipeline = std::make_unique<Pipeline>(device, "assets/shaders/simple_shader.vert.spv", "assets/shaders/simple_shader.frag.spv");
 		createPipelines();
 	}
 
 	SimpleRenderSystem::~SimpleRenderSystem() {
-		vkDestroyDescriptorSetLayout(aspenDevice.device(), descriptorSetLayout, nullptr);
-		vkDestroyPipelineLayout(aspenDevice.device(), pipelineLayout, nullptr);
+		vkDestroyDescriptorSetLayout(device.device(), descriptorSetLayout, nullptr);
+		vkDestroyPipelineLayout(device.device(), pipelineLayout, nullptr);
 	}
 
 	// Create a Descriptor Set Layout for a Uniform Buffer Object (UBO) & Textures.
@@ -32,7 +32,7 @@ namespace Aspen {
 		layoutInfo.bindingCount = static_cast<uint32_t>(setLayoutBindings.size());
 		layoutInfo.pBindings = setLayoutBindings.data();
 
-		if (vkCreateDescriptorSetLayout(aspenDevice.device(), &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
+		if (vkCreateDescriptorSetLayout(device.device(), &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create descriptor set layout!");
 		}
 	}
@@ -43,14 +43,14 @@ namespace Aspen {
 
 		VkDescriptorSetAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		allocInfo.descriptorPool = aspenDevice.getDescriptorPool();
+		allocInfo.descriptorPool = device.getDescriptorPool();
 		allocInfo.pSetLayouts = offscreenDescriptorSetLayout.data();
 		allocInfo.descriptorSetCount = renderer.getSwapChainImageCount();
 
 		offscreenDescriptorSets.resize(renderer.getSwapChainImageCount());
 
 		// Offscreen
-		if (vkAllocateDescriptorSets(aspenDevice.device(), &allocInfo, offscreenDescriptorSets.data()) != VK_SUCCESS) {
+		if (vkAllocateDescriptorSets(device.device(), &allocInfo, offscreenDescriptorSets.data()) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create offscreen descriptor set!");
 		}
 
@@ -62,7 +62,7 @@ namespace Aspen {
 		offScreenWriteDescriptorSets.descriptorCount = 1;
 		offScreenWriteDescriptorSets.pImageInfo = &renderer.getOffscreenDescriptorInfo();
 
-		vkUpdateDescriptorSets(aspenDevice.device(), 1, &offScreenWriteDescriptorSets, 0, nullptr);
+		vkUpdateDescriptorSets(device.device(), 1, &offScreenWriteDescriptorSets, 0, nullptr);
 	}
 
 	// Create a pipeline layout.
@@ -82,7 +82,7 @@ namespace Aspen {
 		pipelineLayoutInfo.pushConstantRangeCount = 1;
 		pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 
-		if (vkCreatePipelineLayout(aspenDevice.device(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
+		if (vkCreatePipelineLayout(device.device(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create pipeline layout!");
 		}
 	}
@@ -92,14 +92,14 @@ namespace Aspen {
 		assert(pipelineLayout != nullptr && "Cannot create pipeline before pipeline layout!");
 
 		PipelineConfigInfo pipelineConfig{};
-		AspenPipeline::defaultPipelineConfigInfo(pipelineConfig);
+		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
 		pipelineConfig.renderPass = renderer.getPresentRenderPass();
 		pipelineConfig.pipelineLayout = pipelineLayout;
-		aspenPipeline->createGraphicsPipeline(pipelineConfig, aspenPipeline->getPresentPipeline());
+		pipeline->createGraphicsPipeline(pipelineConfig, pipeline->getPresentPipeline());
 
 		// pipelineConfig.rasterizationInfo.cullMode = VK_CULL_MODE_FRONT_BIT;
 		pipelineConfig.renderPass = renderer.getOffscreenRenderPass();
-		aspenPipeline->createGraphicsPipeline(pipelineConfig, aspenPipeline->getOffscreenPipeline());
+		pipeline->createGraphicsPipeline(pipelineConfig, pipeline->getOffscreenPipeline());
 	}
 
 	void SimpleRenderSystem::onResize() {
@@ -111,36 +111,38 @@ namespace Aspen {
 		offScreenWriteDescriptorSets.descriptorCount = 1;
 		offScreenWriteDescriptorSets.pImageInfo = &renderer.getOffscreenDescriptorInfo();
 
-		vkUpdateDescriptorSets(aspenDevice.device(), 1, &offScreenWriteDescriptorSets, 0, nullptr);
+		vkUpdateDescriptorSets(device.device(), 1, &offScreenWriteDescriptorSets, 0, nullptr);
 	}
 
-	void SimpleRenderSystem::renderGameObjects(VkCommandBuffer commandBuffer, std::shared_ptr<Scene>& scene, const AspenCamera& camera) {
+	void SimpleRenderSystem::renderGameObjects(VkCommandBuffer commandBuffer, std::shared_ptr<Scene>& scene, const Camera& camera) {
 		// Bind the graphics pipieline.
 		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &offscreenDescriptorSets[0], 0, nullptr);
-		aspenPipeline->bind(commandBuffer, aspenPipeline->getOffscreenPipeline());
+		pipeline->bind(commandBuffer, pipeline->getOffscreenPipeline());
 
 		// Calculate the projection view transformation matrix.
 		auto projectionView = camera.getProjection() * camera.getView();
 
 		auto group = scene->getRenderComponents();
-		for (auto entity : group) {
+		for (auto& entity : group) {
 			auto [transform, mesh] = group.get<TransformComponent, MeshComponent>(entity);
 			// transform.rotation.y = glm::mod(transform.rotation.y + 0.0001f, glm::two_pi<float>());  // Slowly rotate game objects.
 			// transform.rotation.x = glm::mod(transform.rotation.x + 0.00003f, glm::two_pi<float>()); // Slowly rotate game objects.
 
 			SimplePushConstantData push{};
 			// Projection, View, Model Transformation matrix.
-			push.transform = projectionView * transform.transform();
+			auto modelMatrix = transform.transform();
+			push.transform = projectionView * modelMatrix;
+			push.normalMatrix = transform.computeNormalMatrix();
 
 			vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);
-			bufferManager.bind(commandBuffer, mesh.vertexMemory);
-			bufferManager.draw(commandBuffer, static_cast<uint32_t>(mesh.indices.size()));
+			Aspen::Buffer::bind(commandBuffer, mesh.meshMemory);
+			Aspen::Buffer::draw(commandBuffer, static_cast<uint32_t>(mesh.indices.size()));
 		}
 	}
 
 	void SimpleRenderSystem::renderUI(VkCommandBuffer commandBuffer) {
 		// Bind the graphics pipieline.
-		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &offscreenDescriptorSets[0], 0, nullptr);
-		aspenPipeline->bind(commandBuffer, aspenPipeline->getPresentPipeline());
+		// vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &offscreenDescriptorSets[0], 0, nullptr);
+		pipeline->bind(commandBuffer, pipeline->getPresentPipeline());
 	}
 } // namespace Aspen

@@ -1,6 +1,6 @@
 #pragma once
-#include "pch.h"
 
+#include "Aspen/Renderer/device.hpp"
 #include "Aspen/Scene/components.hpp"
 #include <entt/entt.hpp>
 
@@ -8,7 +8,7 @@ namespace Aspen {
 	class Entity;
 	class Scene {
 	public:
-		Scene(AspenDevice& device);
+		Scene(Device& device);
 		~Scene();
 
 		Entity createEntity(const std::string& name = std::string());
@@ -20,7 +20,7 @@ namespace Aspen {
 
 	private:
 		entt::registry m_Registry;
-		AspenDevice& device;
+		Device& device;
 
 		friend class Entity;
 	};

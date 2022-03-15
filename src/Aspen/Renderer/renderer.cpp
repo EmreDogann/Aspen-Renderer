@@ -2,17 +2,17 @@
 
 namespace Aspen {
 
-	AspenRenderer::AspenRenderer(AspenWindow& window, AspenDevice& device, Buffer& bufferManager) : aspenWindow{window}, aspenDevice{device}, bufferManager{bufferManager} {
+	Renderer::Renderer(Window& window, Device& device, Buffer& bufferManager) : window{window}, device{device}, bufferManager{bufferManager} {
 		recreateSwapChain();
 		createCommandBuffers();
 	}
 
-	AspenRenderer::~AspenRenderer() {
+	Renderer::~Renderer() {
 		freeCommandBuffers();
 	}
 
-	void AspenRenderer::createCommandBuffers() {
-		commandBuffers.resize(AspenSwapChain::MAX_FRAMES_IN_FLIGHT);
+	void Renderer::createCommandBuffers() {
+		commandBuffers.resize(SwapChain::MAX_FRAMES_IN_FLIGHT);
 
 		VkCommandBufferAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -23,38 +23,38 @@ namespace Aspen {
 		// (VK_COMMAND_BUFFER_LEVEL_SECONDARY) cannot be submitted to a queue for
 		// execution. But, it can be called by other command buffers.
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		allocInfo.commandPool = aspenDevice.getGraphicsCommandPool();
+		allocInfo.commandPool = device.getGraphicsCommandPool();
 		allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
 
-		if (vkAllocateCommandBuffers(aspenDevice.device(), &allocInfo, commandBuffers.data()) != VK_SUCCESS) {
+		if (vkAllocateCommandBuffers(device.device(), &allocInfo, commandBuffers.data()) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to allocate command buffers.");
 		}
 	}
 
-	void AspenRenderer::freeCommandBuffers() {
-		vkFreeCommandBuffers(aspenDevice.device(), aspenDevice.getGraphicsCommandPool(), static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
+	void Renderer::freeCommandBuffers() {
+		vkFreeCommandBuffers(device.device(), device.getGraphicsCommandPool(), static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 		commandBuffers.clear();
 	}
 
-	void AspenRenderer::recreateSwapChain() {
-		auto extent = aspenWindow.getExtent();
+	void Renderer::recreateSwapChain() {
+		auto extent = window.getExtent();
 		while (extent.width == 0 || extent.height == 0) { // While the window is minimized...
-			extent = aspenWindow.getExtent();
+			extent = window.getExtent();
 			glfwWaitEvents(); // While one of the windows dimensions is 0 (e.g. during minimization), wait until otherwise.
 		}
 
-		vkDeviceWaitIdle(aspenDevice.device()); // Wait until the current swapchain is no longer being used.
+		vkDeviceWaitIdle(device.device()); // Wait until the current swapchain is no longer being used.
 
-		if (aspenSwapChain == nullptr) {
-			aspenSwapChain = std::make_unique<AspenSwapChain>(aspenDevice, bufferManager, extent); // Create new swapchain with new extents.
+		if (swapChain == nullptr) {
+			swapChain = std::make_unique<SwapChain>(device, bufferManager, extent); // Create new swapchain with new extents.
 		} else {
-			std::shared_ptr<AspenSwapChain> oldSwapChain = std::move(aspenSwapChain);
+			std::shared_ptr<SwapChain> oldSwapChain = std::move(swapChain);
 
 			// Create new swapchain with new extents and pass through the old swap chain if it exists.
-			aspenSwapChain = std::make_unique<AspenSwapChain>(aspenDevice, bufferManager, extent, oldSwapChain);
+			swapChain = std::make_unique<SwapChain>(device, bufferManager, extent, oldSwapChain);
 
 			// Check if the old and new swap chains are compatible.
-			if (!oldSwapChain->compareSwapFormats(*aspenSwapChain)) {
+			if (!oldSwapChain->compareSwapFormats(*swapChain)) {
 				throw std::runtime_error("Swap chain image(or depth) format has changed!");
 			}
 		}
@@ -64,10 +64,10 @@ namespace Aspen {
 	}
 
 	// beginFrame will start recording the current command buffer and check that the current frame buffer is still valid.
-	VkCommandBuffer AspenRenderer::beginFrame() {
+	VkCommandBuffer Renderer::beginFrame() {
 		assert(!isFrameStarted && "Cannot call beginFrame while it is already in progress!");
 
-		auto result = aspenSwapChain->acquireNextImage(&currentImageIndex); // Get the index of the frame buffer to render to next.
+		auto result = swapChain->acquireNextImage(&currentImageIndex); // Get the index of the frame buffer to render to next.
 
 		// Recreate swapchain if window was resized.
 		// VK_ERROR_OUT_OF_DATE_KHR occurs when the surface is no longer compatible with the swapchain (e.g. after window is resized).
@@ -99,7 +99,7 @@ namespace Aspen {
 	}
 
 	// End from will stop recording the current command buffer and submit it to the render queue.
-	void AspenRenderer::endFrame() {
+	void Renderer::endFrame() {
 		assert(isFrameStarted && "Can't call endFrame while frame is not in progress!");
 
 		// Stop command buffer recording.
@@ -112,29 +112,29 @@ namespace Aspen {
 		// Submit command buffer.
 		// Vulkan is going to go off and execute the commands in this command buffer
 		// to output that information to the selected frame buffer.
-		auto result = aspenSwapChain->submitCommandBuffers(&commandBuffer, &currentImageIndex);
+		auto result = swapChain->submitCommandBuffers(&commandBuffer, &currentImageIndex);
 
 		// Check again if window was resized during command buffer recording/submitting and recreate swapchain if so.
-		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || aspenWindow.wasWindowResized()) {
-			aspenWindow.resetWindowResizedFlag();
+		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || window.wasWindowResized()) {
+			window.resetWindowResizedFlag();
 			recreateSwapChain();
 		} else if (result != VK_SUCCESS) {
 			throw std::runtime_error("Failed to present swap chain image.");
 		}
 
 		isFrameStarted = false;
-		currentFrameIndex = (currentFrameIndex + 1) % AspenSwapChain::MAX_FRAMES_IN_FLIGHT; // Increment currentFrameIndex.
+		currentFrameIndex = (currentFrameIndex + 1) % SwapChain::MAX_FRAMES_IN_FLIGHT; // Increment currentFrameIndex.
 	}
 
-	void AspenRenderer::beginPresentRenderPass(VkCommandBuffer commandBuffer) {
-		beginRenderPass(commandBuffer, aspenSwapChain->getFrameBuffer(currentImageIndex), aspenSwapChain->getPresentRenderPass());
+	void Renderer::beginPresentRenderPass(VkCommandBuffer commandBuffer) {
+		beginRenderPass(commandBuffer, swapChain->getFrameBuffer(currentImageIndex), swapChain->getPresentRenderPass());
 	}
-	void AspenRenderer::beginOffscreenRenderPass(VkCommandBuffer commandBuffer) {
-		beginRenderPass(commandBuffer, aspenSwapChain->getOffscreenFrameBuffer(), aspenSwapChain->getOffscreenRenderPass());
+	void Renderer::beginOffscreenRenderPass(VkCommandBuffer commandBuffer) {
+		beginRenderPass(commandBuffer, swapChain->getOffscreenFrameBuffer(), swapChain->getOffscreenRenderPass());
 	}
 
 	// beginSwapChainRenderPass will start the render pass in order to then record commands to it.
-	void AspenRenderer::beginRenderPass(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, VkRenderPass renderPass) {
+	void Renderer::beginRenderPass(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, VkRenderPass renderPass) {
 		assert(isFrameStarted && "Can't call beginRenderPass if frame is not in progress!");
 		assert(commandBuffer == getCurrentCommandBuffer() && "Cannot begin render pass on command buffer from a different frame.");
 
@@ -149,7 +149,7 @@ namespace Aspen {
 		// Here we specify the swap chain extent and not the window extent because for
 		// high density displays (e.g. Apple's Retina displays), the size of the
 		// window will not be 1:1 with the size of the swap chain.
-		renderPassInfo.renderArea.extent = aspenSwapChain->getSwapChainExtent();
+		renderPassInfo.renderArea.extent = swapChain->getSwapChainExtent();
 
 		// What inital values we want our frame buffer attatchments to be cleared to.
 		// This corresponds to how we've structured our render pass: Index 0 = color
@@ -173,17 +173,17 @@ namespace Aspen {
 		VkViewport viewport{};
 		viewport.x = 0.0f;
 		viewport.y = 0.0f;
-		viewport.width = static_cast<float>(aspenSwapChain->getSwapChainExtent().width);
-		viewport.height = static_cast<float>(aspenSwapChain->getSwapChainExtent().height);
+		viewport.width = static_cast<float>(swapChain->getSwapChainExtent().width);
+		viewport.height = static_cast<float>(swapChain->getSwapChainExtent().height);
 		viewport.minDepth = 0.0f;
 		viewport.maxDepth = 1.0f;
-		VkRect2D scissor{{0, 0}, aspenSwapChain->getSwapChainExtent()};
+		VkRect2D scissor{{0, 0}, swapChain->getSwapChainExtent()};
 		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 	}
 
 	// End the render pass when commands have been recorded.
-	void AspenRenderer::endRenderPass(VkCommandBuffer commandBuffer) const {
+	void Renderer::endRenderPass(VkCommandBuffer commandBuffer) const {
 		assert(isFrameStarted && "Can't call endRenderPass if frame is not in progress!");
 		assert(commandBuffer == getCurrentCommandBuffer() && "Cannot end render pass on command buffer from a different frame.");
 

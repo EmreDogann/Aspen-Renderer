@@ -10,49 +10,49 @@
 #include <vulkan/vulkan_core.h>
 
 namespace Aspen {
-	class AspenRenderer {
+	class Renderer {
 	public:
-		AspenRenderer(AspenWindow& window, AspenDevice& aspenDevice, Buffer& bufferManager);
-		~AspenRenderer();
+		Renderer(Window& window, Device& device, Buffer& bufferManager);
+		~Renderer();
 
-		AspenRenderer(const AspenRenderer&) = delete;
-		AspenRenderer& operator=(const AspenRenderer&);
-		AspenRenderer(AspenRenderer&&) = default;
-		AspenRenderer& operator=(AspenRenderer&&) noexcept;
+		Renderer(const Renderer&) = delete;
+		Renderer& operator=(const Renderer&);
+		Renderer(Renderer&&) = default;
+		Renderer& operator=(Renderer&&) noexcept;
 
 		VkFramebuffer getOffscreenFrameBuffer() {
-			return aspenSwapChain->getOffscreenFrameBuffer();
+			return swapChain->getOffscreenFrameBuffer();
 		}
 
 		VkRenderPass getPresentRenderPass() const {
-			return aspenSwapChain->getPresentRenderPass();
+			return swapChain->getPresentRenderPass();
 		}
 		VkRenderPass getOffscreenRenderPass() const {
-			return aspenSwapChain->getOffscreenRenderPass();
+			return swapChain->getOffscreenRenderPass();
 		}
 
-		AspenSwapChain::OffscreenPass getOffscreenPass() {
-			return aspenSwapChain->getOffscreenPass();
+		SwapChain::OffscreenPass getOffscreenPass() {
+			return swapChain->getOffscreenPass();
 		}
 
 		VkExtent2D getSwapChainExtent() {
-			return aspenSwapChain->getSwapChainExtent();
+			return swapChain->getSwapChainExtent();
 		}
 
 		VkDescriptorImageInfo& getOffscreenDescriptorInfo() const {
-			return aspenSwapChain->getOffscreenDescriptorInfo();
+			return swapChain->getOffscreenDescriptorInfo();
 		}
 
 		uint32_t getSwapChainImageCount() const {
-			return aspenSwapChain->imageCount();
+			return swapChain->imageCount();
 		}
 
 		int getSwapChainMaxImagesInFlight() const {
-			return aspenSwapChain->MAX_FRAMES_IN_FLIGHT;
+			return swapChain->MAX_FRAMES_IN_FLIGHT;
 		}
 
 		float getAspectRatio() const {
-			return aspenSwapChain->extentAspectRatio();
+			return swapChain->extentAspectRatio();
 		}
 
 		bool isFrameInProgress() const {
@@ -81,10 +81,10 @@ namespace Aspen {
 		void freeCommandBuffers();
 		void beginRenderPass(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, VkRenderPass renderPass);
 
-		AspenWindow& aspenWindow;
-		AspenDevice& aspenDevice;
+		Window& window;
+		Device& device;
 		Buffer& bufferManager;
-		std::unique_ptr<AspenSwapChain> aspenSwapChain;
+		std::unique_ptr<SwapChain> swapChain;
 		std::vector<VkCommandBuffer> commandBuffers;
 
 		uint32_t currentImageIndex{};
