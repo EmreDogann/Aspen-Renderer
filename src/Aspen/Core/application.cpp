@@ -60,6 +60,7 @@ namespace Aspen {
 
 	void Application::run() {
 		std::cout << "maxPushConstantSize = " << device.properties.limits.maxPushConstantsSize << "\n";
+		std::cout << "maxMemoryAllocationCount = " << device.properties.limits.maxMemoryAllocationCount << "\n";
 
 		// Game Loop
 		while (m_Running) {
@@ -84,26 +85,33 @@ namespace Aspen {
 			cameraComponent.camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 100.0f);
 
 			if (auto* commandBuffer = renderer.beginFrame()) {
+				FrameInfo frameInfo{
+				    renderer.getFrameIndex(),
+				    currentFrameTime,
+				    commandBuffer,
+				    cameraComponent.camera,
+				};
 
 				/*
 				    Render Scene to texture - Offscreen rendering
 				*/
-				renderer.beginOffscreenRenderPass(commandBuffer);
-
-				simpleRenderSystem.renderGameObjects(commandBuffer, m_Scene, cameraComponent.camera);
-
-				renderer.endRenderPass(commandBuffer);
+				{
+					renderer.beginOffscreenRenderPass(commandBuffer);
+					simpleRenderSystem.renderGameObjects(frameInfo, m_Scene);
+					renderer.endRenderPass(commandBuffer);
+				}
 
 				/*
-				    Render UI (render scene from texture into a UI window)
+				    Render UI (also renders scene from texture into a UI window)
 				*/
-				renderer.beginPresentRenderPass(commandBuffer);
+				{
+					renderer.beginPresentRenderPass(commandBuffer);
+					// simpleRenderSystem.renderGameObjects(frameInfo, m_Scene);
+					simpleRenderSystem.renderUI(commandBuffer);
+					renderUI(commandBuffer, cameraComponent.camera);
+					renderer.endRenderPass(commandBuffer);
+				}
 
-				// simpleRenderSystem.renderGameObjects(commandBuffer, m_Scene, cameraComponent.camera);
-				simpleRenderSystem.renderUI(commandBuffer);
-				renderUI(commandBuffer, cameraComponent.camera);
-
-				renderer.endRenderPass(commandBuffer);
 				renderer.endFrame();
 			}
 

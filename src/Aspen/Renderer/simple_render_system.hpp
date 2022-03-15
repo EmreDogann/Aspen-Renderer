@@ -3,16 +3,19 @@
 #include "Aspen/Renderer/pipeline.hpp"
 #include "Aspen/Renderer/renderer.hpp"
 #include "Aspen/Scene/scene.hpp"
+#include "Aspen/Renderer/frame_info.hpp"
 
 // Libs & defines
-#define GLM_FORCE_RADIANS           // Ensures that GLM will expect angles to be specified in radians, not degrees.
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE // Tells GLM to expect depth values in the range 0-1 instead of -1 to 1.
-#include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
 
 namespace Aspen {
 	class SimpleRenderSystem {
 	public:
+		struct Ubo {
+			glm::mat4 projectionView{1.0f};
+			glm::vec3 lightDirection = glm::normalize(glm::vec3(1.0f, -3.0f, -1.0f));
+		};
+
 		SimpleRenderSystem(Device& device, Renderer& renderer);
 		~SimpleRenderSystem();
 
@@ -22,7 +25,7 @@ namespace Aspen {
 		SimpleRenderSystem(SimpleRenderSystem&&) = delete;            // Move Constructor
 		SimpleRenderSystem& operator=(SimpleRenderSystem&&) = delete; // Move Assignment Operator
 
-		void renderGameObjects(VkCommandBuffer commandBuffer, std::shared_ptr<Scene>& scene, const Camera& camera);
+		void renderGameObjects(FrameInfo& frameInfo, std::shared_ptr<Scene>& scene);
 		void renderUI(VkCommandBuffer commandBuffer);
 		void onResize();
 
@@ -44,5 +47,8 @@ namespace Aspen {
 
 		VkDescriptorSetLayout descriptorSetLayout{};
 		std::vector<VkDescriptorSet> offscreenDescriptorSets;
+
+		std::vector<std::unique_ptr<Buffer>> uboBuffers;
+		// Buffer uboBuffer{device, sizeof(Ubo), SwapChain::MAX_FRAMES_IN_FLIGHT, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, device.properties.limits.minUniformBufferOffsetAlignment};
 	};
 } // namespace Aspen

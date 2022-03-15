@@ -7,10 +7,23 @@ namespace Aspen {
 	};
 
 	SimpleRenderSystem::SimpleRenderSystem(Device& device, Renderer& renderer)
-	    : device(device), renderer(renderer) {
+	    : device(device), renderer(renderer), uboBuffers(SwapChain::MAX_FRAMES_IN_FLIGHT) {
 		createPipelineLayout();
 		pipeline = std::make_unique<Pipeline>(device, "assets/shaders/simple_shader.vert.spv", "assets/shaders/simple_shader.frag.spv");
 		createPipelines();
+
+		for (auto& uboBuffer : uboBuffers) {
+			// Create a UBO buffer. This will just be one instance per frame.
+			uboBuffer = std::make_unique<Buffer>(
+			    device,
+			    sizeof(Ubo),
+			    1,
+			    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT); // We could make it device local but the performance gains could be cancelled out from writing to the UBO every frame.
+
+			// Map the buffer's memory so we can begin writing to it.
+			uboBuffer->map();
+		}
 	}
 
 	SimpleRenderSystem::~SimpleRenderSystem() {
@@ -114,13 +127,16 @@ namespace Aspen {
 		vkUpdateDescriptorSets(device.device(), 1, &offScreenWriteDescriptorSets, 0, nullptr);
 	}
 
-	void SimpleRenderSystem::renderGameObjects(VkCommandBuffer commandBuffer, std::shared_ptr<Scene>& scene, const Camera& camera) {
+	void SimpleRenderSystem::renderGameObjects(FrameInfo& frameInfo, std::shared_ptr<Scene>& scene) {
 		// Bind the graphics pipieline.
-		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &offscreenDescriptorSets[0], 0, nullptr);
-		pipeline->bind(commandBuffer, pipeline->getOffscreenPipeline());
+		vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &offscreenDescriptorSets[0], 0, nullptr);
+		pipeline->bind(frameInfo.commandBuffer, pipeline->getOffscreenPipeline());
 
-		// Calculate the projection view transformation matrix.
-		auto projectionView = camera.getProjection() * camera.getView();
+		// Update our UBO buffer.
+		Ubo ubo{};
+		ubo.projectionView = frameInfo.camera.getProjection() * frameInfo.camera.getView(); // Calculate the projection view transformation matrix.
+		uboBuffers[frameInfo.frameIndex]->writeToBuffer(&ubo, frameInfo.frameIndex);        // Write info to the UBO buffer.
+		uboBuffers[frameInfo.frameIndex]->flush(frameInfo.frameIndex);                      // Flush changes to update on the GPU side.
 
 		auto group = scene->getRenderComponents();
 		for (auto& entity : group) {
@@ -131,12 +147,12 @@ namespace Aspen {
 			SimplePushConstantData push{};
 			// Projection, View, Model Transformation matrix.
 			auto modelMatrix = transform.transform();
-			push.transform = projectionView * modelMatrix;
+			push.transform = ubo.projectionView * modelMatrix;
 			push.normalMatrix = transform.computeNormalMatrix();
 
-			vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);
-			Aspen::Model::bind(commandBuffer, mesh.vertexBuffer, mesh.indexBuffer);
-			Aspen::Model::draw(commandBuffer, static_cast<uint32_t>(mesh.indices.size()));
+			vkCmdPushConstants(frameInfo.commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);
+			Aspen::Model::bind(frameInfo.commandBuffer, mesh.vertexBuffer, mesh.indexBuffer);
+			Aspen::Model::draw(frameInfo.commandBuffer, static_cast<uint32_t>(mesh.indices.size()));
 		}
 	}
 
