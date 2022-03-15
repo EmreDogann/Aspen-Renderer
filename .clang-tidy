@@ -42,6 +42,7 @@ readability-*,
 -readability-uppercase-literal-suffix,
 -readability-implicit-bool-conversion,
 -readability-magic-numbers,
+-readability-isolate-declaration,
 -llvm-header-guard"
 
 CheckOptions:

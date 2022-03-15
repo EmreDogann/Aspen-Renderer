@@ -10,7 +10,7 @@ AllowShortFunctionsOnASingleLine: Empty
 AlwaysBreakAfterReturnType: None
 AlwaysBreakTemplateDeclarations: Yes
 IndentCaseLabels: true
-ColumnLimit: 200
+ColumnLimit: 0
 AccessModifierOffset: -4
 NamespaceIndentation: All
 FixNamespaceComments: true
