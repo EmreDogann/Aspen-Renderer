@@ -135,7 +135,7 @@ namespace Aspen {
 
 	void Camera::setView(glm::vec3 position, glm::quat rotation) {
 		glm::mat4 transformMat{1.0f};
-		viewMatrix = glm::inverse(glm::translate(transformMat, position) * glm::toMat4(rotation));
-		// viewMatrix = glm::inverse(glm::toMat4(rotation)) * glm::translate(transformMat, -position);
+		// viewMatrix = glm::inverse(glm::translate(transformMat, position) * glm::toMat4(rotation));
+		viewMatrix = glm::inverse(glm::toMat4(rotation)) * glm::translate(transformMat, -position);
 	}
 } // namespace Aspen

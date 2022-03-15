@@ -91,20 +91,21 @@ namespace Aspen {
 	}
 
 	void CameraControllerSystem::mousePan(CameraControllerArcball& controller, const glm::vec2& mouseDelta) {
-		controller.positionDisplacement.x -= mouseDelta.x * controller.distance;
-		controller.positionDisplacement.y -= mouseDelta.y * controller.distance;
-		std::cout << "Displacement: (x) " << controller.positionDisplacement.x << ", (y) " << controller.positionDisplacement.y << std::endl;
+		controller.positionDisplacement.x -= mouseDelta.x;
+		controller.positionDisplacement.y -= mouseDelta.y;
+		// std::cout << "Displacement: (x) " << controller.positionDisplacement.x << ", (y) " << controller.positionDisplacement.y << std::endl;
 	}
 
 	void CameraControllerSystem::mouseOrbit(CameraControllerArcball& controller, const glm::vec2& mouseDelta) {
 		glm::vec2 rotate = controller.orbitSpeed * mouseDelta;
-		controller.pitch += glm::radians(-rotate.y);
+		controller.pitch += glm::radians(rotate.y);
 		controller.yaw += glm::radians(rotate.x);
 
-		controller.pitch = glm::clamp(controller.pitch, -glm::pi<float>() / 2, glm::pi<float>() / 2); // Limit to [-90,90] degrees.
-		controller.yaw = glm::mod(controller.yaw, glm::two_pi<float>());                              // Prevent from going over 360 degrees.
+		// controller.pitch = glm::clamp(controller.pitch, -glm::pi<float>() / 2, glm::pi<float>() / 2); // Limit to [-90,90] degrees.
+		controller.pitch = glm::mod(controller.pitch, glm::two_pi<float>()); // Prevent from going over 360 degrees.
+		controller.yaw = glm::mod(controller.yaw, glm::two_pi<float>());     // Prevent from going over 360 degrees.
 
-		std::cout << "Pitch: " << controller.pitch << ", Yaw: " << controller.yaw << std::endl;
+		// std::cout << "Pitch: " << controller.pitch << ", Yaw: " << controller.yaw << std::endl;
 	}
 
 	void CameraControllerSystem::mouseLook(CameraControllerArcball& controller, const glm::vec2& mouseDelta) {
@@ -121,6 +122,6 @@ namespace Aspen {
 			controller.distance = 1.0f;
 		}
 
-		std::cout << "Distance: " << controller.distance << std::endl;
+		// std::cout << "Distance: " << controller.distance << std::endl;
 	}
 } // namespace Aspen

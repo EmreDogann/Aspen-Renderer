@@ -509,5 +509,26 @@ namespace Aspen {
 		auto& objectMesh = object.addComponent<MeshComponent>();
 		Buffer::createModelFromFile(device, objectMesh, "assets/models/flat_vase.obj");
 		std::cout << "Vertex Count: " << objectMesh.vertices.size() << std::endl;
+
+		Entity floor2 = m_Scene->createEntity("Floor2");
+		auto& floor2Transform = floor2.getComponent<TransformComponent>();
+		floor2Transform.translation = {2.5f, 0.0f, 2.5f};
+		floor2Transform.scale = {2.0f, 2.0f, 2.0f};
+
+		auto& floor2Mesh = floor2.addComponent<MeshComponent>();
+		createFloorModel(device,
+		                 bufferManager,
+		                 {0.0f, 0.0f, 0.0f},
+		                 floor2Mesh); // Converts the unique pointer returned from the function to a shared pointer.
+
+		Entity object2 = m_Scene->createEntity("Vase2");
+		auto& object2Transform = object2.getComponent<TransformComponent>();
+		object2Transform.translation = {2.5f, 0.0f, 2.5f};
+		// object2Transform.scale = glm::vec3(3.0f); // Uniform scaling
+		object2Transform.scale = {3.0f, 1.0f, 3.0f}; // Non-Uniform scaling
+
+		auto& object2Mesh = object2.addComponent<MeshComponent>();
+		Buffer::createModelFromFile(device, object2Mesh, "assets/models/flat_vase.obj");
+		std::cout << "Vertex Count: " << object2Mesh.vertices.size() << std::endl;
 	}
 } // namespace Aspen
