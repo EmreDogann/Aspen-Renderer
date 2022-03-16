@@ -12,7 +12,7 @@ namespace Aspen {
 	class SimpleRenderSystem {
 	public:
 		struct Ubo {
-			alignas(16) glm::mat4 projectionView{1.0f};
+			alignas(16) glm::mat4 projectionViewMatrix{1.0f};
 			alignas(16) glm::vec3 lightDirection = glm::normalize(glm::vec3(1.0f, -3.0f, -1.0f));
 		};
 
@@ -49,6 +49,7 @@ namespace Aspen {
 		std::vector<VkDescriptorSet> offscreenDescriptorSets;
 
 		std::vector<std::unique_ptr<Buffer>> uboBuffers;
-		// Buffer uboBuffer{device, sizeof(Ubo), SwapChain::MAX_FRAMES_IN_FLIGHT, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, device.properties.limits.minUniformBufferOffsetAlignment};
+		float moveLight = 0.0f;
+		float moveDirection = -0.00005f;
 	};
 } // namespace Aspen

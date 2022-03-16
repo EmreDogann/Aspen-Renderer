@@ -95,20 +95,20 @@ namespace Aspen {
 				/*
 				    Render Scene to texture - Offscreen rendering
 				*/
-				{
-					renderer.beginOffscreenRenderPass(commandBuffer);
-					simpleRenderSystem.renderGameObjects(frameInfo, m_Scene);
-					renderer.endRenderPass(commandBuffer);
-				}
+				// {
+				// 	renderer.beginOffscreenRenderPass(commandBuffer);
+				// 	simpleRenderSystem.renderGameObjects(frameInfo, m_Scene);
+				// 	renderer.endRenderPass(commandBuffer);
+				// }
 
 				/*
 				    Render UI (also renders scene from texture into a UI window)
 				*/
 				{
 					renderer.beginPresentRenderPass(commandBuffer);
-					// simpleRenderSystem.renderGameObjects(frameInfo, m_Scene);
-					simpleRenderSystem.renderUI(commandBuffer);
-					renderUI(commandBuffer, cameraComponent.camera);
+					simpleRenderSystem.renderGameObjects(frameInfo, m_Scene);
+					// simpleRenderSystem.renderUI(commandBuffer);
+					// renderUI(commandBuffer, cameraComponent.camera);
 					renderer.endRenderPass(commandBuffer);
 				}
 

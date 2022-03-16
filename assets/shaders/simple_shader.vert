@@ -10,9 +10,9 @@ layout(location = 3) in vec2 uv;
 layout(location = 0) out vec3 fragColor;
 
 // Uniform Buffer Object (UBO)
-layout(Set = 0, binding = 0) uniform Ubo {
+layout(set = 0, binding = 0) uniform Ubo {
     mat4 projectionViewMatrix;
-    vec3 directionToLight;
+    vec3 lightDirection;
 } ubo;
 
 // Push Constants
@@ -45,7 +45,7 @@ void main() {
     vec3 normalWorldSpace = normalize(mat3(push.normalMatrix) * normal);
 
     // If the dot product is negative, that means the normal is facing away from the light. In this case, we just want to light intensity to be 0.
-    float lightIntensity = AMBIENT + max(dot(normalWorldSpace, ubo.directionToLight), 0);
+    float lightIntensity = AMBIENT + max(dot(normalWorldSpace, ubo.lightDirection), 0);
 
     fragColor = lightIntensity * color;
 }
