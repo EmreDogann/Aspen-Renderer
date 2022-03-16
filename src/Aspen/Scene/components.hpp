@@ -132,6 +132,7 @@ namespace Aspen {
 		float mouseSensitivity{0.5f};
 		glm::vec2 lastMousePosition{0.0f};
 
+		glm::vec3 offset{0.0f, 0.0f, 0.0f};
 		glm::vec3 focalPoint{0.0f, 0.0f, 2.5f};
 		glm::vec2 positionDisplacement{0.0f};
 		float distance = 2.0f;

@@ -33,8 +33,8 @@ namespace Aspen {
 	// Create a Descriptor Set Layout for a Uniform Buffer Object (UBO) & Textures.
 	void SimpleRenderSystem::createDescriptorSetLayout() {
 		descriptorSetLayout = DescriptorSetLayout::Builder(device)
-		                          .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)           // Binding 0: Vertex shader uniform buffer
-		                          .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Binding 1: Fragment shader image sampler
+		                          .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT) // Binding 0: Vertex shader uniform buffer
+		                          .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)                      // Binding 1: Fragment shader image sampler
 		                          .build();
 	}
 
@@ -117,14 +117,14 @@ namespace Aspen {
 		Ubo ubo{};
 		ubo.projectionViewMatrix = frameInfo.camera.getProjection() * frameInfo.camera.getView(); // Calculate the projection view transformation matrix.
 
-		if (moveLight <= -2.0f) {
+		if (moveLight < -2.0f) {
 			moveDirection *= -1;
-		} else if (moveLight >= 1.0f) {
+		} else if (moveLight > 2.0f) {
 			moveDirection *= -1;
 		}
 		moveLight += moveDirection;
 
-		ubo.lightDirection = glm::normalize(glm::vec3(ubo.lightDirection.x + moveLight, ubo.lightDirection.y, ubo.lightDirection.z));
+		ubo.lightPosition = glm::normalize(glm::vec3(ubo.lightPosition.x + moveLight, ubo.lightPosition.y, ubo.lightPosition.z));
 
 		uboBuffers[frameInfo.frameIndex]->writeToBuffer(&ubo); // Write info to the UBO buffer.
 		uboBuffers[frameInfo.frameIndex]->flush();

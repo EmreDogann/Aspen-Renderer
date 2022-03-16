@@ -12,8 +12,10 @@ namespace Aspen {
 	class SimpleRenderSystem {
 	public:
 		struct Ubo {
-			alignas(16) glm::mat4 projectionViewMatrix{1.0f};
-			alignas(16) glm::vec3 lightDirection = glm::normalize(glm::vec3(1.0f, -3.0f, -1.0f));
+			glm::mat4 projectionViewMatrix{1.0f};
+			glm::vec4 ambientLightColor{1.0f, 1.0f, 1.0f, 0.02f}; // w is intensity
+			glm::vec4 lightColor{1.0f};                           // w is intensity
+			alignas(16) glm::vec3 lightPosition{-1.0f, -2.0f, 2.0f};
 		};
 
 		SimpleRenderSystem(Device& device, Renderer& renderer);
@@ -50,6 +52,6 @@ namespace Aspen {
 
 		std::vector<std::unique_ptr<Buffer>> uboBuffers;
 		float moveLight = 0.0f;
-		float moveDirection = -0.00005f;
+		float moveDirection = 0.0001f;
 	};
 } // namespace Aspen

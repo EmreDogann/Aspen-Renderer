@@ -13,6 +13,9 @@ namespace Aspen {
 		cameraEntity.addComponent<CameraComponent>();
 		cameraEntity.addComponent<CameraControllerArcball>();
 
+		auto& camController = cameraEntity.getComponent<CameraControllerArcball>();
+		camController.offset = glm::vec3{0.0f, -1.5f, 0.0f};
+
 		loadGameObjects();
 	}
 
@@ -77,12 +80,11 @@ namespace Aspen {
 			auto [cameraComponent, cameraArcball, cameraTransform] = cameraEntity.getComponent<CameraComponent, CameraControllerArcball, TransformComponent>();
 			CameraControllerSystem::OnUpdate(cameraArcball, {renderer.getSwapChainExtent().width, renderer.getSwapChainExtent().height});
 			CameraSystem::OnUpdateArcball(cameraTransform, cameraArcball, currentFrameTime);
-			// cameraController.OnUpdate(cameraTransform, currentFrameTime, {renderer.getSwapChainExtent().width, renderer.getSwapChainExtent().height});
-			cameraComponent.camera.setView(cameraTransform.translation, cameraTransform.rotation);
 
 			float aspect = renderer.getAspectRatio();
 			// camera.setOrthographicProjection(-1, 1, -1, 1, -1, 1, aspect);
 			cameraComponent.camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 100.0f);
+			cameraComponent.camera.setView(cameraTransform.translation, cameraTransform.rotation);
 
 			if (auto* commandBuffer = renderer.beginFrame()) {
 				FrameInfo frameInfo{
@@ -95,20 +97,20 @@ namespace Aspen {
 				/*
 				    Render Scene to texture - Offscreen rendering
 				*/
-				// {
-				// 	renderer.beginOffscreenRenderPass(commandBuffer);
-				// 	simpleRenderSystem.renderGameObjects(frameInfo, m_Scene);
-				// 	renderer.endRenderPass(commandBuffer);
-				// }
+				{
+					renderer.beginOffscreenRenderPass(commandBuffer);
+					simpleRenderSystem.renderGameObjects(frameInfo, m_Scene);
+					renderer.endRenderPass(commandBuffer);
+				}
 
 				/*
 				    Render UI (also renders scene from texture into a UI window)
 				*/
 				{
 					renderer.beginPresentRenderPass(commandBuffer);
-					simpleRenderSystem.renderGameObjects(frameInfo, m_Scene);
-					// simpleRenderSystem.renderUI(commandBuffer);
-					// renderUI(commandBuffer, cameraComponent.camera);
+					// simpleRenderSystem.renderGameObjects(frameInfo, m_Scene);
+					simpleRenderSystem.renderUI(commandBuffer);
+					renderUI(commandBuffer, cameraComponent.camera);
 					renderer.endRenderPass(commandBuffer);
 				}
 
@@ -348,8 +350,6 @@ namespace Aspen {
 		dispatcher.Dispatch<WindowCloseEvent>(BIND_EVENT_FN(Application::OnWindowClose));
 		dispatcher.Dispatch<WindowResizeEvent>(BIND_EVENT_FN(Application::OnWindowResize));
 
-		// cameraController.OnEvent(e);
-
 		if (e.GetEventType() == EventType::KeyPressed) {
 			auto& keyEvent = dynamic_cast<KeyPressedEvent&>(e);
 			// Gizmo Shorcuts
@@ -400,7 +400,6 @@ namespace Aspen {
 
 		// The perspective must be recalculated as the aspect ratio might have changed.
 		float aspect = renderer.getAspectRatio();
-		std::cout << aspect << std::endl;
 
 		Camera& camera = cameraEntity.getComponent<CameraComponent>().camera;
 		camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 10.0f);
@@ -475,10 +474,11 @@ namespace Aspen {
 		meshComponent.vertices = {
 
 		    // Top face (blue, remember y axis points down)
-		    {{-.5f, .0f, -.5f}, {0.3f, 0.49f, 0.66f}},
-		    {{.5f, .0f, .5f}, {0.3f, 0.49f, 0.66f}},
-		    {{-.5f, .0f, .5f}, {0.3f, 0.49f, 0.66f}},
-		    {{.5f, .0f, -.5f}, {0.3f, 0.49f, 0.66f}},
+		    // Vertex, Color, Normal
+		    {{-.5f, .0f, -.5f}, {0.3f, 0.49f, 0.66f}, {0.0f, -1.0f, 0.0f}},
+		    {{.5f, .0f, .5f}, {0.3f, 0.49f, 0.66f}, {0.0f, -1.0f, 0.0f}},
+		    {{-.5f, .0f, .5f}, {0.3f, 0.49f, 0.66f}, {0.0f, -1.0f, 0.0f}},
+		    {{.5f, .0f, -.5f}, {0.3f, 0.49f, 0.66f}, {0.0f, -1.0f, 0.0f}},
 
 		};
 
@@ -492,44 +492,51 @@ namespace Aspen {
 	}
 
 	void Application::loadGameObjects() {
-		floor = m_Scene->createEntity("Floor");
-		auto& floorTransform = floor.getComponent<TransformComponent>();
-		floorTransform.translation = {0.0f, 0.0f, 2.5f};
-		floorTransform.scale = {2.0f, 2.0f, 2.0f};
+		// Create Floor
+		{
+			floor = m_Scene->createEntity("Floor");
+			auto& floorTransform = floor.getComponent<TransformComponent>();
+			floorTransform.translation = {0.0f, 0.0f, 2.5f};
+			floorTransform.scale = {5.0f, 5.0f, 5.0f};
 
-		auto& floorMesh = floor.addComponent<MeshComponent>();
-		createFloorModel(device,
-		                 {0.0f, 0.0f, 0.0f},
-		                 floorMesh); // Converts the unique pointer returned from the function to a shared pointer.
+			auto& floorMesh = floor.addComponent<MeshComponent>();
+			createFloorModel(device,
+			                 {0.0f, 0.0f, 0.0f},
+			                 floorMesh); // Converts the unique pointer returned from the function to a shared pointer.
+		}
 
-		object = m_Scene->createEntity("Vase");
-		auto& objectTransform = object.getComponent<TransformComponent>();
-		objectTransform.translation = {0.0f, 0.0f, 2.5f};
-		// objectTransform.scale = glm::vec3(3.0f); // Uniform scaling
-		objectTransform.scale = {3.0f, 3.0f, 3.0f}; // Non-Uniform scaling
+		// Create Vases
+		{
+			object = m_Scene->createEntity("Vase");
+			auto& objectTransform = object.getComponent<TransformComponent>();
+			objectTransform.translation = {-1.0f, 0.0f, 2.5f};
+			objectTransform.scale = {3.0f, 3.0f, 3.0f};
 
-		auto& objectMesh = object.addComponent<MeshComponent>();
-		Model::createModelFromFile(device, objectMesh, "assets/models/flat_vase.obj");
-		std::cout << "Vertex Count: " << objectMesh.vertices.size() << std::endl;
+			auto& objectMesh = object.addComponent<MeshComponent>();
+			Model::createModelFromFile(device, objectMesh, "assets/models/flat_vase.obj");
+			std::cout << "Flat Vase Vertex Count: " << objectMesh.vertices.size() << std::endl;
 
-		Entity floor2 = m_Scene->createEntity("Floor2");
-		auto& floor2Transform = floor2.getComponent<TransformComponent>();
-		floor2Transform.translation = {2.5f, 0.0f, 2.5f};
-		floor2Transform.scale = {2.0f, 2.0f, 2.0f};
+			Entity object2 = m_Scene->createEntity("Vase2");
+			auto& object2Transform = object2.getComponent<TransformComponent>();
+			object2Transform.translation = {1.0f, 0.0f, 2.5f};
+			object2Transform.scale = {3.0f, 3.0f, 3.0f};
 
-		auto& floor2Mesh = floor2.addComponent<MeshComponent>();
-		createFloorModel(device,
-		                 {0.0f, 0.0f, 0.0f},
-		                 floor2Mesh); // Converts the unique pointer returned from the function to a shared pointer.
+			auto& object2Mesh = object2.addComponent<MeshComponent>();
+			Model::createModelFromFile(device, object2Mesh, "assets/models/smooth_vase.obj");
+			std::cout << "Smooth Vase Vertex Count: " << object2Mesh.vertices.size() << std::endl;
+		}
 
-		Entity object2 = m_Scene->createEntity("Vase2");
-		auto& object2Transform = object2.getComponent<TransformComponent>();
-		object2Transform.translation = {2.5f, 0.0f, 2.5f};
-		// object2Transform.scale = glm::vec3(3.0f); // Uniform scaling
-		object2Transform.scale = {3.0f, 3.0f, 3.0f}; // Non-Uniform scaling
+		// Create cube
+		{
+			object = m_Scene->createEntity("Cube");
+			auto& objectTransform = object.getComponent<TransformComponent>();
+			objectTransform.translation = {0.0f, -1.5f, 3.25f};
+			objectTransform.rotation = glm::quat(glm::vec3(1.0f, 2.0f, 1.5f));
+			objectTransform.scale = glm::vec3(0.5f);
 
-		auto& object2Mesh = object2.addComponent<MeshComponent>();
-		Model::createModelFromFile(device, object2Mesh, "assets/models/smooth_vase.obj");
-		std::cout << "Vertex Count: " << object2Mesh.vertices.size() << std::endl;
+			auto& objectMesh = object.addComponent<MeshComponent>();
+			Model::createModelFromFile(device, objectMesh, "assets/models/colored_cube.obj");
+			std::cout << "Colored Cube Vertex Count: " << objectMesh.vertices.size() << std::endl;
+		}
 	}
 } // namespace Aspen

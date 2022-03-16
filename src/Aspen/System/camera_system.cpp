@@ -1,5 +1,4 @@
 #include "Aspen/System/camera_system.hpp"
-#include <iostream>
 
 namespace Aspen {
 	void CameraSystem::OnUpdateArcball(TransformComponent& transform, CameraControllerArcball& controller, float timeStep) {
@@ -25,6 +24,16 @@ namespace Aspen {
 		controller.positionDisplacement = glm::vec2{0.0f}; // Reset the pan value.
 
 		// Calculate the final camera position -> Focal point - some distance in the negative forward direction.
-		transform.translation = controller.focalPoint - forwardDir * controller.distance;
+		transform.translation = controller.offset + controller.focalPoint - forwardDir * controller.distance;
+	}
+
+	void CameraSystem::setTarget(TransformComponent& transform, CameraControllerArcball& controller, glm::vec3 target) {
+		// Construct an orthonormal basis.
+		// Three vectors of unit length and are all orthogonal (90 degrees) to each other.
+		const glm::vec3 forward = glm::normalize(target - transform.translation);
+		const glm::vec3 right{glm::normalize(glm::cross(forward, glm::vec3(0.0f, 1.0f, 0.0f)))};
+		const glm::vec3 up{glm::cross(forward, right)};
+
+		controller.focalPoint = target;
 	}
 } // namespace Aspen
