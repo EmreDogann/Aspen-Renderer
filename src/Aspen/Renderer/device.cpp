@@ -76,8 +76,11 @@ namespace Aspen {
 		vkDestroyCommandPool(device_, graphicsCommandPool, nullptr);
 		vkDestroyCommandPool(device_, transferCommandPool, nullptr);
 
-		vkDestroyDescriptorPool(device_, descriptorPool, nullptr);       // Destroy descriptor pool.
-		vkDestroyDescriptorPool(device_, ImGui_descriptorPool, nullptr); // Destroy ImGui's descriptor pool.
+		descriptorPool.reset();      // Free descriptor pool pointer.
+		descriptorPoolImGui.reset(); // Free ImGui's descriptor pool pointer.
+
+		// vkDestroyDescriptorPool(device_, descriptorPool, nullptr);       // Destroy descriptor pool.
+		// vkDestroyDescriptorPool(device_, ImGui_descriptorPool, nullptr); // Destroy ImGui's descriptor pool.
 
 		vkDestroyDevice(device_, nullptr);
 
@@ -258,18 +261,24 @@ namespace Aspen {
 	}
 
 	void Device::createDescriptorPool() {
-		VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 8}, {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 6}};
+		// VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 8}, {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 6}};
 
-		VkDescriptorPoolCreateInfo poolInfo = {};
-		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-		poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-		poolInfo.maxSets = 5;
-		poolInfo.poolSizeCount = std::size(poolSizes);
-		poolInfo.pPoolSizes = poolSizes;
+		// VkDescriptorPoolCreateInfo poolInfo = {};
+		// poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		// poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+		// poolInfo.maxSets = 5;
+		// poolInfo.poolSizeCount = std::size(poolSizes);
+		// poolInfo.pPoolSizes = poolSizes;
 
-		if (vkCreateDescriptorPool(device_, &poolInfo, nullptr, &descriptorPool)) {
-			throw std::runtime_error("Failed to create descriptor pool!");
-		}
+		// if (vkCreateDescriptorPool(device_, &poolInfo, nullptr, &descriptorPool)) {
+		// 	throw std::runtime_error("Failed to create descriptor pool!");
+		// }
+
+		descriptorPool = DescriptorPool::Builder(*this)
+		                     .setMaxSets(2)
+		                     .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2)
+		                     .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2)
+		                     .build();
 	}
 
 	// Create semaphores and fences for transfer operations.
@@ -660,28 +669,43 @@ namespace Aspen {
 
 	// Initialize ImGui and pass in Vulkan handles.
 	void Device::initImGuiBackend() {
-		VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
-		                                    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
-		                                    {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
-		                                    {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000},
-		                                    {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000},
-		                                    {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000},
-		                                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000},
-		                                    {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000},
-		                                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
-		                                    {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
-		                                    {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000}};
+		// VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
+		//                                     {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
+		//                                     {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
+		//                                     {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000},
+		//                                     {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000},
+		//                                     {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000},
+		//                                     {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000},
+		//                                     {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000},
+		//                                     {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
+		//                                     {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
+		//                                     {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000}};
 
-		VkDescriptorPoolCreateInfo poolInfo = {};
-		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-		poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-		poolInfo.maxSets = 1000;
-		poolInfo.poolSizeCount = std::size(poolSizes);
-		poolInfo.pPoolSizes = poolSizes;
+		// VkDescriptorPoolCreateInfo poolInfo = {};
+		// poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		// poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+		// poolInfo.maxSets = 1000;
+		// poolInfo.poolSizeCount = std::size(poolSizes);
+		// poolInfo.pPoolSizes = poolSizes;
 
-		if (vkCreateDescriptorPool(device_, &poolInfo, nullptr, &ImGui_descriptorPool)) {
-			throw std::runtime_error("Failed to create descriptor pool for ImGui!");
-		}
+		// if (vkCreateDescriptorPool(device_, &poolInfo, nullptr, &ImGui_descriptorPool)) {
+		// 	throw std::runtime_error("Failed to create descriptor pool for ImGui!");
+		// }
+
+		descriptorPoolImGui = DescriptorPool::Builder(*this)
+		                          .setMaxSets(1000)
+		                          .addPoolSize(VK_DESCRIPTOR_TYPE_SAMPLER, 1000)
+		                          .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000)
+		                          .addPoolSize(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000)
+		                          .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000)
+		                          .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000)
+		                          .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000)
+		                          .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000)
+		                          .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000)
+		                          .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000)
+		                          .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000)
+		                          .addPoolSize(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000)
+		                          .build();
 	}
 
 } // namespace Aspen

@@ -39,7 +39,7 @@ namespace Aspen {
 		init_info.PhysicalDevice = device.physicalDevice();
 		init_info.Device = device.device();
 		init_info.Queue = device.graphicsQueue();
-		init_info.DescriptorPool = device.ImGuiDescriptorPool();
+		init_info.DescriptorPool = device.getDescriptorPoolImGui().getDescriptorPool();
 		init_info.MinImageCount = renderer.getSwapChainImageCount();
 		init_info.ImageCount = renderer.getSwapChainImageCount();
 		init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;

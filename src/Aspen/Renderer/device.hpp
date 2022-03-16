@@ -2,9 +2,7 @@
 #include "pch.h"
 
 #include "Aspen/Core/window.hpp"
-
-// Libs
-#include "vulkan/vulkan_core.h"
+#include "Aspen/Renderer/descriptors.hpp"
 
 namespace Aspen {
 
@@ -84,11 +82,11 @@ namespace Aspen {
 			return querySwapChainSupport(physicalDevice_);
 		}
 
-		VkDescriptorPool getDescriptorPool() {
-			return descriptorPool;
+		DescriptorPool& getDescriptorPool() {
+			return *descriptorPool;
 		}
-		VkDescriptorPool ImGuiDescriptorPool() {
-			return ImGui_descriptorPool;
+		DescriptorPool& getDescriptorPoolImGui() {
+			return *descriptorPoolImGui;
 		}
 
 		uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
@@ -148,11 +146,8 @@ namespace Aspen {
 		VkQueue presentQueue_{};
 		QueueFamilyIndices queueFamilyIndices{};
 
-		// VkBuffer stagingBuffer{};
-		// VkDeviceMemory stagingBufferMemory{};
-
-		VkDescriptorPool descriptorPool{};
-		VkDescriptorPool ImGui_descriptorPool{};
+		std::unique_ptr<DescriptorPool> descriptorPool{};
+		std::unique_ptr<DescriptorPool> descriptorPoolImGui{};
 
 		const std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
 		const std::vector<const char*> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME};

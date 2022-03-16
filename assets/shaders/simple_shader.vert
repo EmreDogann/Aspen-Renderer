@@ -9,14 +9,18 @@ layout(location = 3) in vec2 uv;
 // Output
 layout(location = 0) out vec3 fragColor;
 
+// Uniform Buffer Object (UBO)
+layout(Set = 0, binding = 0) uniform Ubo {
+    mat4 projectionViewMatrix;
+    vec3 directionToLight;
+} ubo;
+
 // Push Constants
 layout(push_constant) uniform Push {
-    mat4 transform; // projection * view * matrix
+    mat4 modelMatrix; // projection * view * matrix
     mat4 normalMatrix;
 } push;
 
-// Direction in world space.
-const vec3 DIRECTION_TO_LIGHT = normalize(vec3(1.0, -3.0, -1.0));
 const float AMBIENT  = 0.05;
 
 // gl_Positions is the default output variable.
@@ -24,7 +28,7 @@ const float AMBIENT  = 0.05;
 void main() {
     // Note: The last component for the homogenous coordinate determines if this is a position or a direction.
     // w = 1 refers to a position. w = 0 refers to a direction.
-    gl_Position = push.transform * vec4(position, 1.0);
+    gl_Position = ubo.projectionViewMatrix * push.modelMatrix * vec4(position, 1.0);
 
     // Transform the vertex normals from local/object space to world space.
     // Here we cast the 4x4 model matrix to a 3x3 matrix, which will just cut off the 4th row and column (the translation component) from the matrix.
@@ -41,7 +45,7 @@ void main() {
     vec3 normalWorldSpace = normalize(mat3(push.normalMatrix) * normal);
 
     // If the dot product is negative, that means the normal is facing away from the light. In this case, we just want to light intensity to be 0.
-    float lightIntensity = AMBIENT + max(dot(normalWorldSpace, DIRECTION_TO_LIGHT), 0);
+    float lightIntensity = AMBIENT + max(dot(normalWorldSpace, ubo.directionToLight), 0);
 
     fragColor = lightIntensity * color;
 }

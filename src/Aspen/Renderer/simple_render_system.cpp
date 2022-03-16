@@ -2,16 +2,12 @@
 
 namespace Aspen {
 	struct SimplePushConstantData {
-		glm::mat4 transform{1.0f};
+		glm::mat4 modelMatrix{1.0f};
 		glm::mat4 normalMatrix{1.0f};
 	};
 
 	SimpleRenderSystem::SimpleRenderSystem(Device& device, Renderer& renderer)
-	    : device(device), renderer(renderer), uboBuffers(SwapChain::MAX_FRAMES_IN_FLIGHT) {
-		createPipelineLayout();
-		pipeline = std::make_unique<Pipeline>(device, "assets/shaders/simple_shader.vert.spv", "assets/shaders/simple_shader.frag.spv");
-		createPipelines();
-
+	    : device(device), renderer(renderer), uboBuffers(SwapChain::MAX_FRAMES_IN_FLIGHT), offscreenDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT) {
 		for (auto& uboBuffer : uboBuffers) {
 			// Create a UBO buffer. This will just be one instance per frame.
 			uboBuffer = std::make_unique<Buffer>(
@@ -24,58 +20,33 @@ namespace Aspen {
 			// Map the buffer's memory so we can begin writing to it.
 			uboBuffer->map();
 		}
+
+		createPipelineLayout();
+		pipeline = std::make_unique<Pipeline>(device, "assets/shaders/simple_shader.vert.spv", "assets/shaders/simple_shader.frag.spv");
+		createPipelines();
 	}
 
 	SimpleRenderSystem::~SimpleRenderSystem() {
-		vkDestroyDescriptorSetLayout(device.device(), descriptorSetLayout, nullptr);
 		vkDestroyPipelineLayout(device.device(), pipelineLayout, nullptr);
 	}
 
 	// Create a Descriptor Set Layout for a Uniform Buffer Object (UBO) & Textures.
 	void SimpleRenderSystem::createDescriptorSetLayout() {
-		std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings;
-		// Binding 0: Vertex shader uniform buffer
-		setLayoutBindings.push_back(VkDescriptorSetLayoutBinding{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr});
-
-		// Binding 1: Fragment shader image sampler
-		setLayoutBindings.push_back(VkDescriptorSetLayoutBinding{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr});
-
-		VkDescriptorSetLayoutCreateInfo layoutInfo{};
-		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layoutInfo.bindingCount = static_cast<uint32_t>(setLayoutBindings.size());
-		layoutInfo.pBindings = setLayoutBindings.data();
-
-		if (vkCreateDescriptorSetLayout(device.device(), &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to create descriptor set layout!");
-		}
+		descriptorSetLayout = DescriptorSetLayout::Builder(device)
+		                          .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)           // Binding 0: Vertex shader uniform buffer
+		                          .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Binding 1: Fragment shader image sampler
+		                          .build();
 	}
 
 	// Create Descriptor Sets.
 	void SimpleRenderSystem::createDescriptorSet() {
-		std::vector<VkDescriptorSetLayout> offscreenDescriptorSetLayout(renderer.getSwapChainImageCount(), descriptorSetLayout);
-
-		VkDescriptorSetAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		allocInfo.descriptorPool = device.getDescriptorPool();
-		allocInfo.pSetLayouts = offscreenDescriptorSetLayout.data();
-		allocInfo.descriptorSetCount = renderer.getSwapChainImageCount();
-
-		offscreenDescriptorSets.resize(renderer.getSwapChainImageCount());
-
-		// Offscreen
-		if (vkAllocateDescriptorSets(device.device(), &allocInfo, offscreenDescriptorSets.data()) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to create offscreen descriptor set!");
+		for (int i = 0; i < offscreenDescriptorSets.size(); ++i) {
+			auto bufferInfo = uboBuffers[i]->descriptorInfo();
+			DescriptorWriter(*descriptorSetLayout, device.getDescriptorPool())
+			    .writeBuffer(0, &bufferInfo)
+			    .writeImage(1, &renderer.getOffscreenDescriptorInfo())
+			    .build(offscreenDescriptorSets[i]);
 		}
-
-		VkWriteDescriptorSet offScreenWriteDescriptorSets{};
-		offScreenWriteDescriptorSets.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		offScreenWriteDescriptorSets.dstSet = offscreenDescriptorSets[0];
-		offScreenWriteDescriptorSets.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		offScreenWriteDescriptorSets.dstBinding = 1;
-		offScreenWriteDescriptorSets.descriptorCount = 1;
-		offScreenWriteDescriptorSets.pImageInfo = &renderer.getOffscreenDescriptorInfo();
-
-		vkUpdateDescriptorSets(device.device(), 1, &offScreenWriteDescriptorSets, 0, nullptr);
 	}
 
 	// Create a pipeline layout.
@@ -88,10 +59,12 @@ namespace Aspen {
 		createDescriptorSetLayout();
 		createDescriptorSet();
 
+		std::vector<VkDescriptorSetLayout> descriptorSetLayouts{descriptorSetLayout->getDescriptorSetLayout()};
+
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayoutInfo.setLayoutCount = 1;
-		pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
+		pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size());
+		pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
 		pipelineLayoutInfo.pushConstantRangeCount = 1;
 		pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 
@@ -116,27 +89,35 @@ namespace Aspen {
 	}
 
 	void SimpleRenderSystem::onResize() {
-		VkWriteDescriptorSet offScreenWriteDescriptorSets{};
-		offScreenWriteDescriptorSets.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		offScreenWriteDescriptorSets.dstSet = offscreenDescriptorSets[0];
-		offScreenWriteDescriptorSets.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		offScreenWriteDescriptorSets.dstBinding = 1;
-		offScreenWriteDescriptorSets.descriptorCount = 1;
-		offScreenWriteDescriptorSets.pImageInfo = &renderer.getOffscreenDescriptorInfo();
+		// for (int i = 0; i < offscreenDescriptorSets.size(); ++i) {
+		// 	auto bufferInfo = uboBuffers[i]->descriptorInfo();
+		// 	DescriptorWriter(*descriptorSetLayout, device.getDescriptorPool())
+		// 	    .writeBuffer(0, &bufferInfo)
+		// 	    .writeImage(1, &renderer.getOffscreenDescriptorInfo())
+		// 	    .overwrite(offscreenDescriptorSets[i]);
+		// }
 
-		vkUpdateDescriptorSets(device.device(), 1, &offScreenWriteDescriptorSets, 0, nullptr);
+		// VkWriteDescriptorSet offScreenWriteDescriptorSets{};
+		// offScreenWriteDescriptorSets.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		// offScreenWriteDescriptorSets.dstSet = offscreenDescriptorSets[0];
+		// offScreenWriteDescriptorSets.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		// offScreenWriteDescriptorSets.dstBinding = 1;
+		// offScreenWriteDescriptorSets.descriptorCount = 1;
+		// offScreenWriteDescriptorSets.pImageInfo = &renderer.getOffscreenDescriptorInfo();
+
+		// vkUpdateDescriptorSets(device.device(), 1, &offScreenWriteDescriptorSets, 0, nullptr);
 	}
 
 	void SimpleRenderSystem::renderGameObjects(FrameInfo& frameInfo, std::shared_ptr<Scene>& scene) {
-		// Bind the graphics pipieline.
-		vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &offscreenDescriptorSets[0], 0, nullptr);
-		pipeline->bind(frameInfo.commandBuffer, pipeline->getOffscreenPipeline());
-
 		// Update our UBO buffer.
 		Ubo ubo{};
 		ubo.projectionView = frameInfo.camera.getProjection() * frameInfo.camera.getView(); // Calculate the projection view transformation matrix.
 		uboBuffers[frameInfo.frameIndex]->writeToBuffer(&ubo, frameInfo.frameIndex);        // Write info to the UBO buffer.
-		uboBuffers[frameInfo.frameIndex]->flush(frameInfo.frameIndex);                      // Flush changes to update on the GPU side.
+		uboBuffers[frameInfo.frameIndex]->flush();                                          // Flush changes to update on the GPU side.
+
+		// Bind the graphics pipieline.
+		vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &offscreenDescriptorSets[frameInfo.frameIndex], 0, nullptr);
+		pipeline->bind(frameInfo.commandBuffer, pipeline->getOffscreenPipeline());
 
 		auto group = scene->getRenderComponents();
 		for (auto& entity : group) {
@@ -147,7 +128,7 @@ namespace Aspen {
 			SimplePushConstantData push{};
 			// Projection, View, Model Transformation matrix.
 			auto modelMatrix = transform.transform();
-			push.transform = ubo.projectionView * modelMatrix;
+			push.modelMatrix = ubo.projectionView * modelMatrix;
 			push.normalMatrix = transform.computeNormalMatrix();
 
 			vkCmdPushConstants(frameInfo.commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);

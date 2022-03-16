@@ -12,8 +12,8 @@ namespace Aspen {
 	class SimpleRenderSystem {
 	public:
 		struct Ubo {
-			glm::mat4 projectionView{1.0f};
-			glm::vec3 lightDirection = glm::normalize(glm::vec3(1.0f, -3.0f, -1.0f));
+			alignas(16) glm::mat4 projectionView{1.0f};
+			alignas(16) glm::vec3 lightDirection = glm::normalize(glm::vec3(1.0f, -3.0f, -1.0f));
 		};
 
 		SimpleRenderSystem(Device& device, Renderer& renderer);
@@ -29,8 +29,8 @@ namespace Aspen {
 		void renderUI(VkCommandBuffer commandBuffer);
 		void onResize();
 
-		VkDescriptorSet getCurrentDescriptorSet() {
-			return offscreenDescriptorSets[0];
+		VkDescriptorSet getCurrentDescriptorSet(int frameIndex) {
+			return offscreenDescriptorSets[frameIndex];
 		}
 
 	private:
@@ -45,7 +45,7 @@ namespace Aspen {
 		std::unique_ptr<Pipeline> pipeline;
 		VkPipelineLayout pipelineLayout{};
 
-		VkDescriptorSetLayout descriptorSetLayout{};
+		std::unique_ptr<DescriptorSetLayout> descriptorSetLayout{};
 		std::vector<VkDescriptorSet> offscreenDescriptorSets;
 
 		std::vector<std::unique_ptr<Buffer>> uboBuffers;
