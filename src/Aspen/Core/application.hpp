@@ -6,7 +6,9 @@
 #include "Aspen/Math/math.hpp"
 #include "Aspen/Renderer/device.hpp"
 #include "Aspen/Renderer/renderer.hpp"
-#include "Aspen/Renderer/simple_render_system.hpp"
+#include "Aspen/Renderer/System/global_render_system.hpp"
+#include "Aspen/Renderer/System/simple_render_system.hpp"
+#include "Aspen/Renderer/System/point_light_render_system.hpp"
 #include "Aspen/Scene/entity.hpp"
 #include "Aspen/System/camera_controller_system.hpp"
 #include "Aspen/System/camera_system.hpp"
@@ -51,7 +53,7 @@ namespace Aspen {
 		}
 
 	private:
-		void loadGameObjects();
+		void loadEntities();
 		void renderUI(VkCommandBuffer commandBuffer, Camera camera);
 		void setupImGui();
 		bool OnWindowClose(WindowCloseEvent& e);
@@ -62,7 +64,7 @@ namespace Aspen {
 		Window window{WIDTH, HEIGHT, "Hello Vulkan!"};
 		Device device{window};
 		Renderer renderer{window, device};
-		SimpleRenderSystem simpleRenderSystem{device, renderer};
+		GlobalRenderSystem globalRenderSystem{device, renderer};
 		Timer timer{};
 
 		Entity cameraEntity{}; // Empty entity to store the transformation of the camera.
@@ -75,6 +77,7 @@ namespace Aspen {
 		float currentFrameTime = 0.0f;
 
 		int gizmoType = -1;
+		int prevGizmoType = -1;
 		bool snapping = false;
 		VkDescriptorSet viewportTexture{};
 

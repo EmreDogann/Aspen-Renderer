@@ -11,6 +11,10 @@ namespace Aspen {
 		// if (m_Registry.all_of<TransformComponent>(entity)) {
 		// 	TransformComponent &transform = m_Registry.get<TransformComponent>(entity);
 		// }
+
+		// Initialize groups by just calling them once.
+		// m_Registry.group<TransformComponent, MeshComponent>();
+		// m_Registry.group<PointLightComponent>(entt::get<TransformComponent>);
 	}
 
 	Scene::~Scene() {

@@ -8,15 +8,22 @@ layout(location = 3) in vec2 uv;
 
 // Output
 layout(location = 0) out vec3 fragColor;
-layout(location = 1) out vec3 fragPositionWorld;
-layout(location = 2) out vec3 fragNormalWorld;
+layout(location = 1) out vec3 fragWorldPosition;
+layout(location = 2) out vec3 fragNormal;
+
+struct PointLight {
+  vec4 position;
+  vec4 color;  // w is intensity
+};
 
 // Uniform Buffer Object (UBO)
-layout(set = 0, binding = 0) uniform Ubo {
-    mat4 projectionViewMatrix;
-    vec4 ambientLightColor;
-    vec4 lightColor;
-    vec3 lightPosition;
+layout(set = 0, binding = 0) uniform GlobalUbo {
+    mat4 projectionMatrix;
+    mat4 viewMatrix;
+    mat4 inverseViewMatrix;
+    vec3 ambientLightColor;
+    int numLights;
+    PointLight lights[10];
 } ubo;
 
 // Push Constants
@@ -28,10 +35,10 @@ layout(push_constant) uniform Push {
 // gl_Positions is the default output variable.
 // gl_VertexIndex contains the current vertex index for everytime the main() function is executed.
 void main() {
-    vec4 positionWorld = push.modelMatrix * vec4(position, 1.0);
+    vec4 worldPosition = push.modelMatrix * vec4(position, 1.0);
 
     // w = 1 refers to a position. w = 0 refers to a direction.
-    gl_Position = ubo.projectionViewMatrix * positionWorld;
+    gl_Position = ubo.projectionMatrix * ubo.viewMatrix * worldPosition;
 
     // Transform the vertex normals from local/object space to world space.
     // Here we cast the 4x4 model matrix to a 3x3 matrix, which will just cut off the 4th row and column (the translation component) from the matrix.
@@ -45,7 +52,7 @@ void main() {
     // vec3 normalWorldSpace = normalize(normalMatrix * normal);
 
     // Instead, we compute the normal matrix on the CPU side.
-    fragNormalWorld = normalize(mat3(push.normalMatrix) * normal);
-    fragPositionWorld = positionWorld.xyz;
+    fragNormal = normalize(mat3(push.normalMatrix) * normal);
+    fragWorldPosition = worldPosition.xyz;
     fragColor = color;
 }

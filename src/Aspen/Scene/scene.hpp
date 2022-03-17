@@ -18,6 +18,17 @@ namespace Aspen {
 			return m_Registry.group<TransformComponent>(entt::get<MeshComponent>);
 		};
 
+		auto getPointLights() {
+			return m_Registry.group<PointLightComponent>(entt::get<TransformComponent>);
+		};
+
+		// Partial-owning group
+		template <typename T, typename... Ts>
+		decltype(auto) getComponents() {
+
+			return m_Registry.group<T>(entt::get<Ts...>);
+		}
+
 	private:
 		entt::registry m_Registry;
 		Device& device;

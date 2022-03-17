@@ -33,35 +33,50 @@ namespace Aspen {
 
 	class Pipeline {
 	public:
-		Pipeline(Device& device, const std::string& vertFilepath, const std::string& fragFilepath);
-		~Pipeline();
+		Pipeline(Device& device)
+		    : device(device) {}
+		~Pipeline() {
+			vkDestroyShaderModule(device.device(), vertShaderModule, nullptr);
+			vkDestroyShaderModule(device.device(), fragShaderModule, nullptr);
+			vkDestroyPipelineLayout(device.device(), pipelineLayout, nullptr);
+			vkDestroyPipeline(device.device(), pipeline, nullptr);
+		}
 
-		Pipeline(const Pipeline&) = delete;
-		Pipeline& operator=(const Pipeline&) = delete;
+		Pipeline(const Pipeline&) = delete;            // Copy Constructor
+		Pipeline& operator=(const Pipeline&) = delete; // Copy Assignment Operator
 
 		Pipeline(Pipeline&&) = delete;            // Move Constructor
 		Pipeline& operator=(Pipeline&&) = delete; // Move Assignment Operator
 
 		void bind(VkCommandBuffer commandBuffer, VkPipeline& pipeline);
+		void createShaderModule(VkShaderModule& shaderModule, const std::string& shaderFilepath);
+		void createPipelineLayout(std::vector<VkDescriptorSetLayout>& descriptorSetLayouts, VkPushConstantRange& pushConstantRange);
 		static void defaultPipelineConfigInfo(PipelineConfigInfo& configInfo);
 		void createGraphicsPipeline(const PipelineConfigInfo& configInfo, VkPipeline& pipeline);
 
-		VkPipeline& getPresentPipeline() {
-			return presentGraphicsPipeline;
+		VkPipeline& getPipeline() {
+			return pipeline;
 		}
 
-		VkPipeline& getOffscreenPipeline() {
-			return offscreenGraphicsPipeline;
+		VkPipelineLayout& getPipelineLayout() {
+			return pipelineLayout;
+		}
+
+		VkShaderModule& getVertShaderModule() {
+			return vertShaderModule;
+		}
+
+		VkShaderModule& getFragShaderModule() {
+			return fragShaderModule;
 		}
 
 	private:
-		static std::vector<char> readFile(const std::string& filepath);
-
-		void createShaderModule(const std::vector<char>& code, VkShaderModule* shaderModule);
+		std::vector<char> readFile(const std::string& filepath);
 
 		Device& device;
-		VkPipeline presentGraphicsPipeline{};
-		VkPipeline offscreenGraphicsPipeline{};
+
+		VkPipeline pipeline{};
+		VkPipelineLayout pipelineLayout{};
 		VkShaderModule vertShaderModule{};
 		VkShaderModule fragShaderModule{};
 	};

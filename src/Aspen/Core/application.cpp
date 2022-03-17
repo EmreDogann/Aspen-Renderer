@@ -16,7 +16,7 @@ namespace Aspen {
 		auto& camController = cameraEntity.getComponent<CameraControllerArcball>();
 		camController.offset = glm::vec3{0.0f, -1.5f, 0.0f};
 
-		loadGameObjects();
+		loadEntities();
 	}
 
 	Application::~Application() {
@@ -65,6 +65,15 @@ namespace Aspen {
 		std::cout << "maxPushConstantSize = " << device.properties.limits.maxPushConstantsSize << "\n";
 		std::cout << "maxMemoryAllocationCount = " << device.properties.limits.maxMemoryAllocationCount << "\n";
 
+		SimpleRenderSystem simpleRenderSystem{
+		    device,
+		    renderer,
+		    globalRenderSystem.getDescriptorSetLayout()};
+		// PointLightRenderSystem pointLightRenderSystem{
+		//     device,
+		//     renderer,
+		//     globalRenderSystem.getDescriptorSetLayout()};
+
 		// Game Loop
 		while (m_Running) {
 
@@ -90,27 +99,36 @@ namespace Aspen {
 				FrameInfo frameInfo{
 				    renderer.getFrameIndex(),
 				    currentFrameTime,
+				    globalRenderSystem.getDescriptorSets()[renderer.getFrameIndex()], // Get the global descriptor set of the current frame.
 				    commandBuffer,
 				    cameraComponent.camera,
-				};
+				    m_Scene};
+
+				auto& uboBuffers = globalRenderSystem.getUboBuffers();
+
+				// Update our UBO buffer.
+				GlobalRenderSystem::GlobalUbo ubo{};
+				globalRenderSystem.updateUBOs(frameInfo, ubo);
+				uboBuffers[frameInfo.frameIndex]->writeToBuffer(&ubo); // Write info to the UBO buffer.
+				uboBuffers[frameInfo.frameIndex]->flush();
 
 				/*
 				    Render Scene to texture - Offscreen rendering
 				*/
-				{
-					renderer.beginOffscreenRenderPass(commandBuffer);
-					simpleRenderSystem.renderGameObjects(frameInfo, m_Scene);
-					renderer.endRenderPass(commandBuffer);
-				}
+				// {
+				// 	renderer.beginOffscreenRenderPass(commandBuffer);
+				// 	simpleRenderSystem.render(frameInfo);
+				// 	renderer.endRenderPass(commandBuffer);
+				// }
 
 				/*
 				    Render UI (also renders scene from texture into a UI window)
 				*/
 				{
 					renderer.beginPresentRenderPass(commandBuffer);
-					// simpleRenderSystem.renderGameObjects(frameInfo, m_Scene);
-					simpleRenderSystem.renderUI(commandBuffer);
-					renderUI(commandBuffer, cameraComponent.camera);
+					simpleRenderSystem.render(frameInfo);
+					// simpleRenderSystem.renderUI(commandBuffer);
+					// renderUI(commandBuffer, cameraComponent.camera);
 					renderer.endRenderPass(commandBuffer);
 				}
 
@@ -224,7 +242,7 @@ namespace Aspen {
 				// Setup ImGuizmo Viewport.
 				float windowWidth = ImGui::GetWindowWidth();
 				float windowHeight = ImGui::GetWindowHeight();
-				ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, windowWidth, windowHeight);
+				ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, static_cast<float>(renderer.getSwapChainExtent().width), static_cast<float>(renderer.getSwapChainExtent().height));
 
 				// Get camera's view and projection matrices.
 				const glm::mat4& cameraView = camera.getView();
@@ -352,28 +370,41 @@ namespace Aspen {
 
 		if (e.GetEventType() == EventType::KeyPressed) {
 			auto& keyEvent = dynamic_cast<KeyPressedEvent&>(e);
-			// Gizmo Shorcuts
-			switch (keyEvent.GetKeyCode()) {
-				case Key::Q:
-					gizmoType = -1;
-					break;
-				case Key::T:
-					gizmoType = ImGuizmo::OPERATION::TRANSLATE;
-					break;
-				case Key::R:
-					gizmoType = ImGuizmo::OPERATION::ROTATE;
-					break;
-				case Key::Y:
-					gizmoType = ImGuizmo::OPERATION::SCALE;
-					break;
-				case Key::LeftControl:
-					snapping = true;
-					break;
+			if (keyEvent.GetRepeatCount() == 0) {
+				// Gizmo Shorcuts
+				switch (keyEvent.GetKeyCode()) {
+					case Key::LeftAlt:
+						prevGizmoType = gizmoType;
+						cameraEntity.getComponent<CameraControllerArcball>().lastMousePosition = Input::GetMousePosition();
+						gizmoType = -1;
+						break;
+					case Key::Q:
+						gizmoType = -1;
+						break;
+					case Key::T:
+						gizmoType = ImGuizmo::OPERATION::TRANSLATE;
+						break;
+					case Key::R:
+						gizmoType = ImGuizmo::OPERATION::ROTATE;
+						break;
+					case Key::Y:
+						gizmoType = ImGuizmo::OPERATION::SCALE;
+						break;
+					case Key::LeftControl:
+						snapping = true;
+						break;
+					case Key::Escape:
+						m_Running = false; // Set flag to close the application.
+						break;
+				}
 			}
 		} else if (e.GetEventType() == EventType::KeyReleased) {
 			auto& keyEvent = dynamic_cast<KeyReleasedEvent&>(e);
 			switch (keyEvent.GetKeyCode()) {
 				// Gizmo Shorcuts
+				case Key::LeftAlt:
+					gizmoType = prevGizmoType;
+					break;
 				case Key::LeftControl:
 					snapping = false;
 					break;
@@ -390,7 +421,7 @@ namespace Aspen {
 	bool Application::OnWindowResize(WindowResizeEvent& e) {
 		window.resetWindowResizedFlag();
 		renderer.recreateSwapChain();
-		simpleRenderSystem.onResize();
+		// simpleRenderSystem.onResize();
 
 		SwapChain::OffscreenPass offscreenPass = renderer.getOffscreenPass();
 		viewportTexture =
@@ -491,7 +522,7 @@ namespace Aspen {
 		Aspen::Model::makeBuffer(device, meshComponent);
 	}
 
-	void Application::loadGameObjects() {
+	void Application::loadEntities() {
 		// Create Floor
 		{
 			floor = m_Scene->createEntity("Floor");
@@ -537,6 +568,30 @@ namespace Aspen {
 			auto& objectMesh = object.addComponent<MeshComponent>();
 			Model::createModelFromFile(device, objectMesh, "assets/models/colored_cube.obj");
 			std::cout << "Colored Cube Vertex Count: " << objectMesh.vertices.size() << std::endl;
+		}
+
+		// Create point lights
+		{
+			// https://www.color-hex.com/color-palette/5361
+			std::vector<glm::vec3> colors{
+			    {1.0f, 0.1f, 0.1f},
+			    {0.1f, 0.1f, 1.0f},
+			    {0.1f, 1.0f, 0.1f},
+			    {1.0f, 1.0f, 0.1f},
+			    {0.1f, 1.0f, 1.0f},
+			    {1.0f, 1.0f, 1.0f},
+			};
+
+			for (int i = 0; i < colors.size(); i++) {
+				Entity pointLightEntity = m_Scene->createEntity("PointLight" + std::to_string(i));
+				pointLightEntity.addComponent<PointLightComponent>();
+
+				auto [pointLightTransform, pointLightComponent] = pointLightEntity.getComponent<TransformComponent, PointLightComponent>();
+				pointLightComponent.color = colors[i];
+
+				auto rotateLight = glm::rotate(glm::mat4(1.0f), (i * glm::two_pi<float>()) / colors.size(), {0.0f, -1.0f, 0.0f});
+				pointLightTransform.translation = glm::vec3(rotateLight * glm::vec4{-1.0f, -1.0f, -1.0f, 1.0f});
+			}
 		}
 	}
 } // namespace Aspen

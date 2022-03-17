@@ -144,6 +144,11 @@ namespace Aspen {
 		CameraControllerArcball(const CameraControllerArcball&) = default;
 	};
 
+	struct PointLightComponent {
+		float lightIntensity = 1.0f;
+		glm::vec3 color{1.0f};
+	};
+
 	struct RigidBody2dComponent {
 		glm::vec2 velocity;
 		float mass{1.0f};
