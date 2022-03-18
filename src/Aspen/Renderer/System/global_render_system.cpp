@@ -44,15 +44,21 @@ namespace Aspen {
 		ubo.viewMatrix = frameInfo.camera.getView();
 		ubo.inverseViewMatrix = frameInfo.camera.getInverseView();
 
-		auto rotateLights = glm::rotate(glm::mat4(1.0f), frameInfo.frameTime, {0.0f, -1.0f, 0.0f});
 		int lightIndex = 0;
 
 		auto group = frameInfo.scene->getPointLights();
 		for (auto& entity : group) {
 			auto [transform, pointLight] = group.get<TransformComponent, PointLightComponent>(entity);
+			auto rotateLights = glm::rotate(glm::mat4(1.0f), frameInfo.frameTime, {0.0f, -1.0f, 0.0f});
+
+			assert(lightIndex < MAX_LIGHTS && "Point lights exceeded maximum specified!");
 
 			// Update light position
-			transform.translation = glm::vec3(rotateLights * glm::vec4(transform.translation, 1.0f));
+			// 1) Translate the light to the center
+			// 2) Make the rotation
+			// 3) Translate the object back to its original location
+			auto transformTemp = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 2.5f));
+			transform.translation = (transformTemp * rotateLights * glm::inverse(transformTemp)) * glm::vec4(transform.translation, 1.0f);
 
 			// copy light to ubo
 			ubo.lights[lightIndex].position = glm::vec4(transform.translation, 1.0f);
@@ -62,7 +68,7 @@ namespace Aspen {
 				break;
 			}
 		}
-		ubo.numLights = lightIndex;
+		// ubo.numLights = lightIndex;
 	}
 
 	// void GlobalRenderSystem::onResize() {

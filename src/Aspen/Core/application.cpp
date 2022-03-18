@@ -69,10 +69,10 @@ namespace Aspen {
 		    device,
 		    renderer,
 		    globalRenderSystem.getDescriptorSetLayout()};
-		// PointLightRenderSystem pointLightRenderSystem{
-		//     device,
-		//     renderer,
-		//     globalRenderSystem.getDescriptorSetLayout()};
+		PointLightRenderSystem pointLightRenderSystem{
+		    device,
+		    renderer,
+		    globalRenderSystem.getDescriptorSetLayout()};
 
 		// Game Loop
 		while (m_Running) {
@@ -118,6 +118,7 @@ namespace Aspen {
 				// {
 				// 	renderer.beginOffscreenRenderPass(commandBuffer);
 				// 	simpleRenderSystem.render(frameInfo);
+				// 	pointLightRenderSystem.render(frameInfo);
 				// 	renderer.endRenderPass(commandBuffer);
 				// }
 
@@ -127,6 +128,7 @@ namespace Aspen {
 				{
 					renderer.beginPresentRenderPass(commandBuffer);
 					simpleRenderSystem.render(frameInfo);
+					pointLightRenderSystem.render(frameInfo);
 					// simpleRenderSystem.renderUI(commandBuffer);
 					// renderUI(commandBuffer, cameraComponent.camera);
 					renderer.endRenderPass(commandBuffer);
@@ -566,7 +568,7 @@ namespace Aspen {
 			objectTransform.scale = glm::vec3(0.5f);
 
 			auto& objectMesh = object.addComponent<MeshComponent>();
-			Model::createModelFromFile(device, objectMesh, "assets/models/colored_cube.obj");
+			Model::createModelFromFile(device, objectMesh, "assets/models/cube.obj");
 			std::cout << "Colored Cube Vertex Count: " << objectMesh.vertices.size() << std::endl;
 		}
 
@@ -587,10 +589,12 @@ namespace Aspen {
 				pointLightEntity.addComponent<PointLightComponent>();
 
 				auto [pointLightTransform, pointLightComponent] = pointLightEntity.getComponent<TransformComponent, PointLightComponent>();
+				pointLightTransform.translation = glm::vec3{0.0f, -1.0f, 2.5f};
 				pointLightComponent.color = colors[i];
+				pointLightComponent.lightIntensity = 0.5f;
 
-				auto rotateLight = glm::rotate(glm::mat4(1.0f), (i * glm::two_pi<float>()) / colors.size(), {0.0f, -1.0f, 0.0f});
-				pointLightTransform.translation = glm::vec3(rotateLight * glm::vec4{-1.0f, -1.0f, -1.0f, 1.0f});
+				auto rotateLight = glm::rotate(pointLightTransform.transform(), (i * glm::two_pi<float>()) / colors.size(), {0.0f, -1.0f, 0.0f});
+				pointLightTransform.translation = glm::vec3(rotateLight * glm::vec4{pointLightTransform.translation, 1.0f});
 			}
 		}
 	}

@@ -2,22 +2,16 @@
 #include "Aspen/Renderer/System/global_render_system.hpp"
 
 namespace Aspen {
-	// Host data to take specialization constants from
-	struct SpecializationData {
-		// Sets the lighting model used in the fragment "uber" shader
-		int numLights;
-	};
-
-	class SimpleRenderSystem {
+	class PointLightRenderSystem {
 	public:
-		SimpleRenderSystem(Device& device, Renderer& renderer, std::unique_ptr<DescriptorSetLayout>& descriptorSetLayout);
-		~SimpleRenderSystem() = default;
+		PointLightRenderSystem(Device& device, Renderer& renderer, std::unique_ptr<DescriptorSetLayout>& descriptorSetLayout);
+		~PointLightRenderSystem() = default;
 
-		SimpleRenderSystem(const SimpleRenderSystem&) = delete;
-		SimpleRenderSystem& operator=(const SimpleRenderSystem&) = delete;
+		PointLightRenderSystem(const PointLightRenderSystem&) = delete;
+		PointLightRenderSystem& operator=(const PointLightRenderSystem&) = delete;
 
-		SimpleRenderSystem(SimpleRenderSystem&&) = delete;            // Move Constructor
-		SimpleRenderSystem& operator=(SimpleRenderSystem&&) = delete; // Move Assignment Operator
+		PointLightRenderSystem(PointLightRenderSystem&&) = delete;            // Move Constructor
+		PointLightRenderSystem& operator=(PointLightRenderSystem&&) = delete; // Move Assignment Operator
 
 		void render(FrameInfo& frameInfo);
 		void onResize();
@@ -35,8 +29,6 @@ namespace Aspen {
 		Device& device;
 		Renderer& renderer;
 		Pipeline pipeline{device};
-
-		SpecializationData specializationData{};
 
 		std::unique_ptr<DescriptorSetLayout> descriptorSetLayout{};
 		std::vector<VkDescriptorSet> descriptorSets;

@@ -12,6 +12,9 @@ layout (location = 2) in vec3 fragNormal;
 // Outputs
 layout (location = 0) out vec4 outColor;
 
+// Specialization Constant
+layout (constant_id = 0) const int numLights = 10;
+
 struct PointLight {
   vec4 position;
   vec4 color;  // w is intensity
@@ -22,9 +25,8 @@ layout(set = 0, binding = 0) uniform GlobalUbo {
     mat4 projectionMatrix;
     mat4 viewMatrix;
     mat4 inverseViewMatrix;
+    PointLight lights[numLights];
     vec3 ambientLightColor;
-    int numLights;
-    PointLight lights[10];
 } ubo;
 
 // Push Constants
@@ -53,7 +55,7 @@ void main() {
     vec3 cameraPositionWorld = ubo.inverseViewMatrix[3].xyz;
 
     // Loop through point lights.
-    for (int i = 0; i < ubo.numLights; i++) {
+    for (int i = 0; i < numLights; i++) {
         PointLight light = ubo.lights[i];
 
         vec3 directionToLight = light.position.xyz - fragWorldPosition;

@@ -9,6 +9,9 @@
 namespace Aspen {
 	// Data specifying how we want to configure our pipeline.
 	struct PipelineConfigInfo {
+		std::vector<VkVertexInputBindingDescription> bindingDescriptions;
+		std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
+
 		VkPipelineViewportStateCreateInfo viewportInfo{};
 		VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo{};
 		VkPipelineRasterizationStateCreateInfo rasterizationInfo{};
@@ -18,6 +21,8 @@ namespace Aspen {
 		VkPipelineDepthStencilStateCreateInfo depthStencilInfo{};
 		std::vector<VkDynamicState> dynamicStateEnables;
 		VkPipelineDynamicStateCreateInfo dynamicStateInfo{};
+		VkSpecializationInfo vertexSpecializationInfo{};
+		VkSpecializationInfo fragmentSpecializationInfo{};
 		VkPipelineLayout pipelineLayout = nullptr;
 		VkRenderPass renderPass = nullptr;
 		uint32_t subpass = 0; // This is an index, not a count.

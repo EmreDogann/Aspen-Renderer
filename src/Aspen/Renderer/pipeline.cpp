@@ -67,8 +67,8 @@ namespace Aspen {
 		// Specify values for shader constants.
 		// This allows you to configue how to use a shader module by specifying different values for the constants used
 		// in it. This is more efficient than configuring the shader using variables at render time as the compiler can
-		// do optimizations such as eliminating if statements that depend on these values.
-		shaderStages[0].pSpecializationInfo = nullptr;
+		// do optimizations such as eliminating if statements and loops that depend on these values.
+		shaderStages[0].pSpecializationInfo = &configInfo.vertexSpecializationInfo;
 
 		// Do the same for the fragment shader.
 		shaderStages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -77,19 +77,15 @@ namespace Aspen {
 		shaderStages[1].pName = "main";
 		shaderStages[1].flags = 0;
 		shaderStages[1].pNext = nullptr;
-		shaderStages[1].pSpecializationInfo = nullptr;
+		shaderStages[1].pSpecializationInfo = &configInfo.fragmentSpecializationInfo;
 
-		// How to interpret the vertex buffer data.
-		// Bindings - The spacing between data and whether the data is per-vertex or per-instance.
-		// Attribute Descriptions - Type of the attributes passed to the veretx shader, which binding to load them from and at which offset.
-		auto bindingDescriptions = Model::getBindingDescriptions();
-		auto attributeDescriptions = Model::getAttributeDescriptions();
+		// Specify the binding & attribute information for the vertex shader.
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
-		vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(bindingDescriptions.size());
-		vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
-		vertexInputInfo.pVertexBindingDescriptions = bindingDescriptions.data();
+		vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(configInfo.attributeDescriptions.size());
+		vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(configInfo.bindingDescriptions.size());
+		vertexInputInfo.pVertexAttributeDescriptions = configInfo.attributeDescriptions.data();
+		vertexInputInfo.pVertexBindingDescriptions = configInfo.bindingDescriptions.data();
 
 		// Finally, setup the complete graphics pipeline struct.
 		VkGraphicsPipelineCreateInfo pipelineInfo{};
@@ -215,5 +211,11 @@ namespace Aspen {
 		configInfo.dynamicStateInfo.pDynamicStates = configInfo.dynamicStateEnables.data();
 		configInfo.dynamicStateInfo.dynamicStateCount = static_cast<uint32_t>(configInfo.dynamicStateEnables.size());
 		configInfo.dynamicStateInfo.flags = 0;
+
+		// How to interpret the vertex buffer data.
+		// Bindings - The spacing between data and whether the data is per-vertex or per-instance.
+		// Attribute Descriptions - Type of the attributes passed to the vertex shader, which binding to load them from and at which offset.
+		configInfo.bindingDescriptions = Aspen::Model::getBindingDescriptions();
+		configInfo.attributeDescriptions = Aspen::Model::getAttributeDescriptions();
 	}
 } // namespace Aspen
