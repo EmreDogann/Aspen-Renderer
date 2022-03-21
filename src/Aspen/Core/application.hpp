@@ -6,7 +6,6 @@
 #include "Aspen/Core/window.hpp"
 #include "Aspen/Renderer/device.hpp"
 #include "Aspen/Renderer/renderer.hpp"
-#include "Aspen/Renderer/System/global_render_system.hpp"
 #include "Aspen/Renderer/System/simple_render_system.hpp"
 #include "Aspen/Renderer/System/point_light_render_system.hpp"
 #include "Aspen/Renderer/System/ui_render_system.hpp"
