@@ -195,6 +195,8 @@ namespace Aspen {
 		// Specify the device features we will be using.
 		VkPhysicalDeviceFeatures deviceFeatures = {};
 		deviceFeatures.samplerAnisotropy = VK_TRUE;
+		deviceFeatures.fragmentStoresAndAtomics = VK_TRUE;
+		deviceFeatures.shaderInt64 = VK_TRUE;
 		// deviceFeatures.fillModeNonSolid = true;
 		// deviceFeatures.wideLines = true;
 
@@ -275,9 +277,10 @@ namespace Aspen {
 		// }
 
 		descriptorPool = DescriptorPool::Builder(*this)
-		                     .setMaxSets(2)
-		                     .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2)
-		                     .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2)
+		                     .setMaxSets(5)
+		                     .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10)
+		                     .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10)
+		                     .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10)
 		                     .build();
 	}
 

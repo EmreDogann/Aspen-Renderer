@@ -87,6 +87,8 @@ namespace Aspen {
 		VkResult acquireNextImage(uint32_t* imageIndex);
 		VkResult submitCommandBuffers(const VkCommandBuffer* buffers, const uint32_t* imageIndex);
 
+		void createMousePickingResources(VkFramebuffer& frameBuffer, FrameBufferAttachment& depthAttachment, VkRenderPass& renderPass);
+
 		bool compareSwapFormats(const SwapChain& swapChain) const {
 			return swapChain.swapChainDepthFormat == swapChainDepthFormat && swapChain.swapChainImageFormat == swapChainImageFormat;
 		}
@@ -103,6 +105,10 @@ namespace Aspen {
 		void createFramebuffers();
 
 		void createSyncObjects();
+
+		void createMousePickingDepthAttachment(FrameBufferAttachment& depthAttachment);
+		void createMousePickingRenderPass(VkRenderPass& renderPass);
+		void createMousePickingFrameBuffer(VkFramebuffer& frameBuffer, FrameBufferAttachment& depthAttachment, VkRenderPass& renderPass);
 
 		// Helper functions
 		VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);

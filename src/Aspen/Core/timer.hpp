@@ -4,6 +4,8 @@
 
 #include "pch.h"
 
+#include <GLFW/glfw3.h>
+
 namespace Aspen {
 	class Timer {
 	public:
@@ -12,18 +14,21 @@ namespace Aspen {
 		}
 
 		void reset() {
-			m_start = std::chrono::high_resolution_clock::now();
+			// m_start = std::chrono::high_resolution_clock::now();
+			m_start = glfwGetTime();
 		}
 
-		float elapsedSeconds() {
-			return std::chrono::duration<float, std::chrono::seconds::period>(std::chrono::high_resolution_clock::now() - m_start).count();
+		double elapsedSeconds() {
+			// return std::chrono::duration<float, std::chrono::seconds::period>(std::chrono::high_resolution_clock::now() - m_start).count();
+			return glfwGetTime() - m_start;
 		}
 
-		float elapsedMillis() {
-			return elapsedSeconds() * 1000.0f;
+		double elapsedMillis() {
+			return elapsedSeconds() * 1000.0;
 		}
 
 	private:
-		std::chrono::time_point<std::chrono::high_resolution_clock> m_start;
+		// std::chrono::time_point<std::chrono::high_resolution_clock> m_start;
+		double m_start = 0.0;
 	};
 } // namespace Aspen

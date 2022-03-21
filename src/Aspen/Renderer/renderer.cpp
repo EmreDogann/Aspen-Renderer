@@ -64,6 +64,10 @@ namespace Aspen {
 		// TODO: Check if new and old render passes are compatible.
 	}
 
+	void Renderer::createMousePickingRenderPass(MousePickingPass& mousePickingRenderPass) {
+		swapChain->createMousePickingResources(mousePickingRenderPass.frameBuffer, mousePickingRenderPass.depth, mousePickingRenderPass.renderPass);
+	}
+
 	// beginFrame will start recording the current command buffer and check that the current frame buffer is still valid.
 	VkCommandBuffer Renderer::beginFrame() {
 		assert(!isFrameStarted && "Cannot call beginFrame while it is already in progress!");
@@ -128,14 +132,14 @@ namespace Aspen {
 	}
 
 	void Renderer::beginPresentRenderPass(VkCommandBuffer commandBuffer) {
-		beginRenderPass(commandBuffer, swapChain->getFrameBuffer(currentImageIndex), swapChain->getPresentRenderPass());
+		beginRenderPass(commandBuffer, swapChain->getFrameBuffer(currentImageIndex), swapChain->getPresentRenderPass(), VkRect2D{{0, 0}, swapChain->getSwapChainExtent()});
 	}
 	void Renderer::beginOffscreenRenderPass(VkCommandBuffer commandBuffer) {
-		beginRenderPass(commandBuffer, swapChain->getOffscreenFrameBuffer(), swapChain->getOffscreenRenderPass());
+		beginRenderPass(commandBuffer, swapChain->getOffscreenFrameBuffer(), swapChain->getOffscreenRenderPass(), VkRect2D{{0, 0}, swapChain->getSwapChainExtent()});
 	}
 
 	// beginSwapChainRenderPass will start the render pass in order to then record commands to it.
-	void Renderer::beginRenderPass(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, VkRenderPass renderPass) {
+	void Renderer::beginRenderPass(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, VkRenderPass renderPass, VkRect2D scissorDimensions) {
 		assert(isFrameStarted && "Can't call beginRenderPass if frame is not in progress!");
 		assert(commandBuffer == getCurrentCommandBuffer() && "Cannot begin render pass on command buffer from a different frame.");
 
@@ -178,9 +182,9 @@ namespace Aspen {
 		viewport.height = static_cast<float>(swapChain->getSwapChainExtent().height);
 		viewport.minDepth = 0.0f;
 		viewport.maxDepth = 1.0f;
-		VkRect2D scissor{{0, 0}, swapChain->getSwapChainExtent()};
+		// VkRect2D scissor{{0, 0}, swapChain->getSwapChainExtent()};
 		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+		vkCmdSetScissor(commandBuffer, 0, 1, &scissorDimensions);
 	}
 
 	// End the render pass when commands have been recorded.

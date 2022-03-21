@@ -6,6 +6,13 @@
 #include "Aspen/Renderer/swap_chain.hpp"
 
 namespace Aspen {
+	// Mouse Picking rendering struct.
+	struct MousePickingPass {
+		VkFramebuffer frameBuffer{};
+		SwapChain::FrameBufferAttachment depth{};
+		VkRenderPass renderPass{};
+	};
+
 	class Renderer {
 	public:
 		Renderer(Window& window, Device& device);
@@ -15,10 +22,6 @@ namespace Aspen {
 		Renderer& operator=(const Renderer&);
 		Renderer(Renderer&&) = default;
 		Renderer& operator=(Renderer&&) noexcept;
-
-		VkFramebuffer getOffscreenFrameBuffer() {
-			return swapChain->getOffscreenFrameBuffer();
-		}
 
 		VkRenderPass getPresentRenderPass() const {
 			return swapChain->getPresentRenderPass();
@@ -31,12 +34,16 @@ namespace Aspen {
 			return swapChain->getOffscreenPass();
 		}
 
-		VkExtent2D getSwapChainExtent() {
-			return swapChain->getSwapChainExtent();
-		}
-
 		VkDescriptorImageInfo& getOffscreenDescriptorInfo() const {
 			return swapChain->getOffscreenDescriptorInfo();
+		}
+
+		VkFramebuffer getOffscreenFrameBuffer() {
+			return swapChain->getOffscreenFrameBuffer();
+		}
+
+		VkExtent2D getSwapChainExtent() {
+			return swapChain->getSwapChainExtent();
 		}
 
 		uint32_t getSwapChainImageCount() const {
@@ -67,15 +74,17 @@ namespace Aspen {
 
 		VkCommandBuffer beginFrame();
 		void endFrame();
+		void beginRenderPass(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, VkRenderPass renderPass, VkRect2D scissorDimensions);
 		void beginPresentRenderPass(VkCommandBuffer commandBuffer);
 		void beginOffscreenRenderPass(VkCommandBuffer commandBuffer);
 		void endRenderPass(VkCommandBuffer commandBuffer) const;
 		void recreateSwapChain();
 
+		void createMousePickingRenderPass(MousePickingPass& mousePickingRenderPass);
+
 	private:
 		void createCommandBuffers();
 		void freeCommandBuffers();
-		void beginRenderPass(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, VkRenderPass renderPass);
 
 		Window& window;
 		Device& device;

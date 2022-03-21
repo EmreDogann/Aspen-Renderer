@@ -80,7 +80,8 @@ namespace Aspen {
 
 			if (Input::IsMouseButtonPressed(Mouse::ButtonMiddle)) {
 				mousePan(controller, delta * deltaAngle);
-			} else if (Input::IsMouseButtonPressed(Mouse::ButtonLeft)) {
+			} else if (Input::IsMouseButtonPressed(Mouse::ButtonLeft) || Input::IsKeyPressed(Key::Right)) {
+				delta = {-0.5f, 0.0f};
 				mouseOrbit(controller, delta * deltaAngle);
 			} else if (Input::IsMouseButtonPressed(Mouse::ButtonRight)) {
 				mouseZoom(controller, delta.y);

@@ -4,9 +4,13 @@ namespace Aspen {
 	Application::Application() {
 		s_Instance = this;
 		window.setEventCallback(BIND_EVENT_FN(Application::OnEvent));
+
 		setupImGui();
 
 		m_Scene = std::make_shared<Scene>(device);
+
+		uiState.viewportSize = glm::vec2(WIDTH, HEIGHT);
+		uiState.selectedEntity.setScene(&*m_Scene);
 
 		// Setup runtime camera entity.
 		cameraEntity = m_Scene->createEntity("Camera");
@@ -55,7 +59,7 @@ namespace Aspen {
 		device.endSingleTimeCommandBuffers(commandBuffer);
 
 		SwapChain::OffscreenPass offscreenPass = renderer.getOffscreenPass();
-		viewportTexture = ImGui_ImplVulkan_AddTexture(offscreenPass.sampler, offscreenPass.color.view, offscreenPass.descriptor.imageLayout);
+		uiState.viewportTexture = ImGui_ImplVulkan_AddTexture(offscreenPass.sampler, offscreenPass.color.view, offscreenPass.descriptor.imageLayout);
 
 		// Destroy font textures from CPU memory.
 		ImGui_ImplVulkan_DestroyFontUploadObjects();
@@ -65,304 +69,235 @@ namespace Aspen {
 		std::cout << "maxPushConstantSize = " << device.properties.limits.maxPushConstantsSize << "\n";
 		std::cout << "maxMemoryAllocationCount = " << device.properties.limits.maxMemoryAllocationCount << "\n";
 
-		SimpleRenderSystem simpleRenderSystem{
-		    device,
-		    renderer,
-		    globalRenderSystem.getDescriptorSetLayout()};
-		PointLightRenderSystem pointLightRenderSystem{
-		    device,
-		    renderer,
-		    globalRenderSystem.getDescriptorSetLayout()};
+		double accumulator = 0.0;
+		double averager_residual = 0.0;
+		double fpsUpdate = 0.0;
+		double frames = 0.0;
 
 		// Game Loop
 		while (m_Running) {
 
-			// Calculate the time taken of the previous frame.
-			currentFrameTime = timer.elapsedSeconds();
-			currentFrameTime = glm::min(currentFrameTime, MAX_FRAME_TIME);
+			// Calculate the time taken of the previous frame. Clamp between 0 and max frame time.
+			double deltaTime = glm::clamp(timer.elapsedSeconds(), 0.0, TimerState::MAX_FRAME_TIME);
 			timer.reset();
 
-			window.OnUpdate(); // Process window level events.
-			// m_Scene->OnUpdate();
-
-			// Update the camera position and rotation.
-			auto [cameraComponent, cameraArcball, cameraTransform] = cameraEntity.getComponent<CameraComponent, CameraControllerArcball, TransformComponent>();
-			CameraControllerSystem::OnUpdate(cameraArcball, {renderer.getSwapChainExtent().width, renderer.getSwapChainExtent().height});
-			CameraSystem::OnUpdateArcball(cameraTransform, cameraArcball, currentFrameTime);
-
-			float aspect = renderer.getAspectRatio();
-			// camera.setOrthographicProjection(-1, 1, -1, 1, -1, 1, aspect);
-			cameraComponent.camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 100.0f);
-			cameraComponent.camera.setView(cameraTransform.translation, cameraTransform.rotation);
-
-			if (auto* commandBuffer = renderer.beginFrame()) {
-				FrameInfo frameInfo{
-				    renderer.getFrameIndex(),
-				    currentFrameTime,
-				    globalRenderSystem.getDescriptorSets()[renderer.getFrameIndex()], // Get the global descriptor set of the current frame.
-				    commandBuffer,
-				    cameraComponent.camera,
-				    m_Scene};
-
-				auto& uboBuffers = globalRenderSystem.getUboBuffers();
-
-				// Update our UBO buffer.
-				GlobalRenderSystem::GlobalUbo ubo{};
-				globalRenderSystem.updateUBOs(frameInfo, ubo);
-				uboBuffers[frameInfo.frameIndex]->writeToBuffer(&ubo); // Write info to the UBO buffer.
-				uboBuffers[frameInfo.frameIndex]->flush();
-
-				/*
-				    Render Scene to texture - Offscreen rendering
-				*/
-				// {
-				// 	renderer.beginOffscreenRenderPass(commandBuffer);
-				// 	simpleRenderSystem.render(frameInfo);
-				// 	pointLightRenderSystem.render(frameInfo);
-				// 	renderer.endRenderPass(commandBuffer);
-				// }
-
-				/*
-				    Render UI (also renders scene from texture into a UI window)
-				*/
-				{
-					renderer.beginPresentRenderPass(commandBuffer);
-					simpleRenderSystem.render(frameInfo);
-					pointLightRenderSystem.render(frameInfo);
-					// simpleRenderSystem.renderUI(commandBuffer);
-					// renderUI(commandBuffer, cameraComponent.camera);
-					renderer.endRenderPass(commandBuffer);
+			// Vsync time snapping
+			for (double snap : timerState.snap_frequencies) {
+				if (std::abs(deltaTime - snap) < TimerState::VSYNC_ERROR) {
+					deltaTime = snap;
+					break;
 				}
-
-				renderer.endFrame();
 			}
 
-			// Update input manager state.
-			Input::OnUpdate();
+			// Average delta time.
+			// float weight = 1.0f - glm::pow(1 - 0.5, deltaTime * TimerState::UPDATE_RATE);
+			// accumulator += (deltaTime - accumulator) * weight;
+
+			// timerState.time_averager.enqueue(deltaTime);
+			// double averager_sum = 0.0;
+			// for (int i = 0; i < TimerState::TIME_HISTORY_COUNT; i++) {
+			// 	averager_sum += timerState.time_averager.dequeue();
+			// }
+			// deltaTime = averager_sum / TimerState::TIME_HISTORY_COUNT;
+
+			for (int i = 0; i < TimerState::TIME_HISTORY_COUNT - 1; i++) {
+				timerState.time_averager[i] = timerState.time_averager[i + 1];
+			}
+			timerState.time_averager[TimerState::TIME_HISTORY_COUNT - 1] = deltaTime;
+
+			double averager_sum = 0.0;
+			for (int i = 0; i < TimerState::TIME_HISTORY_COUNT; i++) {
+				averager_sum += timerState.time_averager[i];
+			}
+
+			deltaTime = averager_sum / TimerState::TIME_HISTORY_COUNT;
+
+			// averager_residual += std::fmod(averager_sum, TimerState::TIME_HISTORY_COUNT);
+			// deltaTime += averager_residual / TimerState::TIME_HISTORY_COUNT;
+			// averager_residual = std::fmod(averager_residual, TimerState::TIME_HISTORY_COUNT);
+
+			accumulator += deltaTime;
+
+			fpsUpdate += deltaTime;
+			frames++;
+
+			if (fpsUpdate >= fpsUpdateCooldown) {
+				std::string newTitle = window.getWindowTitle() + " | Frame Time: " + std::to_string(1000.0 / frames) + ", FPS: " + std::to_string(frames) + ", UPS: " + std::to_string(TimerState::UPDATE_RATE);
+				window.setWindowTitle(newTitle);
+				fpsUpdate = 0;
+				frames = 0;
+			}
+
+			// Prevents spiral of doom.
+			if (accumulator > TimerState::MAX_FRAME_TIME) {
+				std::cout << "Resyncing..." << std::endl;
+				timerState.resync = true;
+			}
+
+			// Resync the timer variables.
+			if (timerState.resync) {
+				accumulator = 0.0;
+				deltaTime = TimerState::FIXED_DELTA_TIME;
+				timerState.resync = false;
+			}
+
+			window.OnUpdate(); // Process window level events.
+
+			if (TimerState::UNLOCK_FRAMERATE) { // Unlocked framerate, use interpolation
+				double consumedDeltaTime = deltaTime;
+
+				while (accumulator >= TimerState::FIXED_DELTA_TIME) {
+					// Fixed Update
+					// ...
+
+					// Cap variable update's dt to not be larger than fixed update, and interleave it (so game state can always get animation frames it needs)
+					if (consumedDeltaTime > TimerState::FIXED_DELTA_TIME) {
+						// Variable Update
+						update(TimerState::FIXED_DELTA_TIME);
+						consumedDeltaTime -= TimerState::FIXED_DELTA_TIME;
+					}
+					accumulator -= TimerState::FIXED_DELTA_TIME;
+				}
+
+				// Render frame
+				update(consumedDeltaTime);
+				render(accumulator / TimerState::FIXED_DELTA_TIME); // Interpolate deltaTime.
+
+			} else { // Locked framerate, don't use interpolation
+				while (accumulator >= TimerState::FIXED_DELTA_TIME * TimerState::UPDATE_MULTIPLICITY) {
+					for (int i = 0; i < TimerState::UPDATE_MULTIPLICITY; ++i) {
+						// Fixed Update
+						// ...
+
+						// Variable Update
+						update(TimerState::FIXED_DELTA_TIME);
+
+						accumulator -= TimerState::FIXED_DELTA_TIME;
+					}
+				}
+
+				// Render frame
+				render(1.0);
+				// if (fpsUpdate >= fpsUpdateCooldown / 30.0) {
+				// 	render(1.0); // Interpolate deltaTime.
+				// 	fpsUpdate = 0;
+				// 	frames = 0;
+				// }
+			}
+
+			// std::cout << "accFrameTime: " << accFrameTime << ", Normalized: " << accFrameTime / (1.0f / FIXED_UPDATE_FPS) << std::endl;
 		}
 
 		vkDeviceWaitIdle(device.device()); // Block CPU until all GPU operations have completed.
 	}
 
-	void Application::renderUI(VkCommandBuffer commandBuffer, Camera camera) {
-		// Start the Dear ImGui frame
-		ImGui_ImplVulkan_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
-		ImGuizmo::BeginFrame();
+	void Application::update(double deltaTime) {
+		auto [cameraComponent, cameraArcball, cameraTransform] = cameraEntity.getComponent<CameraComponent, CameraControllerArcball, TransformComponent>();
+		CameraControllerSystem::OnUpdate(cameraArcball, {renderer.getSwapChainExtent().width, renderer.getSwapChainExtent().height});
+		CameraSystem::OnUpdateArcball(cameraTransform, cameraArcball, TimerState::FIXED_DELTA_TIME);
 
-		ImGuiID dock_left_id = ImGui::GetID("Viewport");
-		ImGuiID dock_right_id = ImGui::GetID("Settings");
-		// Base Dockspace
-		{
-			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f)); // Disable window padding
-			ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);            // Disable window border
-			ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);              // Disable window rounding
+		float aspect = renderer.getAspectRatio();
+		// camera.setOrthographicProjection(-1, 1, -1, 1, -1, 1, aspect);
+		cameraComponent.camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 100.0f);
+		cameraComponent.camera.setView(cameraTransform.translation, cameraTransform.rotation);
 
-			const ImGuiViewport* viewport = ImGui::GetMainViewport();
-			ImGui::SetNextWindowPos(viewport->WorkPos);
-			ImGui::SetNextWindowSize(viewport->WorkSize);
-			ImGui::SetNextWindowViewport(viewport->ID);
+		auto group = m_Scene->getPointLights();
+		for (auto& entity : group) {
+			auto [transform, pointLight] = group.get<TransformComponent, PointLightComponent>(entity);
+			auto rotateLights = glm::rotate(glm::mat4(1.0f), static_cast<float>(deltaTime), {0.0f, -1.0f, 0.0f});
 
-			ImGui::Begin("Docking Window",
-			             nullptr,
-			             ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoNavFocus |
-			                 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDocking |
-			                 ImGuiWindowFlags_NoFocusOnAppearing);
-
-			ImGui::PopStyleVar(3);
-
-			ImGuiDockNodeFlags dockspaceFlags = ImGuiDockNodeFlags_NoTabBar;
-			ImGuiID dockspaceID = ImGui::GetID("MyDockSpace");
-			ImGui::DockSpace(dockspaceID, ImVec2(0.0f, 0.0f), dockspaceFlags);
-
-			static bool firstTime = true;
-			if (firstTime) {
-				firstTime = false;
-
-				ImGui::DockBuilderRemoveNode(dockspaceID);
-				ImGui::DockBuilderAddNode(dockspaceID, ImGuiDockNodeFlags_None);
-
-				ImGuiID dock_main_id = dockspaceID;
-				dock_left_id = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Left, 0.85f, nullptr, &dock_main_id);
-				dock_right_id = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Right, 0.15f, nullptr, &dock_main_id);
-
-				ImGui::DockBuilderDockWindow("Viewport", dock_left_id);
-				ImGui::DockBuilderDockWindow("Dear ImGui Demo", dock_right_id);
-				// ImGui::DockBuilderDockWindow("Settings", dock_right_id);
-
-				// Disable tab bar for custom toolbar
-				// ImGuiDockNode* node = ImGui::DockBuilderGetNode(dock_right_id);
-				// node->LocalFlags |= ImGuiDockNodeFlags_NoTabBar;
-
-				ImGui::DockBuilderFinish(dockspaceID);
-			}
-
-			ImGui::End();
+			// Update light position
+			// 1) Translate the light to the center
+			// 2) Make the rotation
+			// 3) Translate the object back to its original location
+			auto transformTemp = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 2.5f));
+			transform.translation = (transformTemp * rotateLights * glm::inverse(transformTemp)) * glm::vec4(transform.translation, 1.0f);
 		}
 
-		// Viewport
-		{
-			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0)); // Disable window padding
-			ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);         // Disable window border
+		Input::OnUpdate(); // Update input manager state.
+	}
 
-			ImGui::SetNextWindowDockID(dock_left_id, ImGuiCond_Once);
-			ImGui::Begin("Viewport",
-			             nullptr,
-			             ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoMove |
-			                 ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoNav);
+	void Application::render(double deltaTime) {
+		auto [cameraComponent, cameraArcball, cameraTransform] = cameraEntity.getComponent<CameraComponent, CameraControllerArcball, TransformComponent>();
 
-			ImGui::PopStyleVar(2);
-			ImVec2 viewportOffset = ImGui::GetCursorPos();
+		if (auto* commandBuffer = renderer.beginFrame()) {
+			FrameInfo frameInfo{
+			    renderer.getFrameIndex(),
+			    static_cast<float>(deltaTime),                                    // Interpolation - Normalized value.
+			    globalRenderSystem.getDescriptorSets()[renderer.getFrameIndex()], // Get the global descriptor set of the current frame.
+			    commandBuffer,
+			    cameraComponent.camera,
+			    m_Scene};
 
-			bool sceneHovered = ImGui::IsWindowHovered();
+			auto& uboBuffers = globalRenderSystem.getUboBuffers();
 
-			ImVec2 scenePanelSize = ImGui::GetContentRegionAvail();
-			viewportSize = {scenePanelSize.x, scenePanelSize.y};
+			// Update our UBO buffer.
+			GlobalRenderSystem::GlobalUbo ubo{};
+			globalRenderSystem.updateUBOs(frameInfo, ubo);
+			uboBuffers[frameInfo.frameIndex]->writeToBuffer(&ubo); // Write info to the UBO.
+			uboBuffers[frameInfo.frameIndex]->flush();
 
-			ImGui::Image((ImTextureID)viewportTexture,
-			             ImVec2(static_cast<float>(renderer.getSwapChainExtent().width), static_cast<float>(renderer.getSwapChainExtent().height)));
+			/*
+			    Render Scene to texture - Offscreen rendering
+			*/
+			{
+				renderer.beginOffscreenRenderPass(commandBuffer);
+				simpleRenderSystem.render(frameInfo);
+				pointLightRenderSystem.render(frameInfo);
+				renderer.endRenderPass(commandBuffer);
+			}
 
-			ImVec2 windowSize = ImGui::GetWindowSize();
-			ImVec2 minBounds = ImGui::GetWindowPos();
-			minBounds.x += viewportOffset.x;
-			minBounds.y += viewportOffset.y;
-
-			ImVec2 maxBound = {minBounds.x + windowSize.x, minBounds.y + windowSize.y};
-			viewportBounds[0] = {minBounds.x, minBounds.y};
-			viewportBounds[1] = {maxBound.x, maxBound.y};
-
-			viewportSize = viewportBounds[1] - viewportBounds[0];
-
-			// std::cout << "Min Bounds: " << viewportBounds[0].x << ", " << viewportBounds[0].y << std::endl;
-			// std::cout << "Max Bounds: " << viewportBounds[1].x << ", " << viewportBounds[1].y << std::endl;
-
-			if (object && gizmoType != -1) {
-				ImGuizmo::SetOrthographic(false);
-				ImGuizmo::SetDrawlist();
-
-				// Setup ImGuizmo Viewport.
-				float windowWidth = ImGui::GetWindowWidth();
-				float windowHeight = ImGui::GetWindowHeight();
-				ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, static_cast<float>(renderer.getSwapChainExtent().width), static_cast<float>(renderer.getSwapChainExtent().height));
-
-				// Get camera's view and projection matrices.
-				const glm::mat4& cameraView = camera.getView();
-				glm::mat4 cameraProjection = camera.getProjection();
-
-				// Flip the y axis for perspective projection.
-				cameraProjection[1][1] *= -1;
-
-				// Get entity's transform component
-				auto& objectTranform = object.getComponent<TransformComponent>().transform();
-
-				// Snapping
-				float snapValue = 0.5f; // Snap to 0.5m for translation/scale.
-
-				// Snap to 45 degrees for rotation.
-				if (gizmoType == ImGuizmo::OPERATION::ROTATE) {
-					snapValue = 45.0f;
-				}
-
-				float snapValues[3] = {snapValue, snapValue, snapValue};
-
-				// Modify the transform matrix as needed.
-				ImGuizmo::Manipulate(glm::value_ptr(cameraView),
-				                     glm::value_ptr(cameraProjection),
-				                     static_cast<ImGuizmo::OPERATION>(gizmoType),
-				                     ImGuizmo::LOCAL,
-				                     glm::value_ptr(objectTranform),
-				                     nullptr,
-				                     snapping ? snapValues : nullptr);
-
-				if (ImGuizmo::IsUsing()) {
-					auto& objectComponent = object.getComponent<TransformComponent>();
-
-					// Decompose the transformation matrix into translation, rotation, and scale.
-					glm::vec3 translation, rotation, scale;
-					Math::decomposeTransform(objectTranform, translation, rotation, scale);
-
-					// Apply the new transformation values.
-					objectComponent.translation = translation;
-					objectComponent.rotation = glm::normalize(glm::quat(rotation));
-					objectComponent.scale = scale;
+			{
+				if (mousePicking) {
+					auto resources = mousePickingRenderSystem.getMousePickingResources();
+					renderer.beginRenderPass(commandBuffer, resources.frameBuffer, resources.renderPass, VkRect2D{{static_cast<int32_t>(Input::GetMouseX() > 0 ? Input::GetMouseX() : 0), static_cast<int32_t>(Input::GetMouseY() > 0 ? Input::GetMouseY() : 0)}, {1, 1}});
+					mousePickingRenderSystem.render(frameInfo);
+					renderer.endRenderPass(commandBuffer);
 				}
 			}
-			ImGui::End();
+
+			/*
+			    Render UI (also renders scene from texture into a UI window)
+			*/
+			{
+				renderer.beginPresentRenderPass(commandBuffer);
+				// simpleRenderSystem.render(frameInfo);
+				// pointLightRenderSystem.render(frameInfo);
+				uiRenderSystem.render(frameInfo, uiState);
+				renderer.endRenderPass(commandBuffer);
+			}
+
+			renderer.endFrame();
+
+			if (mousePicking) {
+				mousePicking = false; // Reset bool.
+
+				auto& storageBuffers = mousePickingRenderSystem.getStorageBuffers();
+
+				// Read from our SSBO buffer.
+				{
+					MousePickingRenderSystem::MousePickingStorageBuffer ssbo{};
+					storageBuffers[frameInfo.frameIndex]->invalidate();          // Make buffer data visible to host.
+					storageBuffers[frameInfo.frameIndex]->readFromBuffer(&ssbo); // Read info from the SSBO.
+
+					// auto group = m_Scene->getMetaDataComponents();
+					// auto& tagComponent = group.get<TagComponent>(static_cast<entt::entity>(ssbo.objectId));
+					// std::cout << "Entity ID: " << ssbo.objectId << ", Tag: " << tagComponent.tag << std::endl;
+					if (ssbo.objectId != -1) {
+						uiState.selectedEntity.setEntity(static_cast<entt::entity>(ssbo.objectId));
+					} else {
+						uiState.selectedEntity.setEntity(entt::null);
+					}
+				}
+
+				// Reset the SSBO.
+				MousePickingRenderSystem::MousePickingStorageBuffer ssbo{};
+				ssbo.objectId = -1;
+				storageBuffers[frameInfo.frameIndex]->writeToBuffer(&ssbo); // Write data to the SSBO.
+				storageBuffers[frameInfo.frameIndex]->flush();              // Make buffer data visible to device.
+			}
 		}
-
-		ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoMove |
-		                                ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoNav;
-		ImGuiWindowFlags window_flags2 = ImGuiWindowFlags_MenuBar;
-
-		ImGui::SetNextWindowDockID(dock_right_id, ImGuiCond_Once);
-		ImGui::SetNextWindowBgAlpha(0.35f); // Transparent background
-		// ImGui::Begin("Settings", nullptr, window_flags);
-		// ImGuiIO& io = ImGui::GetIO();
-		// ImGui::Text("Performance Metrics");
-		// ImGui::Separator();
-
-		// ImGui::Text("Average over 120 frames: %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-		// ImGui::Text("%d vertices, %d indices (%d triangles)", io.MetricsRenderVertices, io.MetricsRenderIndices,
-		// io.MetricsRenderIndices / 3); ImGui::End();
-		ImGui::ShowDemoWindow();
-
-		// Performance Metrics Window
-		{
-			static int corner = 0;
-			static bool p_open = true;
-
-			ImGuiIO& io = ImGui::GetIO();
-			ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings |
-			                                ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
-
-			if (corner != -1) {
-				const float PAD = 10.0f;
-				const ImGuiViewport* viewport = ImGui::GetMainViewport();
-				ImVec2 work_pos = viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
-				ImVec2 work_size = viewport->WorkSize;
-				ImVec2 window_pos, window_pos_pivot;
-				window_pos.x = (corner & 1) ? (work_pos.x + work_size.x - PAD) : (work_pos.x + PAD);
-				window_pos.y = (corner & 2) ? (work_pos.y + work_size.y - PAD) : (work_pos.y + PAD);
-				window_pos_pivot.x = (corner & 1) ? 1.0f : 0.0f;
-				window_pos_pivot.y = (corner & 2) ? 1.0f : 0.0f;
-				ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
-				ImGui::SetNextWindowSize(ImVec2(450.0f, 500.0f), ImGuiCond_FirstUseEver);
-				window_flags |= ImGuiWindowFlags_NoMove;
-			}
-
-			ImGui::SetNextWindowBgAlpha(0.35f); // Transparent background
-
-			if (ImGui::Begin("Performance Metrics", &p_open, window_flags)) {
-				ImGui::Text("Performance Metrics");
-				ImGui::Separator();
-
-				ImGui::Text("Average over 120 frames: %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-				ImGui::Text("%d vertices, %d indices (%d triangles)", io.MetricsRenderVertices, io.MetricsRenderIndices, io.MetricsRenderIndices / 3);
-
-				if (ImGui::BeginPopupContextWindow()) {
-					if (ImGui::MenuItem("Custom", nullptr, corner == -1))
-						corner = -1;
-					if (ImGui::MenuItem("Top-left", nullptr, corner == 0))
-						corner = 0;
-					if (ImGui::MenuItem("Top-right", nullptr, corner == 1))
-						corner = 1;
-					if (ImGui::MenuItem("Bottom-left", nullptr, corner == 2))
-						corner = 2;
-					if (ImGui::MenuItem("Bottom-right", nullptr, corner == 3))
-						corner = 3;
-					if (p_open && ImGui::MenuItem("Close"))
-						p_open = false;
-					ImGui::EndPopup();
-				}
-			}
-			ImGui::End();
-		}
-
-		ImGui::Render();
-
-		// Render ImGui UI at the end of the render pass.
-		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
+		Input::OnUpdate(); // Update input manager state.
 	}
 
 	void Application::OnEvent(Event& e) {
@@ -376,24 +311,24 @@ namespace Aspen {
 				// Gizmo Shorcuts
 				switch (keyEvent.GetKeyCode()) {
 					case Key::LeftAlt:
-						prevGizmoType = gizmoType;
+						uiState.prevGizmoType = uiState.gizmoType;
 						cameraEntity.getComponent<CameraControllerArcball>().lastMousePosition = Input::GetMousePosition();
-						gizmoType = -1;
+						uiState.gizmoType = -1;
 						break;
 					case Key::Q:
-						gizmoType = -1;
+						uiState.gizmoType = -1;
 						break;
 					case Key::T:
-						gizmoType = ImGuizmo::OPERATION::TRANSLATE;
+						uiState.gizmoType = ImGuizmo::OPERATION::TRANSLATE;
 						break;
 					case Key::R:
-						gizmoType = ImGuizmo::OPERATION::ROTATE;
+						uiState.gizmoType = ImGuizmo::OPERATION::ROTATE;
 						break;
 					case Key::Y:
-						gizmoType = ImGuizmo::OPERATION::SCALE;
+						uiState.gizmoType = ImGuizmo::OPERATION::SCALE;
 						break;
 					case Key::LeftControl:
-						snapping = true;
+						uiState.snapping = true;
 						break;
 					case Key::Escape:
 						m_Running = false; // Set flag to close the application.
@@ -405,10 +340,20 @@ namespace Aspen {
 			switch (keyEvent.GetKeyCode()) {
 				// Gizmo Shorcuts
 				case Key::LeftAlt:
-					gizmoType = prevGizmoType;
+					uiState.gizmoType = uiState.prevGizmoType;
 					break;
 				case Key::LeftControl:
-					snapping = false;
+					uiState.snapping = false;
+					break;
+			}
+		} else if (e.GetEventType() == EventType::MouseButtonPressed) {
+			auto& mouseEvent = dynamic_cast<MouseButtonPressedEvent&>(e);
+			switch (mouseEvent.GetMouseButton()) {
+				// Mouse Picking
+				case Mouse::Button0:
+					if (ImGui::GetIO().WantCaptureMouse && !ImGuizmo::IsOver()) {
+						mousePicking = true;
+					}
 					break;
 			}
 		}
@@ -425,9 +370,11 @@ namespace Aspen {
 		renderer.recreateSwapChain();
 		// simpleRenderSystem.onResize();
 
+		uiState.viewportSize = glm::vec2(renderer.getSwapChainExtent().width, renderer.getSwapChainExtent().height);
+
 		SwapChain::OffscreenPass offscreenPass = renderer.getOffscreenPass();
-		viewportTexture =
-		    ImGui_ImplVulkan_UpdateTexture(viewportTexture, offscreenPass.sampler, offscreenPass.color.view, offscreenPass.descriptor.imageLayout);
+		uiState.viewportTexture =
+		    ImGui_ImplVulkan_UpdateTexture(uiState.viewportTexture, offscreenPass.sampler, offscreenPass.color.view, offscreenPass.descriptor.imageLayout);
 
 		// createPipeline(); // Right now this is not required as the new render pass will be compatible with the old one but is put here for future proofing.
 
@@ -435,7 +382,7 @@ namespace Aspen {
 		float aspect = renderer.getAspectRatio();
 
 		Camera& camera = cameraEntity.getComponent<CameraComponent>().camera;
-		camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 10.0f);
+		camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 100.0f);
 
 		// if (auto* commandBuffer = renderer.beginFrame()) {
 		// 	renderer.beginRenderPass(commandBuffer);

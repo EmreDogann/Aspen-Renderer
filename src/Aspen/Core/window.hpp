@@ -39,12 +39,20 @@ namespace Aspen {
 			windowProps.eventCallback = callback;
 		}
 
+		void setWindowTitle(const std::string& title) {
+			glfwSetWindowTitle(window, title.c_str());
+		}
+
 		VkExtent2D getExtent() const {
 			return {static_cast<uint32_t>(windowProps.width), static_cast<uint32_t>(windowProps.height)};
 		}
 
 		GLFWwindow* getGLFWwindow() const {
 			return window;
+		}
+
+		std::string getWindowTitle() const {
+			return windowProps.windowName;
 		}
 
 		bool wasWindowResized() const {

@@ -10,7 +10,8 @@ namespace Aspen {
 			    sizeof(GlobalUbo),
 			    1,
 			    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-			    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT); // We could make it device local but the performance gains could be cancelled out from writing to the UBO every frame.
+			    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, // We could make it device local but the performance gains could be cancelled out from writing to the UBO every frame.
+			    device.properties.limits.minUniformBufferOffsetAlignment);
 
 			// Map the buffer's memory so we can begin writing to it.
 			uboBuffers[i]->map();
@@ -49,16 +50,8 @@ namespace Aspen {
 		auto group = frameInfo.scene->getPointLights();
 		for (auto& entity : group) {
 			auto [transform, pointLight] = group.get<TransformComponent, PointLightComponent>(entity);
-			auto rotateLights = glm::rotate(glm::mat4(1.0f), frameInfo.frameTime, {0.0f, -1.0f, 0.0f});
 
 			assert(lightIndex < MAX_LIGHTS && "Point lights exceeded maximum specified!");
-
-			// Update light position
-			// 1) Translate the light to the center
-			// 2) Make the rotation
-			// 3) Translate the object back to its original location
-			auto transformTemp = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 2.5f));
-			transform.translation = (transformTemp * rotateLights * glm::inverse(transformTemp)) * glm::vec4(transform.translation, 1.0f);
 
 			// copy light to ubo
 			ubo.lights[lightIndex].position = glm::vec4(transform.translation, 1.0f);

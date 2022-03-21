@@ -96,6 +96,27 @@ namespace Aspen {
 	}
 
 	/**
+	 * Reads from the mapped buffer and copies into the specified data. Default value reads whole buffer range
+	 *
+	 * @param data Pointer to the buffer to copy
+	 * @param size (Optional) Size of the buffer to copy. Pass VK_WHOLE_SIZE to flush the complete buffer
+	 * range.
+	 * @param offset (Optional) Byte offset from beginning of mapped region
+	 *
+	 */
+	void Buffer::readFromBuffer(void* data, VkDeviceSize size, VkDeviceSize offset) {
+		assert(mapped && "Cannot read from unmapped buffer");
+
+		if (size == VK_WHOLE_SIZE) {
+			memcpy(data, mapped, bufferSize);
+		} else {
+			char* memOffset = (char*)mapped;
+			memOffset += offset;
+			memcpy(data, memOffset, size);
+		}
+	}
+
+	/**
 	 * Flush a memory range of the buffer to make it visible to the device
 	 *
 	 * @note Only required for non-coherent memory

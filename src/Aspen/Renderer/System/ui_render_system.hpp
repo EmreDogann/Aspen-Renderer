@@ -1,25 +1,31 @@
 #pragma once
-#include "Aspen/Core/model.hpp"
-#include "Aspen/Renderer/pipeline.hpp"
-#include "Aspen/Renderer/renderer.hpp"
-#include "Aspen/Scene/scene.hpp"
-#include "Aspen/Renderer/frame_info.hpp"
+#include "Aspen/Renderer/System/global_render_system.hpp"
+#include "Aspen/Scene/entity.hpp"
+#include "Aspen/Math/math.hpp"
 
-// Libs & defines
-#include <glm/gtc/constants.hpp>
+// Libs
+#include <glm/gtc/type_ptr.hpp>
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_vulkan.h"
+#include <imgui_internal.h>
+#include "ImGuizmo.h"
 
 namespace Aspen {
+	struct UIState {
+		int gizmoType = -1;
+		int prevGizmoType = -1;
+		bool snapping = false;
+		glm::vec2 viewportSize{};
+		glm::vec2 viewportBounds[2]{};
+		VkDescriptorSet viewportTexture{};
+		Entity selectedEntity{};
+	};
+
 	class UIRenderSystem {
 	public:
-		struct Ubo {
-			glm::mat4 projectionViewMatrix{1.0f};
-			glm::vec4 ambientLightColor{1.0f, 1.0f, 1.0f, 0.02f}; // w is intensity
-			glm::vec4 lightColor{1.0f};                           // w is intensity
-			alignas(16) glm::vec3 lightPosition{-1.0f, -2.0f, 2.0f};
-		};
-
-		UIRenderSystem(Device& device, Renderer& renderer);
-		~UIRenderSystem();
+		UIRenderSystem(Device& device, Renderer& renderer, std::unique_ptr<DescriptorSetLayout>& descriptorSetLayout);
+		~UIRenderSystem() = default;
 
 		UIRenderSystem(const UIRenderSystem&) = delete;
 		UIRenderSystem& operator=(const UIRenderSystem&) = delete;
@@ -27,31 +33,26 @@ namespace Aspen {
 		UIRenderSystem(UIRenderSystem&&) = delete;            // Move Constructor
 		UIRenderSystem& operator=(UIRenderSystem&&) = delete; // Move Assignment Operator
 
-		void renderGameObjects(FrameInfo& frameInfo, std::shared_ptr<Scene>& scene);
-		void renderUI(VkCommandBuffer commandBuffer);
+		void render(FrameInfo& frameInfo, UIState& uiState);
 		void onResize();
 
 		VkDescriptorSet getCurrentDescriptorSet(int frameIndex) {
-			return offscreenDescriptorSets[frameIndex];
+			return descriptorSets[frameIndex];
 		}
 
 	private:
-		void createPipelineLayout();
 		void createDescriptorSetLayout();
 		void createDescriptorSet();
 		void createPipelines();
+		void createPipelineLayout(std::unique_ptr<DescriptorSetLayout>& descriptorSetLayout);
 
 		Device& device;
 		Renderer& renderer;
-
-		std::shared_ptr<Pipeline> pipeline;
-		VkPipelineLayout pipelineLayout{};
+		Pipeline pipeline{device};
 
 		std::unique_ptr<DescriptorSetLayout> descriptorSetLayout{};
-		std::vector<VkDescriptorSet> offscreenDescriptorSets;
+		std::vector<VkDescriptorSet> descriptorSets;
 
 		std::vector<std::unique_ptr<Buffer>> uboBuffers;
-		float moveLight = 0.0f;
-		float moveDirection = 0.0001f;
 	};
 } // namespace Aspen

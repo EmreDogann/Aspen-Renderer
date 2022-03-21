@@ -19,6 +19,16 @@ namespace Aspen {
 		glfwInit();
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); // Prevent GLFW from creating an OpenGL context.
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);    // Prevent GLFW from making the window resizeable.
+		// glfwWindowHint(GLFW_DOUBLEBUFFER, GLFW_FALSE); // Disable double buffering.
+
+		// int numVideoMode;
+		// const GLFWvidmode* modes = glfwGetVideoModes(glfwGetPrimaryMonitor(), &numVideoMode);
+		// std::cout << "Number of modes: " << numVideoMode << std::endl;
+		// for (int i = 0; i < numVideoMode; ++i) {
+		// 	std::cout << modes->refreshRate << std::endl;
+		// 	// modes++;
+		// }
+		// glfwWindowHint(GLFW_REFRESH_RATE, 60);
 
 		window = glfwCreateWindow(windowProps.width, windowProps.height, windowProps.windowName.c_str(), nullptr, nullptr);
 

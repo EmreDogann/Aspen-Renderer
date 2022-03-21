@@ -33,6 +33,14 @@ namespace Aspen {
 			return m_Scene->m_Registry.remove<T>(m_EntityHandle);
 		}
 
+		void setEntity(entt::entity entity) {
+			m_EntityHandle = entity;
+		}
+
+		void setScene(Scene* scene) {
+			m_Scene = scene;
+		}
+
 		operator bool() const {
 			return m_EntityHandle != entt::null;
 		}

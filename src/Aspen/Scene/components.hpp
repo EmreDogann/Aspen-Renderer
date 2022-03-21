@@ -2,8 +2,16 @@
 
 #include "Aspen/Renderer/buffer.hpp"
 #include "Aspen/Renderer/camera.hpp"
+#include "Aspen/Core/uuid.hpp"
 
 namespace Aspen {
+
+	struct IDComponent {
+		UUID id;
+		IDComponent() = default;
+		IDComponent(const IDComponent&) = default;
+	};
+
 	struct TagComponent {
 		std::string tag;
 		TagComponent() = default;

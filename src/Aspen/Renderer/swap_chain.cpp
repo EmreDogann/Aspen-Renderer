@@ -103,6 +103,7 @@ namespace Aspen {
 	VkResult SwapChain::submitCommandBuffers(const VkCommandBuffer* buffers, const uint32_t* imageIndex) {
 		// If the current image is in flight, wait for that image's fence to be signaled so we don't send more frames than desired.
 		if (imagesInFlight[*imageIndex] != VK_NULL_HANDLE) {
+			// std::cout << "waiting for fence of image " << imageIndex << std::endl;
 			vkWaitForFences(device.device(), 1, &imagesInFlight[*imageIndex], VK_TRUE, UINT64_MAX); // VK_TRUE means it will wait for all fences in the array to be signaled.
 		}
 		// Associate an available fence to the current image.
@@ -150,6 +151,9 @@ namespace Aspen {
 
 		presentInfo.pImageIndices = imageIndex; // The index of the image to present.
 		presentInfo.pResults = nullptr;         // Optional
+
+		vkWaitForFences(device.device(), 1, &inFlightFences[currentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max()); // Prevents stuttering for some reason...
+		// vkQueueWaitIdle(device.presentQueue());                               // Prevents stuttering for some reason...
 
 		auto result = vkQueuePresentKHR(device.presentQueue(), &presentInfo); // Send image to be presented to the display.
 
@@ -240,6 +244,12 @@ namespace Aspen {
 		// Store copy of the swap chain images' surface format and extent for use later on in the application.
 		swapChainImageFormat = surfaceFormat.format;
 		swapChainExtent = extent;
+	}
+
+	void SwapChain::createMousePickingResources(VkFramebuffer& frameBuffer, FrameBufferAttachment& depthAttachment, VkRenderPass& renderPass) {
+		createMousePickingDepthAttachment(depthAttachment);
+		createMousePickingRenderPass(renderPass);
+		createMousePickingFrameBuffer(frameBuffer, depthAttachment, renderPass);
 	}
 
 	// Create image views for all swap chain images for use as color targets.
@@ -597,7 +607,7 @@ namespace Aspen {
 			}
 		}
 
-		// Create offscreen deptrh attachment.
+		// Create offscreen depth attachment.
 		VkImageCreateInfo offscreenDepthImageCreateInfo{};
 		offscreenDepthImageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 		offscreenDepthImageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -631,6 +641,111 @@ namespace Aspen {
 
 		if (vkCreateImageView(device.device(), &offscreenDepthImageViewCreateInfo, nullptr, &offscreenPass.depth.view) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create offscreen depth image view!");
+		}
+	}
+
+	void SwapChain::createMousePickingDepthAttachment(FrameBufferAttachment& depthAttachment) {
+		VkFormat depthFormat = findDepthFormat();
+
+		// Create depth attachment.
+		VkImageCreateInfo offscreenDepthImageCreateInfo{};
+		offscreenDepthImageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+		offscreenDepthImageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+		offscreenDepthImageCreateInfo.format = depthFormat;
+		offscreenDepthImageCreateInfo.extent.width = swapChainExtent.width;
+		offscreenDepthImageCreateInfo.extent.height = swapChainExtent.height;
+		offscreenDepthImageCreateInfo.extent.depth = 1;
+		offscreenDepthImageCreateInfo.mipLevels = 1;
+		offscreenDepthImageCreateInfo.arrayLayers = 1;
+		offscreenDepthImageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+		offscreenDepthImageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+		offscreenDepthImageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		offscreenDepthImageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		offscreenDepthImageCreateInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+
+		// Create image and allocate memory for it.
+		device.createImageWithInfo(offscreenDepthImageCreateInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthAttachment.image, depthAttachment.memory);
+
+		// Create image view for the color attachment created above.
+		VkImageViewCreateInfo offscreenDepthImageViewCreateInfo{};
+		offscreenDepthImageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		offscreenDepthImageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		offscreenDepthImageViewCreateInfo.format = depthFormat;
+		offscreenDepthImageViewCreateInfo.subresourceRange = {};
+		offscreenDepthImageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT; // TODO: Do we need stencil bit flag here?
+		offscreenDepthImageViewCreateInfo.subresourceRange.baseMipLevel = 0;
+		offscreenDepthImageViewCreateInfo.subresourceRange.levelCount = 1;
+		offscreenDepthImageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+		offscreenDepthImageViewCreateInfo.subresourceRange.layerCount = 1;
+		offscreenDepthImageViewCreateInfo.image = offscreenPass.depth.image;
+
+		if (vkCreateImageView(device.device(), &offscreenDepthImageViewCreateInfo, nullptr, &depthAttachment.view) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create Mouse Picking depth image view!");
+		}
+	}
+
+	void SwapChain::createMousePickingRenderPass(VkRenderPass& renderPass) {
+		VkAttachmentDescription depthAttachment{};
+		depthAttachment.format = findDepthFormat();
+		depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+		VkAttachmentReference depthAttachmentRef{};
+		depthAttachmentRef.attachment = 0;
+		depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+		// Describe the subpass.
+		VkSubpassDescription subpassDescription = {};
+		subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		subpassDescription.colorAttachmentCount = 0;
+		subpassDescription.pColorAttachments = nullptr;
+		subpassDescription.pDepthStencilAttachment = &depthAttachmentRef;
+
+		// Specify memory and execution dependencies between subpasses.
+		std::array<VkSubpassDependency, 1> dependencies = {};
+		dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+		dependencies[0].dstSubpass = 0;
+		dependencies[0].srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+		dependencies[0].srcAccessMask = 0;
+		dependencies[0].dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+		dependencies[0].dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+		// Create a render pass object.
+		std::array<VkAttachmentDescription, 1> attachments = {depthAttachment};
+		VkRenderPassCreateInfo renderPassInfo = {};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+		renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+		renderPassInfo.pAttachments = attachments.data();
+		renderPassInfo.subpassCount = 1;
+		renderPassInfo.pSubpasses = &subpassDescription;
+		renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
+		renderPassInfo.pDependencies = dependencies.data();
+
+		if (vkCreateRenderPass(device.device(), &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create offscreen render pass!");
+		}
+	}
+
+	void SwapChain::createMousePickingFrameBuffer(VkFramebuffer& frameBuffer, FrameBufferAttachment& depthAttachment, VkRenderPass& renderPass) {
+		std::array<VkImageView, 1> attachments = {depthAttachment.view};
+
+		VkExtent2D swapChainExtent = getSwapChainExtent();
+		VkFramebufferCreateInfo framebufferInfo = {};
+		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		framebufferInfo.renderPass = renderPass; // You can only use a framebuffer with the render passes that it is compatible with (roughly means the same number of type of attachments).
+		framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+		framebufferInfo.pAttachments = attachments.data();
+		framebufferInfo.width = swapChainExtent.width;
+		framebufferInfo.height = swapChainExtent.height;
+		framebufferInfo.layers = 1; // Number of layers in the image array.
+
+		if (vkCreateFramebuffer(device.device(), &framebufferInfo, nullptr, &frameBuffer) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create mouse picking framebuffer!");
 		}
 	}
 
@@ -677,12 +792,12 @@ namespace Aspen {
 	// 3. VK_PRESENT_MODE_FIFO_KHR - This present mode is always guarenteed to be
 	// available so is the safe pick.
 	VkPresentModeKHR SwapChain::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes) {
-		for (const auto& availablePresentMode : availablePresentModes) {
-			if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
-				// std::cout << "Present mode: Mailbox" << std::endl;
-				return availablePresentMode;
-			}
-		}
+		// for (const auto& availablePresentMode : availablePresentModes) {
+		// 	if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
+		// 		// std::cout << "Present mode: Mailbox" << std::endl;
+		// 		return availablePresentMode;
+		// 	}
+		// }
 
 		// for (const auto &availablePresentMode : availablePresentModes) {
 		//   if (availablePresentMode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
