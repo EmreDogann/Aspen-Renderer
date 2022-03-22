@@ -1,9 +1,10 @@
 #include "Aspen/Renderer/pipeline.hpp"
 
 namespace Aspen {
-	void Pipeline::createShaderModule(VkShaderModule& shaderModule, const std::string& shaderFilepath) {
+	void Pipeline::createShaderModule(const std::string& shaderFilepath, VkShaderStageFlagBits stageType, VkSpecializationInfo* specializationInfo) {
 		auto shaderCode = readFile(shaderFilepath);
 
+		VkShaderModule shaderModule{};
 		VkShaderModuleCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
 		createInfo.codeSize = shaderCode.size();
@@ -12,6 +13,24 @@ namespace Aspen {
 		if (vkCreateShaderModule(device.device(), &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create shader module.");
 		}
+
+		VkPipelineShaderStageCreateInfo shaderStage;
+		// Setup shader stage for vertex shader.
+		shaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		shaderStage.stage = stageType; // Tells Vulkan what type of shader this is.
+		shaderStage.module = shaderModule;
+		shaderStage.pName = "main"; // Name of our entry function in our shader.
+		shaderStage.flags = 0;
+		shaderStage.pNext = nullptr;
+
+		// Specify values for shader constants.
+		// This allows you to configue how to use a shader module by specifying different values for the constants used
+		// in it. This is more efficient than configuring the shader using variables at render time as the compiler can
+		// do optimizations such as eliminating if statements and loops that depend on these values.
+		shaderStage.pSpecializationInfo = specializationInfo;
+
+		shaderModules.push_back(shaderModule);
+		shaderStages.push_back(shaderStage);
 	}
 
 	std::vector<char> Pipeline::readFile(const std::string& filepath) {
@@ -55,30 +74,6 @@ namespace Aspen {
 		assert(configInfo.pipelineLayout != VK_NULL_HANDLE && "Cannot create graphics pipeline:: No pipelineLayout provided in configInfo");
 		assert(configInfo.renderPass != VK_NULL_HANDLE && "Cannot create graphics pipeline:: No renderPass provided in configInfo");
 
-		VkPipelineShaderStageCreateInfo shaderStages[2];
-		// Setup shader stage for vertex shader.
-		shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT; // Tells Vulkan that this shader stage is for the vertex.
-		shaderStages[0].module = vertShaderModule;
-		shaderStages[0].pName = "main"; // Name of our entry function in our shader.
-		shaderStages[0].flags = 0;
-		shaderStages[0].pNext = nullptr;
-
-		// Specify values for shader constants.
-		// This allows you to configue how to use a shader module by specifying different values for the constants used
-		// in it. This is more efficient than configuring the shader using variables at render time as the compiler can
-		// do optimizations such as eliminating if statements and loops that depend on these values.
-		shaderStages[0].pSpecializationInfo = &configInfo.vertexSpecializationInfo;
-
-		// Do the same for the fragment shader.
-		shaderStages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		shaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-		shaderStages[1].module = fragShaderModule;
-		shaderStages[1].pName = "main";
-		shaderStages[1].flags = 0;
-		shaderStages[1].pNext = nullptr;
-		shaderStages[1].pSpecializationInfo = &configInfo.fragmentSpecializationInfo;
-
 		// Specify the binding & attribute information for the vertex shader.
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -90,8 +85,8 @@ namespace Aspen {
 		// Finally, setup the complete graphics pipeline struct.
 		VkGraphicsPipelineCreateInfo pipelineInfo{};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-		pipelineInfo.stageCount = 2; // vert and frag shaders.
-		pipelineInfo.pStages = shaderStages;
+		pipelineInfo.stageCount = shaderStages.size(); // vert and frag shaders.
+		pipelineInfo.pStages = shaderStages.data();
 		pipelineInfo.pVertexInputState = &vertexInputInfo;
 		pipelineInfo.pInputAssemblyState = &configInfo.inputAssemblyInfo;
 		pipelineInfo.pViewportState = &configInfo.viewportInfo;

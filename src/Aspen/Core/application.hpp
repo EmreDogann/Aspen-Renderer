@@ -10,6 +10,7 @@
 #include "Aspen/Renderer/System/point_light_render_system.hpp"
 #include "Aspen/Renderer/System/ui_render_system.hpp"
 #include "Aspen/Renderer/System/mouse_picking_render_system.hpp"
+#include "Aspen/Renderer/System/depth_prepass_render_system.hpp"
 #include "Aspen/Scene/entity.hpp"
 #include "Aspen/System/camera_controller_system.hpp"
 #include "Aspen/System/camera_system.hpp"
@@ -101,6 +102,10 @@ namespace Aspen {
 		    renderer,
 		    globalRenderSystem.getDescriptorSetLayout()};
 		MousePickingRenderSystem mousePickingRenderSystem{
+		    device,
+		    renderer,
+		    globalRenderSystem.getDescriptorSetLayout()};
+		DepthPrePassRenderSystem depthPrePassRenderSystem{
 		    device,
 		    renderer,
 		    globalRenderSystem.getDescriptorSetLayout()};

@@ -277,7 +277,7 @@ namespace Aspen {
 		// }
 
 		descriptorPool = DescriptorPool::Builder(*this)
-		                     .setMaxSets(5)
+		                     .setMaxSets(10)
 		                     .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10)
 		                     .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10)
 		                     .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10)

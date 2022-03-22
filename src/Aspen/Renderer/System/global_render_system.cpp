@@ -32,9 +32,10 @@ namespace Aspen {
 	void GlobalRenderSystem::createDescriptorSet() {
 		for (int i = 0; i < descriptorSets.size(); ++i) {
 			auto bufferInfo = uboBuffers[i]->descriptorInfo();
+			auto offscreenPass = renderer.getOffscreenPass();
 			DescriptorWriter(*descriptorSetLayout, device.getDescriptorPool())
 			    .writeBuffer(0, &bufferInfo)
-			    .writeImage(1, &renderer.getOffscreenDescriptorInfo())
+			    .writeImage(1, &offscreenPass.descriptor)
 			    .build(descriptorSets[i]);
 		}
 	}

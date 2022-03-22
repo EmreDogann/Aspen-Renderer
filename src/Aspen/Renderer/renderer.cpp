@@ -64,8 +64,8 @@ namespace Aspen {
 		// TODO: Check if new and old render passes are compatible.
 	}
 
-	void Renderer::createMousePickingRenderPass(MousePickingPass& mousePickingRenderPass) {
-		swapChain->createMousePickingResources(mousePickingRenderPass.frameBuffer, mousePickingRenderPass.depth, mousePickingRenderPass.renderPass);
+	void Renderer::createMousePickingPass(MousePickingPass& mousePickingRenderPass) {
+		swapChain->createMousePickingPass(mousePickingRenderPass.frameBuffer, mousePickingRenderPass.color, mousePickingRenderPass.depth, mousePickingRenderPass.renderPass);
 	}
 
 	// beginFrame will start recording the current command buffer and check that the current frame buffer is still valid.
@@ -132,14 +132,27 @@ namespace Aspen {
 	}
 
 	void Renderer::beginPresentRenderPass(VkCommandBuffer commandBuffer) {
-		beginRenderPass(commandBuffer, swapChain->getFrameBuffer(currentImageIndex), swapChain->getPresentRenderPass(), VkRect2D{{0, 0}, swapChain->getSwapChainExtent()});
+		std::array<VkClearValue, 2> clearValues{};
+		clearValues[0].color = {0.01f, 0.01f, 0.01f, 1.0f};
+		clearValues[1].depthStencil = {1.0f, 0};
+		beginRenderPass(commandBuffer, swapChain->getFrameBuffer(currentImageIndex), swapChain->getPresentRenderPass(), VkRect2D{{0, 0}, swapChain->getSwapChainExtent()}, clearValues);
 	}
 	void Renderer::beginOffscreenRenderPass(VkCommandBuffer commandBuffer) {
-		beginRenderPass(commandBuffer, swapChain->getOffscreenFrameBuffer(), swapChain->getOffscreenRenderPass(), VkRect2D{{0, 0}, swapChain->getSwapChainExtent()});
+		auto& offscreenPass = swapChain->getOffscreenPass();
+		std::array<VkClearValue, 2> clearValues{};
+		clearValues[0].color = {0.01f, 0.01f, 0.01f, 1.0f};
+		clearValues[1].depthStencil = {1.0f, 0};
+		beginRenderPass(commandBuffer, offscreenPass.frameBuffer, offscreenPass.renderPass, VkRect2D{{0, 0}, swapChain->getSwapChainExtent()}, clearValues);
+	}
+	void Renderer::beginDepthPrePassRenderPass(VkCommandBuffer commandBuffer) {
+		auto& depthPrePass = swapChain->getDepthPrePass();
+		std::array<VkClearValue, 2> clearValues{};
+		clearValues[0].depthStencil = {1.0f, 0};
+		beginRenderPass(commandBuffer, depthPrePass.frameBuffer, depthPrePass.renderPass, VkRect2D{{0, 0}, swapChain->getSwapChainExtent()}, clearValues);
 	}
 
 	// beginSwapChainRenderPass will start the render pass in order to then record commands to it.
-	void Renderer::beginRenderPass(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, VkRenderPass renderPass, VkRect2D scissorDimensions) {
+	void Renderer::beginRenderPass(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, VkRenderPass renderPass, VkRect2D scissorDimensions, std::array<VkClearValue, 2> clearValues) {
 		assert(isFrameStarted && "Can't call beginRenderPass if frame is not in progress!");
 		assert(commandBuffer == getCurrentCommandBuffer() && "Cannot begin render pass on command buffer from a different frame.");
 
@@ -159,9 +172,6 @@ namespace Aspen {
 		// What inital values we want our frame buffer attatchments to be cleared to.
 		// This corresponds to how we've structured our render pass: Index 0 = color
 		// attatchment, Index 1 = Depth Attatchment.
-		std::array<VkClearValue, 2> clearValues{};
-		clearValues[0].color = {0.01f, 0.01f, 0.01f, 1.0f}; // RGBA
-		clearValues[1].depthStencil = {1.0f, 0};
 		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 		renderPassInfo.pClearValues = clearValues.data();
 

@@ -25,9 +25,10 @@ namespace Aspen {
 	void UIRenderSystem::createDescriptorSet() {
 		for (int i = 0; i < descriptorSets.size(); ++i) {
 			auto bufferInfo = uboBuffers[i]->descriptorInfo();
+			auto offscreenPass = renderer.getOffscreenPass();
 			DescriptorWriter(*descriptorSetLayout, device.getDescriptorPool())
 			    .writeBuffer(0, &bufferInfo)
-			    .writeImage(1, &renderer.getOffscreenDescriptorInfo())
+			    .writeImage(1, &offscreenPass.descriptor)
 			    .build(descriptorSets[i]);
 		}
 	}
@@ -52,8 +53,8 @@ namespace Aspen {
 		pipelineConfig.renderPass = renderer.getPresentRenderPass();
 		pipelineConfig.pipelineLayout = pipeline.getPipelineLayout();
 
-		pipeline.createShaderModule(pipeline.getVertShaderModule(), "assets/shaders/simple_shader.vert.spv");
-		pipeline.createShaderModule(pipeline.getFragShaderModule(), "assets/shaders/simple_shader.frag.spv");
+		pipeline.createShaderModule("assets/shaders/simple_shader.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+		pipeline.createShaderModule("assets/shaders/simple_shader.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 
 		pipeline.createGraphicsPipeline(pipelineConfig, pipeline.getPipeline());
 	}
@@ -175,7 +176,13 @@ namespace Aspen {
 			// std::cout << "Min Bounds: " << viewportBounds[0].x << ", " << viewportBounds[0].y << std::endl;
 			// std::cout << "Max Bounds: " << viewportBounds[1].x << ", " << viewportBounds[1].y << std::endl;
 
-			if (uiState.selectedEntity && uiState.gizmoType != -1) {
+			if (uiState.gizmoActive) {
+				ImGuizmo::Enable(true);
+			} else {
+				ImGuizmo::Enable(false);
+			}
+
+			if (uiState.gizmoVisible && uiState.selectedEntity && uiState.gizmoType != -1) {
 				ImGuizmo::SetOrthographic(false);
 				ImGuizmo::SetDrawlist();
 

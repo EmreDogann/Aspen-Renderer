@@ -21,8 +21,6 @@ namespace Aspen {
 		VkPipelineDepthStencilStateCreateInfo depthStencilInfo{};
 		std::vector<VkDynamicState> dynamicStateEnables;
 		VkPipelineDynamicStateCreateInfo dynamicStateInfo{};
-		VkSpecializationInfo vertexSpecializationInfo{};
-		VkSpecializationInfo fragmentSpecializationInfo{};
 		VkPipelineLayout pipelineLayout = nullptr;
 		VkRenderPass renderPass = nullptr;
 		uint32_t subpass = 0; // This is an index, not a count.
@@ -41,8 +39,9 @@ namespace Aspen {
 		Pipeline(Device& device)
 		    : device(device) {}
 		~Pipeline() {
-			vkDestroyShaderModule(device.device(), vertShaderModule, nullptr);
-			vkDestroyShaderModule(device.device(), fragShaderModule, nullptr);
+			for (auto& module : shaderModules) {
+				vkDestroyShaderModule(device.device(), module, nullptr);
+			}
 			vkDestroyPipelineLayout(device.device(), pipelineLayout, nullptr);
 			vkDestroyPipeline(device.device(), pipeline, nullptr);
 		}
@@ -54,7 +53,7 @@ namespace Aspen {
 		Pipeline& operator=(Pipeline&&) = delete; // Move Assignment Operator
 
 		void bind(VkCommandBuffer commandBuffer, VkPipeline& pipeline);
-		void createShaderModule(VkShaderModule& shaderModule, const std::string& shaderFilepath);
+		void createShaderModule(const std::string& shaderFilepath, VkShaderStageFlagBits stageType, VkSpecializationInfo* specializationInfo = nullptr);
 		void createPipelineLayout(std::vector<VkDescriptorSetLayout>& descriptorSetLayouts, VkPushConstantRange& pushConstantRange);
 		static void defaultPipelineConfigInfo(PipelineConfigInfo& configInfo);
 		void createGraphicsPipeline(const PipelineConfigInfo& configInfo, VkPipeline& pipeline);
@@ -67,12 +66,8 @@ namespace Aspen {
 			return pipelineLayout;
 		}
 
-		VkShaderModule& getVertShaderModule() {
-			return vertShaderModule;
-		}
-
-		VkShaderModule& getFragShaderModule() {
-			return fragShaderModule;
+		std::vector<VkShaderModule>& getShaderModules() {
+			return shaderModules;
 		}
 
 	private:
@@ -82,7 +77,7 @@ namespace Aspen {
 
 		VkPipeline pipeline{};
 		VkPipelineLayout pipelineLayout{};
-		VkShaderModule vertShaderModule{};
-		VkShaderModule fragShaderModule{};
+		std::vector<VkShaderModule> shaderModules{};
+		std::vector<VkPipelineShaderStageCreateInfo> shaderStages{};
 	};
 } // namespace Aspen

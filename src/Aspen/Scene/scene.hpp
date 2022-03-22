@@ -15,7 +15,7 @@ namespace Aspen {
 		void OnUpdate();
 
 		auto getRenderComponents() {
-			return m_Registry.group<TransformComponent>(entt::get<MeshComponent, IDComponent>);
+			return m_Registry.group<TransformComponent>(entt::get<MeshComponent>);
 		};
 
 		auto getMetaDataComponents() {

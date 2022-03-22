@@ -13,8 +13,9 @@
 
 namespace Aspen {
 	struct UIState {
+		bool gizmoVisible = false;
+		bool gizmoActive = false;
 		int gizmoType = -1;
-		int prevGizmoType = -1;
 		bool snapping = false;
 		glm::vec2 viewportSize{};
 		glm::vec2 viewportBounds[2]{};

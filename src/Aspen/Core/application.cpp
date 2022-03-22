@@ -1,5 +1,7 @@
 #include "Aspen/Core/application.hpp"
 
+#include <thread>
+
 namespace Aspen {
 	Application::Application() {
 		s_Instance = this;
@@ -198,7 +200,7 @@ namespace Aspen {
 
 		float aspect = renderer.getAspectRatio();
 		// camera.setOrthographicProjection(-1, 1, -1, 1, -1, 1, aspect);
-		cameraComponent.camera.setPerspectiveProjection(glm::radians(50.0f), aspect, 0.1f, 100.0f);
+		cameraComponent.camera.setPerspectiveProjection(glm::radians(65.0f), aspect, 0.1f, 100.0f);
 		cameraComponent.camera.setView(cameraTransform.translation, cameraTransform.rotation);
 
 		auto group = m_Scene->getPointLights();
@@ -238,6 +240,15 @@ namespace Aspen {
 			uboBuffers[frameInfo.frameIndex]->flush();
 
 			/*
+			    Depth Prepass
+			*/
+			{
+				renderer.beginDepthPrePassRenderPass(commandBuffer);
+				depthPrePassRenderSystem.render(frameInfo);
+				renderer.endRenderPass(commandBuffer);
+			}
+
+			/*
 			    Render Scene to texture - Offscreen rendering
 			*/
 			{
@@ -247,10 +258,25 @@ namespace Aspen {
 				renderer.endRenderPass(commandBuffer);
 			}
 
+			bool mousePickingRead = false;
+
 			{
 				if (mousePicking) {
+					mousePicking = false; // Reset bool.
+					mousePickingRead = true;
+
+					auto& storageBuffer = mousePickingRenderSystem.getStorageBuffer();
+					// Reset the SSBO.
+					MousePickingRenderSystem::MousePickingStorageBuffer ssbo{};
+					ssbo.objectId = -1;
+					storageBuffer->writeToBuffer(&ssbo); // Write data to the SSBO.
+					storageBuffer->flush();              // Make buffer data visible to device.
+
 					auto resources = mousePickingRenderSystem.getMousePickingResources();
-					renderer.beginRenderPass(commandBuffer, resources.frameBuffer, resources.renderPass, VkRect2D{{static_cast<int32_t>(Input::GetMouseX() > 0 ? Input::GetMouseX() : 0), static_cast<int32_t>(Input::GetMouseY() > 0 ? Input::GetMouseY() : 0)}, {1, 1}});
+					std::array<VkClearValue, 2> clearValues{};
+					clearValues[0].depthStencil = {1.0f, 0};
+					renderer.beginRenderPass(commandBuffer, resources.frameBuffer, resources.renderPass, VkRect2D{{static_cast<int32_t>(Input::GetMouseX() > 0 ? Input::GetMouseX() : 0), static_cast<int32_t>(Input::GetMouseY() > 0 ? Input::GetMouseY() : 0)}, {1, 1}}, clearValues);
+					// renderer.beginRenderPass(commandBuffer, resources.frameBuffer, resources.renderPass, VkRect2D{{0, 0}, renderer.getSwapChainExtent()}, clearValues);
 					mousePickingRenderSystem.render(frameInfo);
 					renderer.endRenderPass(commandBuffer);
 				}
@@ -269,32 +295,31 @@ namespace Aspen {
 
 			renderer.endFrame();
 
-			if (mousePicking) {
-				mousePicking = false; // Reset bool.
+			if (mousePickingRead) {
+				mousePickingRead = false; // Reset bool.
 
-				auto& storageBuffers = mousePickingRenderSystem.getStorageBuffers();
+				auto& storageBuffer = mousePickingRenderSystem.getStorageBuffer();
+
+				// std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
 				// Read from our SSBO buffer.
-				{
-					MousePickingRenderSystem::MousePickingStorageBuffer ssbo{};
-					storageBuffers[frameInfo.frameIndex]->invalidate();          // Make buffer data visible to host.
-					storageBuffers[frameInfo.frameIndex]->readFromBuffer(&ssbo); // Read info from the SSBO.
 
-					// auto group = m_Scene->getMetaDataComponents();
-					// auto& tagComponent = group.get<TagComponent>(static_cast<entt::entity>(ssbo.objectId));
-					// std::cout << "Entity ID: " << ssbo.objectId << ", Tag: " << tagComponent.tag << std::endl;
-					if (ssbo.objectId != -1) {
-						uiState.selectedEntity.setEntity(static_cast<entt::entity>(ssbo.objectId));
-					} else {
-						uiState.selectedEntity.setEntity(entt::null);
-					}
-				}
-
-				// Reset the SSBO.
 				MousePickingRenderSystem::MousePickingStorageBuffer ssbo{};
-				ssbo.objectId = -1;
-				storageBuffers[frameInfo.frameIndex]->writeToBuffer(&ssbo); // Write data to the SSBO.
-				storageBuffers[frameInfo.frameIndex]->flush();              // Make buffer data visible to device.
+				storageBuffer->invalidate();          // Make buffer data visible to host.
+				storageBuffer->readFromBuffer(&ssbo); // Read info from the SSBO.
+
+				// auto group = m_Scene->getMetaDataComponents();
+				// auto& tagComponent = group.get<TagComponent>(static_cast<entt::entity>(ssbo.objectId));
+				// std::cout << "Entity ID: " << ssbo.objectId << ", Tag: " << tagComponent.tag << std::endl;
+
+				if (ssbo.objectId != -1) {
+					uiState.selectedEntity.setEntity(static_cast<entt::entity>(ssbo.objectId));
+					uiState.gizmoVisible = true;
+				} else {
+					// std::cout << "Entity ID: " << ssbo.objectId << std::endl;
+					uiState.selectedEntity.setEntity(entt::null);
+					uiState.gizmoVisible = false;
+				}
 			}
 		}
 		Input::OnUpdate(); // Update input manager state.
@@ -311,9 +336,8 @@ namespace Aspen {
 				// Gizmo Shorcuts
 				switch (keyEvent.GetKeyCode()) {
 					case Key::LeftAlt:
-						uiState.prevGizmoType = uiState.gizmoType;
 						cameraEntity.getComponent<CameraControllerArcball>().lastMousePosition = Input::GetMousePosition();
-						uiState.gizmoType = -1;
+						uiState.gizmoActive = false;
 						break;
 					case Key::Q:
 						uiState.gizmoType = -1;
@@ -340,7 +364,7 @@ namespace Aspen {
 			switch (keyEvent.GetKeyCode()) {
 				// Gizmo Shorcuts
 				case Key::LeftAlt:
-					uiState.gizmoType = uiState.prevGizmoType;
+					uiState.gizmoActive = true;
 					break;
 				case Key::LeftControl:
 					uiState.snapping = false;
@@ -351,7 +375,7 @@ namespace Aspen {
 			switch (mouseEvent.GetMouseButton()) {
 				// Mouse Picking
 				case Mouse::Button0:
-					if (ImGui::GetIO().WantCaptureMouse && !ImGuizmo::IsOver()) {
+					if ((!uiState.gizmoVisible || !ImGuizmo::IsOver()) && uiState.gizmoActive) {
 						mousePicking = true;
 					}
 					break;

@@ -41,23 +41,17 @@ namespace Aspen {
 		VkFramebuffer getFrameBuffer(int index) {
 			return swapChainFramebuffers[index];
 		}
-		VkFramebuffer getOffscreenFrameBuffer() {
-			return offscreenPass.frameBuffer;
-		}
 
 		VkRenderPass getPresentRenderPass() {
 			return presentRenderPass;
 		}
-		VkDescriptorImageInfo& getOffscreenDescriptorInfo() {
-			return offscreenPass.descriptor;
-		}
 
-		OffscreenPass getOffscreenPass() {
+		OffscreenPass& getOffscreenPass() {
 			return offscreenPass;
 		}
 
-		VkRenderPass getOffscreenRenderPass() {
-			return offscreenPass.renderPass;
+		OffscreenPass& getDepthPrePass() {
+			return depthPrePass;
 		}
 
 		VkImageView getImageView(int index) {
@@ -87,7 +81,8 @@ namespace Aspen {
 		VkResult acquireNextImage(uint32_t* imageIndex);
 		VkResult submitCommandBuffers(const VkCommandBuffer* buffers, const uint32_t* imageIndex);
 
-		void createMousePickingResources(VkFramebuffer& frameBuffer, FrameBufferAttachment& depthAttachment, VkRenderPass& renderPass);
+		void createMousePickingPass(VkFramebuffer& frameBuffer, FrameBufferAttachment& colorAttachment, FrameBufferAttachment& depthAttachment, VkRenderPass& renderPass);
+		void createDepthPrePass();
 
 		bool compareSwapFormats(const SwapChain& swapChain) const {
 			return swapChain.swapChainDepthFormat == swapChainDepthFormat && swapChain.swapChainImageFormat == swapChainImageFormat;
@@ -105,10 +100,6 @@ namespace Aspen {
 		void createFramebuffers();
 
 		void createSyncObjects();
-
-		void createMousePickingDepthAttachment(FrameBufferAttachment& depthAttachment);
-		void createMousePickingRenderPass(VkRenderPass& renderPass);
-		void createMousePickingFrameBuffer(VkFramebuffer& frameBuffer, FrameBufferAttachment& depthAttachment, VkRenderPass& renderPass);
 
 		// Helper functions
 		VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
@@ -129,6 +120,7 @@ namespace Aspen {
 		std::vector<VkImageView> swapChainImageViews{};
 
 		OffscreenPass offscreenPass;
+		OffscreenPass depthPrePass;
 
 		Device& device;
 		VkExtent2D windowExtent{};

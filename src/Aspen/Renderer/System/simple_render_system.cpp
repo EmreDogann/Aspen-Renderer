@@ -68,12 +68,14 @@ namespace Aspen {
 
 		PipelineConfigInfo pipelineConfig{};
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
-		pipelineConfig.renderPass = renderer.getOffscreenRenderPass();
+		pipelineConfig.renderPass = renderer.getOffscreenPass().renderPass;
 		pipelineConfig.pipelineLayout = pipeline.getPipelineLayout();
-		pipelineConfig.fragmentSpecializationInfo = specializationInfo;
+		pipelineConfig.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+		pipelineConfig.rasterizationInfo.cullMode = VK_CULL_MODE_FRONT_BIT;
+		// pipelineConfig.rasterizationInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
-		pipeline.createShaderModule(pipeline.getVertShaderModule(), "assets/shaders/simple_shader.vert.spv");
-		pipeline.createShaderModule(pipeline.getFragShaderModule(), "assets/shaders/simple_shader.frag.spv");
+		pipeline.createShaderModule("assets/shaders/simple_shader.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+		pipeline.createShaderModule("assets/shaders/simple_shader.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, &specializationInfo);
 
 		pipeline.createGraphicsPipeline(pipelineConfig, pipeline.getPipeline());
 	}

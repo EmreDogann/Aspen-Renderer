@@ -20,16 +20,16 @@ namespace Aspen {
 		void render(FrameInfo& frameInfo);
 		void onResize();
 
-		VkDescriptorSet getCurrentDescriptorSet(int frameIndex) {
-			return descriptorSets[frameIndex];
+		VkDescriptorSet getDescriptorSet() {
+			return descriptorSet;
 		}
 
-		MousePickingPass getMousePickingResources() const {
+		MousePickingPass& getMousePickingResources() {
 			return mousePickingResources;
 		}
 
-		std::vector<std::unique_ptr<Buffer>>& getStorageBuffers() {
-			return storageBuffers;
+		std::unique_ptr<Buffer>& getStorageBuffer() {
+			return storageBuffer;
 		}
 
 	private:
@@ -45,8 +45,8 @@ namespace Aspen {
 		MousePickingPass mousePickingResources{};
 
 		std::unique_ptr<DescriptorSetLayout> descriptorSetLayout{};
-		std::vector<VkDescriptorSet> descriptorSets;
+		VkDescriptorSet descriptorSet;
 
-		std::vector<std::unique_ptr<Buffer>> storageBuffers;
+		std::unique_ptr<Buffer> storageBuffer;
 	};
 } // namespace Aspen

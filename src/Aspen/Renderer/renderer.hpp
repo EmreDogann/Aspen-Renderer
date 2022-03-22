@@ -9,7 +9,7 @@ namespace Aspen {
 	// Mouse Picking rendering struct.
 	struct MousePickingPass {
 		VkFramebuffer frameBuffer{};
-		SwapChain::FrameBufferAttachment depth{};
+		SwapChain::FrameBufferAttachment color, depth{};
 		VkRenderPass renderPass{};
 	};
 
@@ -26,20 +26,13 @@ namespace Aspen {
 		VkRenderPass getPresentRenderPass() const {
 			return swapChain->getPresentRenderPass();
 		}
-		VkRenderPass getOffscreenRenderPass() const {
-			return swapChain->getOffscreenRenderPass();
-		}
 
 		SwapChain::OffscreenPass getOffscreenPass() {
 			return swapChain->getOffscreenPass();
 		}
 
-		VkDescriptorImageInfo& getOffscreenDescriptorInfo() const {
-			return swapChain->getOffscreenDescriptorInfo();
-		}
-
-		VkFramebuffer getOffscreenFrameBuffer() {
-			return swapChain->getOffscreenFrameBuffer();
+		SwapChain::OffscreenPass getDepthPrePass() {
+			return swapChain->getDepthPrePass();
 		}
 
 		VkExtent2D getSwapChainExtent() {
@@ -74,13 +67,14 @@ namespace Aspen {
 
 		VkCommandBuffer beginFrame();
 		void endFrame();
-		void beginRenderPass(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, VkRenderPass renderPass, VkRect2D scissorDimensions);
+		void beginRenderPass(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, VkRenderPass renderPass, VkRect2D scissorDimensions, std::array<VkClearValue, 2> clearValues);
 		void beginPresentRenderPass(VkCommandBuffer commandBuffer);
 		void beginOffscreenRenderPass(VkCommandBuffer commandBuffer);
+		void beginDepthPrePassRenderPass(VkCommandBuffer commandBuffer);
 		void endRenderPass(VkCommandBuffer commandBuffer) const;
 		void recreateSwapChain();
 
-		void createMousePickingRenderPass(MousePickingPass& mousePickingRenderPass);
+		void createMousePickingPass(MousePickingPass& mousePickingRenderPass);
 
 	private:
 		void createCommandBuffers();

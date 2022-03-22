@@ -48,7 +48,7 @@ namespace Aspen {
 
 		PipelineConfigInfo pipelineConfig{};
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
-		pipelineConfig.renderPass = renderer.getOffscreenRenderPass();
+		pipelineConfig.renderPass = renderer.getOffscreenPass().renderPass;
 		pipelineConfig.pipelineLayout = pipeline.getPipelineLayout();
 
 		// We will not be passing in any vertex data into this vertex shader.
@@ -59,8 +59,8 @@ namespace Aspen {
 		pipelineConfig.colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
 		pipelineConfig.colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 
-		pipeline.createShaderModule(pipeline.getVertShaderModule(), "assets/shaders/point_light_shader.vert.spv");
-		pipeline.createShaderModule(pipeline.getFragShaderModule(), "assets/shaders/point_light_shader.frag.spv");
+		pipeline.createShaderModule("assets/shaders/point_light_shader.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+		pipeline.createShaderModule("assets/shaders/point_light_shader.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 
 		pipeline.createGraphicsPipeline(pipelineConfig, pipeline.getPipeline());
 	}

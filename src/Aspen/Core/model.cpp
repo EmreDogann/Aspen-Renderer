@@ -1,8 +1,8 @@
 #include "Aspen/Core/model.hpp"
 #include <memory>
 
-#define TINYOBJLOADER_IMPLEMENTATION    // Tells the pre-processor that this file will contain the implementation for TinyOBJLoader.
-#define TINYOBJLOADER_USE_MAPBOX_EARCUT // Uses robust triangulation.
+#define TINYOBJLOADER_IMPLEMENTATION // Tells the pre-processor that this file will contain the implementation for TinyOBJLoader.
+// #define TINYOBJLOADER_USE_MAPBOX_EARCUT // Uses robust triangulation. WARNING: THIS BREAKS THE MODELS.
 #include <tiny_obj_loader.h>
 
 namespace std {
@@ -161,8 +161,8 @@ namespace Aspen {
 				// Read vertex texture coordinates
 				if (index.texcoord_index >= 0) {
 					vertex.uv = {
-					    attribute.texcoords[2 * index.texcoord_index + 0], // u
-					    attribute.texcoords[2 * index.texcoord_index + 1], // v
+					    attribute.texcoords[2 * index.texcoord_index + 0],        // u
+					    1.0f - attribute.texcoords[2 * index.texcoord_index + 1], // v
 					};
 				}
 
