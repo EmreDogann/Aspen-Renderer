@@ -17,7 +17,7 @@ namespace Aspen {
 	void UIRenderSystem::createDescriptorSetLayout() {
 		descriptorSetLayout = DescriptorSetLayout::Builder(device)
 		                          .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT) // Binding 0: Vertex shader uniform buffer
-		                          .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)                      // Binding 1: Fragment shader image sampler
+		                                                                                                                                       //   .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)                      // Binding 1: Fragment shader image sampler
 		                          .build();
 	}
 
@@ -25,10 +25,10 @@ namespace Aspen {
 	void UIRenderSystem::createDescriptorSet() {
 		for (int i = 0; i < descriptorSets.size(); ++i) {
 			auto bufferInfo = uboBuffers[i]->descriptorInfo();
-			auto offscreenPass = renderer.getOffscreenPass();
+			// auto offscreenPass = renderer.getOffscreenPass();
 			DescriptorWriter(*descriptorSetLayout, device.getDescriptorPool())
 			    .writeBuffer(0, &bufferInfo)
-			    .writeImage(1, &offscreenPass.descriptor)
+			    // .writeImage(1, &offscreenPass.descriptor)
 			    .build(descriptorSets[i]);
 		}
 	}
@@ -79,7 +79,7 @@ namespace Aspen {
 		// vkUpdateDescriptorSets(device.device(), 1, &offScreenWriteDescriptorSets, 0, nullptr);
 	}
 
-	void UIRenderSystem::render(FrameInfo& frameInfo, UIState& uiState) { // Flush changes to update on the GPU side.
+	void UIRenderSystem::render(FrameInfo& frameInfo, UIState& uiState, ApplicationState& appState) { // Flush changes to update on the GPU side.
 		// Bind the graphics pipieline.
 		pipeline.bind(frameInfo.commandBuffer, pipeline.getPipeline());
 		vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getPipelineLayout(), 0, 1, &frameInfo.descriptorSet, 0, nullptr);
@@ -127,8 +127,8 @@ namespace Aspen {
 				dock_right_id = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Right, 0.15f, nullptr, &dock_main_id);
 
 				ImGui::DockBuilderDockWindow("Viewport", dock_left_id);
-				ImGui::DockBuilderDockWindow("Dear ImGui Demo", dock_right_id);
-				// ImGui::DockBuilderDockWindow("Settings", dock_right_id);
+				// ImGui::DockBuilderDockWindow("Dear ImGui Demo", dock_right_id);
+				ImGui::DockBuilderDockWindow("Settings", dock_right_id);
 
 				// Disable tab bar for custom toolbar
 				// ImGuiDockNode* node = ImGui::DockBuilderGetNode(dock_right_id);
@@ -150,11 +150,10 @@ namespace Aspen {
 			             nullptr,
 			             ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoMove |
 			                 ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoNav);
-
 			ImGui::PopStyleVar(2);
 			ImVec2 viewportOffset = ImGui::GetCursorPos();
 
-			bool sceneHovered = ImGui::IsWindowHovered();
+			uiState.viewportHovered = ImGui::IsWindowHovered();
 
 			ImVec2 scenePanelSize = ImGui::GetContentRegionAvail();
 			uiState.viewportSize = {scenePanelSize.x, scenePanelSize.y};
@@ -172,6 +171,11 @@ namespace Aspen {
 			uiState.viewportBounds[1] = {maxBound.x, maxBound.y};
 
 			uiState.viewportSize = uiState.viewportBounds[1] - uiState.viewportBounds[0];
+
+			// if (uiState.viewportSize.x != renderer.getSwapChainExtent().width || uiState.viewportSize.y != renderer.getSwapChainExtent().height) {
+			// 	uiState.viewportResized = true;
+			// 	std::cout << "Viewport Size: " << uiState.viewportSize.x << ", " << uiState.viewportSize.y << std::endl;
+			// }
 
 			// std::cout << "Min Bounds: " << viewportBounds[0].x << ", " << viewportBounds[0].y << std::endl;
 			// std::cout << "Max Bounds: " << viewportBounds[1].x << ", " << viewportBounds[1].y << std::endl;
@@ -236,72 +240,166 @@ namespace Aspen {
 			ImGui::End();
 		}
 
-		ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoMove |
-		                                ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoNav;
-		ImGuiWindowFlags window_flags2 = ImGuiWindowFlags_MenuBar;
-
-		ImGui::SetNextWindowDockID(dock_right_id, ImGuiCond_Once);
-		ImGui::SetNextWindowBgAlpha(0.35f); // Transparent background
-		// ImGui::Begin("Settings", nullptr, window_flags);
-		// ImGuiIO& io = ImGui::GetIO();
-		// ImGui::Text("Performance Metrics");
-		// ImGui::Separator();
-
-		// ImGui::Text("Average over 120 frames: %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-		// ImGui::Text("%d vertices, %d indices (%d triangles)", io.MetricsRenderVertices, io.MetricsRenderIndices,
-		// io.MetricsRenderIndices / 3); ImGui::End();
-		ImGui::ShowDemoWindow();
-
-		// Performance Metrics Window
+		// Settings Window
 		{
-			static int corner = 0;
-			static bool p_open = true;
+			ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoMove |
+			                                ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoNav;
+			ImGuiWindowFlags window_flags2 = ImGuiWindowFlags_MenuBar;
 
-			ImGuiIO& io = ImGui::GetIO();
-			ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings |
-			                                ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
-
-			if (corner != -1) {
-				const float PAD = 10.0f;
-				const ImGuiViewport* viewport = ImGui::GetMainViewport();
-				ImVec2 work_pos = viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
-				ImVec2 work_size = viewport->WorkSize;
-				ImVec2 window_pos, window_pos_pivot;
-				window_pos.x = (corner & 1) ? (work_pos.x + work_size.x - PAD) : (work_pos.x + PAD);
-				window_pos.y = (corner & 2) ? (work_pos.y + work_size.y - PAD) : (work_pos.y + PAD);
-				window_pos_pivot.x = (corner & 1) ? 1.0f : 0.0f;
-				window_pos_pivot.y = (corner & 2) ? 1.0f : 0.0f;
-				ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
-				ImGui::SetNextWindowSize(ImVec2(450.0f, 500.0f), ImGuiCond_FirstUseEver);
-				window_flags |= ImGuiWindowFlags_NoMove;
-			}
-
+			ImGui::SetNextWindowDockID(dock_right_id, ImGuiCond_Once);
 			ImGui::SetNextWindowBgAlpha(0.35f); // Transparent background
+			ImGui::Begin("Settings", nullptr, window_flags);
 
-			if (ImGui::Begin("Performance Metrics", &p_open, window_flags)) {
-				ImGui::Text("Performance Metrics");
-				ImGui::Separator();
+			// Most "big" widgets share a common width settings by default. See 'Demo->Layout->Widgets Width' for details.
 
-				ImGui::Text("Average over 120 frames: %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-				ImGui::Text("%d vertices, %d indices (%d triangles)", io.MetricsRenderVertices, io.MetricsRenderIndices, io.MetricsRenderIndices / 3);
+			// e.g. Use 2/3 of the space for widgets and 1/3 for labels (right align)
+			ImGui::PushItemWidth(-ImGui::GetWindowWidth() * 0.35f);
 
-				if (ImGui::BeginPopupContextWindow()) {
-					if (ImGui::MenuItem("Custom", nullptr, corner == -1))
-						corner = -1;
-					if (ImGui::MenuItem("Top-left", nullptr, corner == 0))
-						corner = 0;
-					if (ImGui::MenuItem("Top-right", nullptr, corner == 1))
-						corner = 1;
-					if (ImGui::MenuItem("Bottom-left", nullptr, corner == 2))
-						corner = 2;
-					if (ImGui::MenuItem("Bottom-right", nullptr, corner == 3))
-						corner = 3;
-					if (p_open && ImGui::MenuItem("Close"))
-						p_open = false;
-					ImGui::EndPopup();
+			// e.g. Leave a fixed amount of width for labels (by passing a negative value), the rest goes to widgets.
+			// ImGui::PushItemWidth(ImGui::GetFontSize() * -12);
+
+			// if (ImGui::CollapsingHeader("Widgets")) {
+			// 	return;
+			// }
+
+			bool& changed = appState.stateChanged;
+			ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+			if (ImGui::TreeNode("Game Loop")) {
+				// Game Loop
+				{
+					changed |= ImGui::Checkbox("Enable VSync", &appState.enable_vsync);
+					if (appState.enable_vsync) {
+						ImGui::BeginDisabled();
+					}
+
+					changed |= ImGui::SliderInt("FPS Cap", &appState.fps_cap, 30, 300, "%i", ImGuiSliderFlags_AlwaysClamp);
+
+					if (appState.enable_vsync) {
+						ImGui::EndDisabled();
+					}
+					changed |= ImGui::SliderInt("Update Rate", &appState.update_rate, 1, 300, "%i", ImGuiSliderFlags_AlwaysClamp);
 				}
+
+				// Vsync
+				{
+					if (!appState.enable_vsync) {
+						ImGui::BeginDisabled();
+					}
+
+					changed |= ImGui::Checkbox("VSync Snapping", &appState.vsync_snapping);
+					{
+						if (!appState.vsync_snapping) {
+							ImGui::BeginDisabled();
+						}
+
+						changed |= ImGui::DragFloat("Vsync Error", &appState.vsync_error, 0.0001f, 0.0f, 0.0f, "%.06f s");
+
+						if (!appState.vsync_snapping) {
+							ImGui::EndDisabled();
+						}
+					}
+
+					if (!appState.enable_vsync) {
+						ImGui::EndDisabled();
+					}
+				}
+				ImGui::TreePop();
 			}
+
+			ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+			if (ImGui::TreeNode("Rendering")) {
+				{
+					static int rendering_mode = 0;
+					ImGui::RadioButton("Rasterization", &rendering_mode, 0);
+					ImGui::SameLine();
+					ImGui::RadioButton("Ray Tracing", &rendering_mode, 1);
+
+					static bool shadow_mapping = false;
+					ImGui::Checkbox("Shadow Mapping", &shadow_mapping);
+					{
+						if (!shadow_mapping) {
+							ImGui::BeginDisabled();
+						}
+
+						ImGui::Text("Shadow Mapping stuff...");
+
+						if (!shadow_mapping) {
+							ImGui::EndDisabled();
+						}
+					}
+
+					static bool texture_mapping = false;
+					ImGui::Checkbox("Texture Mapping", &texture_mapping);
+					{
+						if (!texture_mapping) {
+							ImGui::BeginDisabled();
+						}
+
+						ImGui::Text("Texture Mapping stuff...");
+
+						if (!texture_mapping) {
+							ImGui::EndDisabled();
+						}
+					}
+				}
+				ImGui::TreePop();
+			}
+
+			ImGui::PopItemWidth();
 			ImGui::End();
+			// ImGui::ShowDemoWindow();
+
+			// Performance Metrics Window
+			{
+				static int corner = 0;
+				static bool p_open = true;
+
+				ImGuiIO& io = ImGui::GetIO();
+				ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings |
+				                                ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
+
+				if (corner != -1) {
+					const float PAD = 10.0f;
+					const ImGuiViewport* viewport = ImGui::GetMainViewport();
+					ImVec2 work_pos = viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
+					ImVec2 work_size = viewport->WorkSize;
+					ImVec2 window_pos, window_pos_pivot;
+					window_pos.x = (corner & 1) ? (work_pos.x + work_size.x - PAD) : (work_pos.x + PAD);
+					window_pos.y = (corner & 2) ? (work_pos.y + work_size.y - PAD) : (work_pos.y + PAD);
+					window_pos_pivot.x = (corner & 1) ? 1.0f : 0.0f;
+					window_pos_pivot.y = (corner & 2) ? 1.0f : 0.0f;
+					ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
+					ImGui::SetNextWindowSize(ImVec2(450.0f, 500.0f), ImGuiCond_FirstUseEver);
+					window_flags |= ImGuiWindowFlags_NoMove;
+				}
+
+				ImGui::SetNextWindowBgAlpha(0.35f); // Transparent background
+
+				if (ImGui::Begin("Performance Metrics", &p_open, window_flags)) {
+					ImGui::Text("Performance Metrics");
+					ImGui::Separator();
+
+					ImGui::Text("Average over 120 frames: %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+					ImGui::Text("%d vertices, %d indices (%d triangles)", io.MetricsRenderVertices, io.MetricsRenderIndices, io.MetricsRenderIndices / 3);
+
+					if (ImGui::BeginPopupContextWindow()) {
+						if (ImGui::MenuItem("Custom", nullptr, corner == -1))
+							corner = -1;
+						if (ImGui::MenuItem("Top-left", nullptr, corner == 0))
+							corner = 0;
+						if (ImGui::MenuItem("Top-right", nullptr, corner == 1))
+							corner = 1;
+						if (ImGui::MenuItem("Bottom-left", nullptr, corner == 2))
+							corner = 2;
+						if (ImGui::MenuItem("Bottom-right", nullptr, corner == 3))
+							corner = 3;
+						if (p_open && ImGui::MenuItem("Close"))
+							p_open = false;
+						ImGui::EndPopup();
+					}
+				}
+				ImGui::End();
+			}
 		}
 
 		ImGui::Render();

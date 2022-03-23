@@ -10,7 +10,7 @@ namespace Aspen {
 
 	class SimpleRenderSystem {
 	public:
-		SimpleRenderSystem(Device& device, Renderer& renderer, std::unique_ptr<DescriptorSetLayout>& descriptorSetLayout);
+		SimpleRenderSystem(Device& device, Renderer& renderer, std::unique_ptr<DescriptorSetLayout>& globalDescriptorSetLayout);
 		~SimpleRenderSystem() = default;
 
 		SimpleRenderSystem(const SimpleRenderSystem&) = delete;
@@ -20,20 +20,27 @@ namespace Aspen {
 		SimpleRenderSystem& operator=(SimpleRenderSystem&&) = delete; // Move Assignment Operator
 
 		void render(FrameInfo& frameInfo);
+		void createResources();
+		RenderInfo prepareRenderInfo();
 		void onResize();
 
 		VkDescriptorSet getCurrentDescriptorSet(int frameIndex) {
 			return descriptorSets[frameIndex];
 		}
 
+		std::shared_ptr<Framebuffer> getResources() {
+			return resources;
+		}
+
 	private:
 		void createDescriptorSetLayout();
 		void createDescriptorSet();
 		void createPipelines();
-		void createPipelineLayout(std::unique_ptr<DescriptorSetLayout>& descriptorSetLayout);
+		void createPipelineLayout(std::unique_ptr<DescriptorSetLayout>& globalDescriptorSetLayout);
 
 		Device& device;
 		Renderer& renderer;
+		std::shared_ptr<Framebuffer> resources;
 		Pipeline pipeline{device};
 
 		SpecializationData specializationData{};

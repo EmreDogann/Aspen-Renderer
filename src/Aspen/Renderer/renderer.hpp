@@ -4,18 +4,13 @@
 #include "Aspen/Renderer/buffer.hpp"
 #include "Aspen/Renderer/device.hpp"
 #include "Aspen/Renderer/swap_chain.hpp"
+#include "Aspen/Renderer/frame_info.hpp"
 
 namespace Aspen {
-	// Mouse Picking rendering struct.
-	struct MousePickingPass {
-		VkFramebuffer frameBuffer{};
-		SwapChain::FrameBufferAttachment color, depth{};
-		VkRenderPass renderPass{};
-	};
 
 	class Renderer {
 	public:
-		Renderer(Window& window, Device& device);
+		Renderer(Window& window, Device& device, const int desiredPresentMode);
 		~Renderer();
 
 		Renderer(const Renderer&) = delete;
@@ -24,15 +19,7 @@ namespace Aspen {
 		Renderer& operator=(Renderer&&) noexcept;
 
 		VkRenderPass getPresentRenderPass() const {
-			return swapChain->getPresentRenderPass();
-		}
-
-		SwapChain::OffscreenPass getOffscreenPass() {
-			return swapChain->getOffscreenPass();
-		}
-
-		SwapChain::OffscreenPass getDepthPrePass() {
-			return swapChain->getDepthPrePass();
+			return swapChain->getRenderPass();
 		}
 
 		VkExtent2D getSwapChainExtent() {
@@ -43,12 +30,20 @@ namespace Aspen {
 			return swapChain->imageCount();
 		}
 
+		VkFormat getSwapChainImageFormat() {
+			return swapChain->getSwapChainImageFormat();
+		}
+
 		int getSwapChainMaxImagesInFlight() const {
 			return swapChain->MAX_FRAMES_IN_FLIGHT;
 		}
 
 		float getAspectRatio() const {
 			return swapChain->extentAspectRatio();
+		}
+
+		int getDesiredPresentMode() const {
+			return desiredPresentMode;
 		}
 
 		bool isFrameInProgress() const {
@@ -65,16 +60,16 @@ namespace Aspen {
 			return currentFrameIndex;
 		}
 
+		void setDesiredPresentMode(int mode) {
+			desiredPresentMode = mode;
+		}
+
 		VkCommandBuffer beginFrame();
 		void endFrame();
-		void beginRenderPass(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, VkRenderPass renderPass, VkRect2D scissorDimensions, std::array<VkClearValue, 2> clearValues);
+		void beginRenderPass(VkCommandBuffer commandBuffer, RenderInfo renderInfo);
 		void beginPresentRenderPass(VkCommandBuffer commandBuffer);
-		void beginOffscreenRenderPass(VkCommandBuffer commandBuffer);
-		void beginDepthPrePassRenderPass(VkCommandBuffer commandBuffer);
 		void endRenderPass(VkCommandBuffer commandBuffer) const;
 		void recreateSwapChain();
-
-		void createMousePickingPass(MousePickingPass& mousePickingRenderPass);
 
 	private:
 		void createCommandBuffers();
@@ -88,5 +83,7 @@ namespace Aspen {
 		uint32_t currentImageIndex{};
 		int currentFrameIndex{0};
 		bool isFrameStarted{false};
+
+		int desiredPresentMode = 1;
 	};
 } // namespace Aspen

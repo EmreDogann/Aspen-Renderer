@@ -43,6 +43,11 @@ namespace Aspen {
 			glfwSetWindowTitle(window, title.c_str());
 		}
 
+		void setExtent(int width, int height) {
+			windowProps.width = width;
+			windowProps.height = height;
+		}
+
 		VkExtent2D getExtent() const {
 			return {static_cast<uint32_t>(windowProps.width), static_cast<uint32_t>(windowProps.height)};
 		}

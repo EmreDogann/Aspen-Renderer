@@ -2,8 +2,8 @@
 
 namespace Aspen {
 
-	Renderer::Renderer(Window& window, Device& device)
-	    : window{window}, device{device} {
+	Renderer::Renderer(Window& window, Device& device, const int desiredPresentMode)
+	    : window{window}, device{device}, desiredPresentMode(desiredPresentMode) {
 		recreateSwapChain();
 		createCommandBuffers();
 	}
@@ -47,12 +47,12 @@ namespace Aspen {
 		vkDeviceWaitIdle(device.device()); // Wait until the current swapchain is no longer being used.
 
 		if (swapChain == nullptr) {
-			swapChain = std::make_unique<SwapChain>(device, extent); // Create new swapchain with new extents.
+			swapChain = std::make_unique<SwapChain>(device, extent, desiredPresentMode); // Create new swapchain with new extents.
 		} else {
 			std::shared_ptr<SwapChain> oldSwapChain = std::move(swapChain);
 
 			// Create new swapchain with new extents and pass through the old swap chain if it exists.
-			swapChain = std::make_unique<SwapChain>(device, extent, oldSwapChain);
+			swapChain = std::make_unique<SwapChain>(device, extent, oldSwapChain, desiredPresentMode);
 
 			// Check if the old and new swap chains are compatible.
 			if (!oldSwapChain->compareSwapFormats(*swapChain)) {
@@ -62,10 +62,6 @@ namespace Aspen {
 
 		// If Render Pass is compatible there is no need to create a new pipeline.
 		// TODO: Check if new and old render passes are compatible.
-	}
-
-	void Renderer::createMousePickingPass(MousePickingPass& mousePickingRenderPass) {
-		swapChain->createMousePickingPass(mousePickingRenderPass.frameBuffer, mousePickingRenderPass.color, mousePickingRenderPass.depth, mousePickingRenderPass.renderPass);
 	}
 
 	// beginFrame will start recording the current command buffer and check that the current frame buffer is still valid.
@@ -131,36 +127,42 @@ namespace Aspen {
 		currentFrameIndex = (currentFrameIndex + 1) % SwapChain::MAX_FRAMES_IN_FLIGHT; // Increment currentFrameIndex.
 	}
 
+	// Special function for rendering to the screen.
 	void Renderer::beginPresentRenderPass(VkCommandBuffer commandBuffer) {
-		std::array<VkClearValue, 2> clearValues{};
+		RenderInfo renderInfo{};
+		renderInfo.renderPass = swapChain->getRenderPass();
+		renderInfo.framebuffer = swapChain->getFrameBuffer(currentImageIndex);
+		renderInfo.scissorDimensions = VkRect2D{{0, 0}, swapChain->getSwapChainExtent()};
+
+		std::vector<VkClearValue> clearValues{2};
 		clearValues[0].color = {0.01f, 0.01f, 0.01f, 1.0f};
 		clearValues[1].depthStencil = {1.0f, 0};
-		beginRenderPass(commandBuffer, swapChain->getFrameBuffer(currentImageIndex), swapChain->getPresentRenderPass(), VkRect2D{{0, 0}, swapChain->getSwapChainExtent()}, clearValues);
-	}
-	void Renderer::beginOffscreenRenderPass(VkCommandBuffer commandBuffer) {
-		auto& offscreenPass = swapChain->getOffscreenPass();
-		std::array<VkClearValue, 2> clearValues{};
-		clearValues[0].color = {0.01f, 0.01f, 0.01f, 1.0f};
-		clearValues[1].depthStencil = {1.0f, 0};
-		beginRenderPass(commandBuffer, offscreenPass.frameBuffer, offscreenPass.renderPass, VkRect2D{{0, 0}, swapChain->getSwapChainExtent()}, clearValues);
-	}
-	void Renderer::beginDepthPrePassRenderPass(VkCommandBuffer commandBuffer) {
-		auto& depthPrePass = swapChain->getDepthPrePass();
-		std::array<VkClearValue, 2> clearValues{};
-		clearValues[0].depthStencil = {1.0f, 0};
-		beginRenderPass(commandBuffer, depthPrePass.frameBuffer, depthPrePass.renderPass, VkRect2D{{0, 0}, swapChain->getSwapChainExtent()}, clearValues);
+		renderInfo.clearValues = clearValues;
+
+		VkViewport viewport{};
+		viewport.x = 0.0f;
+		viewport.y = 0.0f;
+		viewport.width = static_cast<float>(swapChain->getSwapChainExtent().width);
+		viewport.height = static_cast<float>(swapChain->getSwapChainExtent().height);
+		viewport.minDepth = 0.0f;
+		viewport.maxDepth = 1.0f;
+		renderInfo.viewport = viewport;
+
+		renderInfo.scissorDimensions = VkRect2D{{0, 0}, swapChain->getSwapChainExtent()};
+
+		beginRenderPass(commandBuffer, renderInfo);
 	}
 
 	// beginSwapChainRenderPass will start the render pass in order to then record commands to it.
-	void Renderer::beginRenderPass(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, VkRenderPass renderPass, VkRect2D scissorDimensions, std::array<VkClearValue, 2> clearValues) {
+	void Renderer::beginRenderPass(VkCommandBuffer commandBuffer, RenderInfo renderInfo) {
 		assert(isFrameStarted && "Can't call beginRenderPass if frame is not in progress!");
 		assert(commandBuffer == getCurrentCommandBuffer() && "Cannot begin render pass on command buffer from a different frame.");
 
 		// 1st Command: Begin render pass.
 		VkRenderPassBeginInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassInfo.renderPass = renderPass;
-		renderPassInfo.framebuffer = framebuffer; // Which frame buffer is this render pass writing to?
+		renderPassInfo.renderPass = renderInfo.renderPass;
+		renderPassInfo.framebuffer = renderInfo.framebuffer; // Which frame buffer is this render pass writing to?
 
 		// Defines the area in which the shader loads and stores will take place.
 		renderPassInfo.renderArea.offset = {0, 0};
@@ -172,8 +174,8 @@ namespace Aspen {
 		// What inital values we want our frame buffer attatchments to be cleared to.
 		// This corresponds to how we've structured our render pass: Index 0 = color
 		// attatchment, Index 1 = Depth Attatchment.
-		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-		renderPassInfo.pClearValues = clearValues.data();
+		renderPassInfo.clearValueCount = static_cast<uint32_t>(renderInfo.clearValues.size());
+		renderPassInfo.pClearValues = renderInfo.clearValues.data();
 
 		// Begin the render pass instance and start recording commands to that render
 		// pass. VK_SUBPASS_CONTENTS_INLINE signifies that all the commands we want to
@@ -185,16 +187,17 @@ namespace Aspen {
 		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 		// Setup dynamic viewport and scissor.
-		VkViewport viewport{};
-		viewport.x = 0.0f;
-		viewport.y = 0.0f;
-		viewport.width = static_cast<float>(swapChain->getSwapChainExtent().width);
-		viewport.height = static_cast<float>(swapChain->getSwapChainExtent().height);
-		viewport.minDepth = 0.0f;
-		viewport.maxDepth = 1.0f;
+		// VkViewport viewport{};
+		// viewport.x = 0.0f;
+		// viewport.y = 0.0f;
+		// viewport.width = static_cast<float>(swapChain->getSwapChainExtent().width);
+		// viewport.height = static_cast<float>(swapChain->getSwapChainExtent().height);
+		// viewport.minDepth = 0.0f;
+		// viewport.maxDepth = 1.0f;
 		// VkRect2D scissor{{0, 0}, swapChain->getSwapChainExtent()};
-		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-		vkCmdSetScissor(commandBuffer, 0, 1, &scissorDimensions);
+
+		vkCmdSetViewport(commandBuffer, 0, 1, &renderInfo.viewport);
+		vkCmdSetScissor(commandBuffer, 0, 1, &renderInfo.scissorDimensions);
 	}
 
 	// End the render pass when commands have been recorded.

@@ -7,6 +7,8 @@ namespace Aspen {
 		s_Instance = this;
 		window.setEventCallback(BIND_EVENT_FN(Application::OnEvent));
 
+		// Create the mouse picking render pass and tell it to use the attachment from the depth pre-pass.
+
 		setupImGui();
 
 		m_Scene = std::make_shared<Scene>(device);
@@ -60,8 +62,8 @@ namespace Aspen {
 		ImGui_ImplVulkan_CreateFontsTexture(commandBuffer);
 		device.endSingleTimeCommandBuffers(commandBuffer);
 
-		SwapChain::OffscreenPass offscreenPass = renderer.getOffscreenPass();
-		uiState.viewportTexture = ImGui_ImplVulkan_AddTexture(offscreenPass.sampler, offscreenPass.color.view, offscreenPass.descriptor.imageLayout);
+		std::shared_ptr<Framebuffer> offscreenPass = simpleRenderSystem.getResources();
+		uiState.viewportTexture = ImGui_ImplVulkan_AddTexture(offscreenPass->sampler, offscreenPass->attachments[0].view, offscreenPass->attachments[0].description.finalLayout);
 
 		// Destroy font textures from CPU memory.
 		ImGui_ImplVulkan_DestroyFontUploadObjects();
@@ -78,113 +80,124 @@ namespace Aspen {
 
 		// Game Loop
 		while (m_Running) {
-
 			// Calculate the time taken of the previous frame. Clamp between 0 and max frame time.
-			double deltaTime = glm::clamp(timer.elapsedSeconds(), 0.0, TimerState::MAX_FRAME_TIME);
+			double deltaTime = glm::clamp(timer.elapsedSeconds(), 0.0, appState.MAX_FRAME_TIME);
 			timer.reset();
 
 			// Vsync time snapping
-			for (double snap : timerState.snap_frequencies) {
-				if (std::abs(deltaTime - snap) < TimerState::VSYNC_ERROR) {
-					deltaTime = snap;
-					break;
+			if (appState.vsync_snapping) {
+				for (double snap : appState.snap_frequencies) {
+					if (std::abs(deltaTime - snap) < appState.vsync_error) {
+						deltaTime = snap;
+						break;
+					}
 				}
 			}
 
 			// Average delta time.
-			// float weight = 1.0f - glm::pow(1 - 0.5, deltaTime * TimerState::UPDATE_RATE);
-			// accumulator += (deltaTime - accumulator) * weight;
-
-			// timerState.time_averager.enqueue(deltaTime);
+			// appState.time_averager.enqueue(deltaTime);
 			// double averager_sum = 0.0;
-			// for (int i = 0; i < TimerState::TIME_HISTORY_COUNT; i++) {
-			// 	averager_sum += timerState.time_averager.dequeue();
+			// for (int i = 0; i < appState.TIME_HISTORY_COUNT; i++) {
+			// 	averager_sum += appState.time_averager.dequeue();
 			// }
-			// deltaTime = averager_sum / TimerState::TIME_HISTORY_COUNT;
 
-			for (int i = 0; i < TimerState::TIME_HISTORY_COUNT - 1; i++) {
-				timerState.time_averager[i] = timerState.time_averager[i + 1];
-			}
-			timerState.time_averager[TimerState::TIME_HISTORY_COUNT - 1] = deltaTime;
+			// for (int i = 0; i < appState.TIME_HISTORY_COUNT - 1; i++) {
+			// 	appState.time_averager[i] = appState.time_averager[i + 1];
+			// }
+			// appState.time_averager[appState.TIME_HISTORY_COUNT - 1] = deltaTime;
 
-			double averager_sum = 0.0;
-			for (int i = 0; i < TimerState::TIME_HISTORY_COUNT; i++) {
-				averager_sum += timerState.time_averager[i];
-			}
+			// double averager_sum = 0.0;
+			// for (int i = 0; i < appState.TIME_HISTORY_COUNT; i++) {
+			// 	averager_sum += appState.time_averager[i];
+			// }
 
-			deltaTime = averager_sum / TimerState::TIME_HISTORY_COUNT;
+			// TODO: Fix averaging
+			// deltaTime = averager_sum / appState.TIME_HISTORY_COUNT;
 
-			// averager_residual += std::fmod(averager_sum, TimerState::TIME_HISTORY_COUNT);
-			// deltaTime += averager_residual / TimerState::TIME_HISTORY_COUNT;
-			// averager_residual = std::fmod(averager_residual, TimerState::TIME_HISTORY_COUNT);
+			// averager_residual += std::fmod(averager_sum, appState.TIME_HISTORY_COUNT);
+			// deltaTime += averager_residual / appState.TIME_HISTORY_COUNT;
+			// averager_residual = std::fmod(averager_residual, appState.TIME_HISTORY_COUNT);
 
 			accumulator += deltaTime;
-
 			fpsUpdate += deltaTime;
-			frames++;
+			// frames++;
 
-			if (fpsUpdate >= fpsUpdateCooldown) {
-				std::string newTitle = window.getWindowTitle() + " | Frame Time: " + std::to_string(1000.0 / frames) + ", FPS: " + std::to_string(frames) + ", UPS: " + std::to_string(TimerState::UPDATE_RATE);
-				window.setWindowTitle(newTitle);
-				fpsUpdate = 0;
-				frames = 0;
-			}
+			// if (fpsUpdate >= fpsUpdateCooldown) {
+			// 	std::string newTitle = window.getWindowTitle() + " | Frame Time: " + std::to_string(1000.0 / frames) + ", FPS: " + std::to_string(frames) + ", UPS: " + std::to_string(appState.UPDATE_RATE);
+			// 	window.setWindowTitle(newTitle);
+			// 	fpsUpdate = 0;
+			// 	frames = 0;
+			// }
 
 			// Prevents spiral of doom.
-			if (accumulator > TimerState::MAX_FRAME_TIME) {
+			if (accumulator > appState.MAX_FRAME_TIME || appState.stateChanged) {
 				std::cout << "Resyncing..." << std::endl;
-				timerState.resync = true;
+				appState.resync = true;
 			}
 
 			// Resync the timer variables.
-			if (timerState.resync) {
+			if (appState.resync) {
 				accumulator = 0.0;
-				deltaTime = TimerState::FIXED_DELTA_TIME;
-				timerState.resync = false;
+				deltaTime = appState.FIXED_DELTA_TIME;
+				fpsUpdate = 0.0;
+
+				appState.FIXED_DELTA_TIME = 1.0 / static_cast<double>(appState.update_rate);
+
+				if (renderer.getDesiredPresentMode() != !appState.enable_vsync) {
+					renderer.setDesiredPresentMode(!appState.enable_vsync); // 0/False is V-sync, 1/True is Mailbox
+					renderer.recreateSwapChain();
+					mousePickingRenderSystem.onResize();
+
+					std::shared_ptr<Framebuffer> offscreenPass = simpleRenderSystem.getResources();
+					uiState.viewportTexture = ImGui_ImplVulkan_UpdateTexture(uiState.viewportTexture, offscreenPass->sampler, offscreenPass->attachments[0].view, offscreenPass->attachments[0].description.finalLayout);
+				}
+
+				appState.resync = false;
+				appState.stateChanged = false;
 			}
 
 			window.OnUpdate(); // Process window level events.
 
-			if (TimerState::UNLOCK_FRAMERATE) { // Unlocked framerate, use interpolation
+			if (!appState.enable_vsync) { // Unlocked framerate, use interpolation
 				double consumedDeltaTime = deltaTime;
 
-				while (accumulator >= TimerState::FIXED_DELTA_TIME) {
+				while (accumulator >= appState.FIXED_DELTA_TIME) {
 					// Fixed Update
 					// ...
 
 					// Cap variable update's dt to not be larger than fixed update, and interleave it (so game state can always get animation frames it needs)
-					if (consumedDeltaTime > TimerState::FIXED_DELTA_TIME) {
+					if (consumedDeltaTime > appState.FIXED_DELTA_TIME) {
 						// Variable Update
-						update(TimerState::FIXED_DELTA_TIME);
-						consumedDeltaTime -= TimerState::FIXED_DELTA_TIME;
+						update(appState.FIXED_DELTA_TIME);
+						consumedDeltaTime -= appState.FIXED_DELTA_TIME;
 					}
-					accumulator -= TimerState::FIXED_DELTA_TIME;
+					accumulator -= appState.FIXED_DELTA_TIME;
 				}
 
 				// Render frame
 				update(consumedDeltaTime);
-				render(accumulator / TimerState::FIXED_DELTA_TIME); // Interpolate deltaTime.
+				// render(accumulator / appState.FIXED_DELTA_TIME); // Interpolate deltaTime.
+
+				if (fpsUpdate >= 1.0 / static_cast<double>(appState.fps_cap) && fpsUpdate <= appState.MAX_FRAME_TIME) {
+					render(accumulator / appState.FIXED_DELTA_TIME); // Interpolate deltaTime.
+					fpsUpdate = 0.0;
+				}
 
 			} else { // Locked framerate, don't use interpolation
-				while (accumulator >= TimerState::FIXED_DELTA_TIME * TimerState::UPDATE_MULTIPLICITY) {
-					for (int i = 0; i < TimerState::UPDATE_MULTIPLICITY; ++i) {
+				while (accumulator >= appState.FIXED_DELTA_TIME * appState.UPDATE_MULTIPLICITY) {
+					for (int i = 0; i < appState.UPDATE_MULTIPLICITY; ++i) {
 						// Fixed Update
 						// ...
 
 						// Variable Update
-						update(TimerState::FIXED_DELTA_TIME);
+						update(appState.FIXED_DELTA_TIME);
 
-						accumulator -= TimerState::FIXED_DELTA_TIME;
+						accumulator -= appState.FIXED_DELTA_TIME;
 					}
 				}
 
 				// Render frame
 				render(1.0);
-				// if (fpsUpdate >= fpsUpdateCooldown / 30.0) {
-				// 	render(1.0); // Interpolate deltaTime.
-				// 	fpsUpdate = 0;
-				// 	frames = 0;
-				// }
 			}
 
 			// std::cout << "accFrameTime: " << accFrameTime << ", Normalized: " << accFrameTime / (1.0f / FIXED_UPDATE_FPS) << std::endl;
@@ -196,7 +209,7 @@ namespace Aspen {
 	void Application::update(double deltaTime) {
 		auto [cameraComponent, cameraArcball, cameraTransform] = cameraEntity.getComponent<CameraComponent, CameraControllerArcball, TransformComponent>();
 		CameraControllerSystem::OnUpdate(cameraArcball, {renderer.getSwapChainExtent().width, renderer.getSwapChainExtent().height});
-		CameraSystem::OnUpdateArcball(cameraTransform, cameraArcball, TimerState::FIXED_DELTA_TIME);
+		CameraSystem::OnUpdateArcball(cameraTransform, cameraArcball, appState.FIXED_DELTA_TIME);
 
 		float aspect = renderer.getAspectRatio();
 		// camera.setOrthographicProjection(-1, 1, -1, 1, -1, 1, aspect);
@@ -243,7 +256,7 @@ namespace Aspen {
 			    Depth Prepass
 			*/
 			{
-				renderer.beginDepthPrePassRenderPass(commandBuffer);
+				renderer.beginRenderPass(commandBuffer, depthPrePassRenderSystem.prepareRenderInfo());
 				depthPrePassRenderSystem.render(frameInfo);
 				renderer.endRenderPass(commandBuffer);
 			}
@@ -252,7 +265,7 @@ namespace Aspen {
 			    Render Scene to texture - Offscreen rendering
 			*/
 			{
-				renderer.beginOffscreenRenderPass(commandBuffer);
+				renderer.beginRenderPass(commandBuffer, simpleRenderSystem.prepareRenderInfo());
 				simpleRenderSystem.render(frameInfo);
 				pointLightRenderSystem.render(frameInfo);
 				renderer.endRenderPass(commandBuffer);
@@ -272,10 +285,8 @@ namespace Aspen {
 					storageBuffer->writeToBuffer(&ssbo); // Write data to the SSBO.
 					storageBuffer->flush();              // Make buffer data visible to device.
 
-					auto resources = mousePickingRenderSystem.getMousePickingResources();
-					std::array<VkClearValue, 2> clearValues{};
-					clearValues[0].depthStencil = {1.0f, 0};
-					renderer.beginRenderPass(commandBuffer, resources.frameBuffer, resources.renderPass, VkRect2D{{static_cast<int32_t>(Input::GetMouseX() > 0 ? Input::GetMouseX() : 0), static_cast<int32_t>(Input::GetMouseY() > 0 ? Input::GetMouseY() : 0)}, {1, 1}}, clearValues);
+					// auto resources = mousePickingRenderSystem.getMousePickingResources();
+					renderer.beginRenderPass(commandBuffer, mousePickingRenderSystem.prepareRenderInfo());
 					// renderer.beginRenderPass(commandBuffer, resources.frameBuffer, resources.renderPass, VkRect2D{{0, 0}, renderer.getSwapChainExtent()}, clearValues);
 					mousePickingRenderSystem.render(frameInfo);
 					renderer.endRenderPass(commandBuffer);
@@ -289,7 +300,7 @@ namespace Aspen {
 				renderer.beginPresentRenderPass(commandBuffer);
 				// simpleRenderSystem.render(frameInfo);
 				// pointLightRenderSystem.render(frameInfo);
-				uiRenderSystem.render(frameInfo, uiState);
+				uiRenderSystem.render(frameInfo, uiState, appState);
 				renderer.endRenderPass(commandBuffer);
 			}
 
@@ -375,7 +386,7 @@ namespace Aspen {
 			switch (mouseEvent.GetMouseButton()) {
 				// Mouse Picking
 				case Mouse::Button0:
-					if ((!uiState.gizmoVisible || !ImGuizmo::IsOver()) && uiState.gizmoActive) {
+					if ((!uiState.gizmoVisible || !ImGuizmo::IsOver()) && uiState.gizmoActive && uiState.viewportHovered) {
 						mousePicking = true;
 					}
 					break;
@@ -392,13 +403,14 @@ namespace Aspen {
 	bool Application::OnWindowResize(WindowResizeEvent& e) {
 		window.resetWindowResizedFlag();
 		renderer.recreateSwapChain();
-		// simpleRenderSystem.onResize();
+		simpleRenderSystem.onResize();
+		depthPrePassRenderSystem.onResize();
+		mousePickingRenderSystem.onResize();
 
 		uiState.viewportSize = glm::vec2(renderer.getSwapChainExtent().width, renderer.getSwapChainExtent().height);
 
-		SwapChain::OffscreenPass offscreenPass = renderer.getOffscreenPass();
-		uiState.viewportTexture =
-		    ImGui_ImplVulkan_UpdateTexture(uiState.viewportTexture, offscreenPass.sampler, offscreenPass.color.view, offscreenPass.descriptor.imageLayout);
+		std::shared_ptr<Framebuffer> offscreenPass = simpleRenderSystem.getResources();
+		uiState.viewportTexture = ImGui_ImplVulkan_UpdateTexture(uiState.viewportTexture, offscreenPass->sampler, offscreenPass->attachments[0].view, offscreenPass->attachments[0].description.finalLayout);
 
 		// createPipeline(); // Right now this is not required as the new render pass will be compatible with the old one but is put here for future proofing.
 

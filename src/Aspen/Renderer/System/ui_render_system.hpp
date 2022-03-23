@@ -14,9 +14,10 @@
 namespace Aspen {
 	struct UIState {
 		bool gizmoVisible = false;
-		bool gizmoActive = false;
+		bool gizmoActive = true;
 		int gizmoType = -1;
 		bool snapping = false;
+		bool viewportHovered = false;
 		glm::vec2 viewportSize{};
 		glm::vec2 viewportBounds[2]{};
 		VkDescriptorSet viewportTexture{};
@@ -34,7 +35,7 @@ namespace Aspen {
 		UIRenderSystem(UIRenderSystem&&) = delete;            // Move Constructor
 		UIRenderSystem& operator=(UIRenderSystem&&) = delete; // Move Assignment Operator
 
-		void render(FrameInfo& frameInfo, UIState& uiState);
+		void render(FrameInfo& frameInfo, UIState& uiState, ApplicationState& appState);
 		void onResize();
 
 		VkDescriptorSet getCurrentDescriptorSet(int frameIndex) {

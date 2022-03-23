@@ -24,7 +24,7 @@ namespace Aspen {
 	void GlobalRenderSystem::createDescriptorSetLayout() {
 		descriptorSetLayout = DescriptorSetLayout::Builder(device)
 		                          .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT) // Binding 0: Vertex shader uniform buffer
-		                          .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)                      // Binding 1: Fragment shader image sampler
+		                                                                                                                                       //   .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)                      // Binding 1: Fragment shader image sampler
 		                          .build();
 	}
 
@@ -32,10 +32,9 @@ namespace Aspen {
 	void GlobalRenderSystem::createDescriptorSet() {
 		for (int i = 0; i < descriptorSets.size(); ++i) {
 			auto bufferInfo = uboBuffers[i]->descriptorInfo();
-			auto offscreenPass = renderer.getOffscreenPass();
 			DescriptorWriter(*descriptorSetLayout, device.getDescriptorPool())
 			    .writeBuffer(0, &bufferInfo)
-			    .writeImage(1, &offscreenPass.descriptor)
+			    // .writeImage(1, &offscreenPass.descriptor)
 			    .build(descriptorSets[i]);
 		}
 	}
@@ -50,11 +49,20 @@ namespace Aspen {
 
 		auto group = frameInfo.scene->getPointLights();
 		for (auto& entity : group) {
-			auto [transform, pointLight] = group.get<TransformComponent, PointLightComponent>(entity);
-
 			assert(lightIndex < MAX_LIGHTS && "Point lights exceeded maximum specified!");
 
+			auto [transform, pointLight] = group.get<TransformComponent, PointLightComponent>(entity);
+			// auto rotateLights = glm::rotate(glm::mat4(1.0f), static_cast<float>(frameInfo.frameTime), {0.0f, -1.0f, 0.0f});
+
+			// Update light position
+			// 1) Translate the light to the center
+			// 2) Make the rotation
+			// 3) Translate the object back to its original location
+			// auto transformTemp = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 2.5f));
+			// auto translationTemp = (transformTemp * rotateLights * glm::inverse(transformTemp)) * glm::vec4(transform.translation, 1.0f);
+
 			// copy light to ubo
+			// ubo.lights[lightIndex].position = translationTemp;
 			ubo.lights[lightIndex].position = glm::vec4(transform.translation, 1.0f);
 			ubo.lights[lightIndex].color = glm::vec4(pointLight.color, pointLight.lightIntensity);
 

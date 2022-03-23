@@ -8,8 +8,8 @@ namespace Aspen {
 			alignas(16) int64_t objectId;
 		};
 
-		MousePickingRenderSystem(Device& device, Renderer& renderer, std::unique_ptr<DescriptorSetLayout>& globalDescriptorSetLayout);
-		~MousePickingRenderSystem();
+		MousePickingRenderSystem(Device& device, Renderer& renderer, std::unique_ptr<DescriptorSetLayout>& globalDescriptorSetLayout, std::shared_ptr<Framebuffer> resources);
+		~MousePickingRenderSystem() = default;
 
 		MousePickingRenderSystem(const MousePickingRenderSystem&) = delete;
 		MousePickingRenderSystem& operator=(const MousePickingRenderSystem&) = delete;
@@ -18,14 +18,16 @@ namespace Aspen {
 		MousePickingRenderSystem& operator=(MousePickingRenderSystem&&) = delete; // Move Assignment Operator
 
 		void render(FrameInfo& frameInfo);
+		void loadAttachment();
+		RenderInfo prepareRenderInfo();
 		void onResize();
 
 		VkDescriptorSet getDescriptorSet() {
 			return descriptorSet;
 		}
 
-		MousePickingPass& getMousePickingResources() {
-			return mousePickingResources;
+		Framebuffer& getResources() {
+			return *resources;
 		}
 
 		std::unique_ptr<Buffer>& getStorageBuffer() {
@@ -36,14 +38,15 @@ namespace Aspen {
 		void createDescriptorSetLayout();
 		void createDescriptorSet();
 		void createPipelines();
-		void createPipelineLayout(std::unique_ptr<DescriptorSetLayout>& globalDescriptorSetLayout);
+		void createPipelineLayout();
 
 		Device& device;
 		Renderer& renderer;
+		std::unique_ptr<Framebuffer> resources;
+		std::weak_ptr<Framebuffer> resourcesDepthPrePass;
 		Pipeline pipeline{device};
 
-		MousePickingPass mousePickingResources{};
-
+		DescriptorSetLayout& globalDescriptorSetLayout;
 		std::unique_ptr<DescriptorSetLayout> descriptorSetLayout{};
 		VkDescriptorSet descriptorSet;
 

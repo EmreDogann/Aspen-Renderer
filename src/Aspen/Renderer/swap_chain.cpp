@@ -2,13 +2,13 @@
 
 namespace Aspen {
 
-	SwapChain::SwapChain(Device& deviceRef, VkExtent2D extent)
-	    : device{deviceRef}, windowExtent{extent} {
+	SwapChain::SwapChain(Device& deviceRef, VkExtent2D extent, const int desiredPresentMode)
+	    : device{deviceRef}, windowExtent{extent}, desiredPresentMode(desiredPresentMode) {
 		init();
 	}
 
-	SwapChain::SwapChain(Device& deviceRef, VkExtent2D extent, std::shared_ptr<SwapChain> previous)
-	    : device{deviceRef}, windowExtent{extent}, oldSwapChain{std::move(previous)} {
+	SwapChain::SwapChain(Device& deviceRef, VkExtent2D extent, std::shared_ptr<SwapChain> previous, const int desiredPresentMode)
+	    : device{deviceRef}, windowExtent{extent}, oldSwapChain{std::move(previous)}, desiredPresentMode(desiredPresentMode) {
 		init();
 
 		// Clean up old swap chain since it's no longer being used. Setting to nullptr will signify the system to release its resources.
@@ -17,9 +17,7 @@ namespace Aspen {
 
 	void SwapChain::init() {
 		createSwapChain();
-		createDepthPrePass();
 		createImageViews();
-		createSamplers();
 		createRenderPasses();
 		createDepthResources();
 		createFramebuffers();
@@ -54,54 +52,6 @@ namespace Aspen {
 
 		// Destroy the present render pass.
 		vkDestroyRenderPass(device.device(), presentRenderPass, nullptr);
-
-		/*
-		    Destroy offscreen rendering struct.
-		*/
-		{
-			// Color Attachment
-			vkDestroyImageView(device.device(), offscreenPass.color.view, nullptr);
-			vkDestroyImage(device.device(), offscreenPass.color.image, nullptr);
-			vkFreeMemory(device.device(), offscreenPass.color.memory, nullptr);
-
-			// Depth Attachment
-			vkDestroyImageView(device.device(), offscreenPass.depth.view, nullptr);
-			vkDestroyImage(device.device(), offscreenPass.depth.image, nullptr);
-			vkFreeMemory(device.device(), offscreenPass.depth.memory, nullptr);
-
-			// Framebuffer
-			vkDestroyFramebuffer(device.device(), offscreenPass.frameBuffer, nullptr);
-
-			// Offscreen renderpass
-			vkDestroyRenderPass(device.device(), offscreenPass.renderPass, nullptr);
-
-			// Sampler
-			vkDestroySampler(device.device(), offscreenPass.sampler, nullptr);
-		}
-
-		/*
-		    Destroy depth pre-pass rendering struct.
-		*/
-		{
-			// Color Attachment
-			vkDestroyImageView(device.device(), depthPrePass.color.view, nullptr);
-			vkDestroyImage(device.device(), depthPrePass.color.image, nullptr);
-			vkFreeMemory(device.device(), depthPrePass.color.memory, nullptr);
-
-			// Depth Attachment
-			vkDestroyImageView(device.device(), depthPrePass.depth.view, nullptr);
-			vkDestroyImage(device.device(), depthPrePass.depth.image, nullptr);
-			vkFreeMemory(device.device(), depthPrePass.depth.memory, nullptr);
-
-			// Framebuffer
-			vkDestroyFramebuffer(device.device(), depthPrePass.frameBuffer, nullptr);
-
-			// Renderpass
-			vkDestroyRenderPass(device.device(), depthPrePass.renderPass, nullptr);
-
-			// Sampler
-			vkDestroySampler(device.device(), depthPrePass.sampler, nullptr);
-		}
 
 		// Cleanup synchronization objects.
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
@@ -178,7 +128,7 @@ namespace Aspen {
 		presentInfo.pImageIndices = imageIndex; // The index of the image to present.
 		presentInfo.pResults = nullptr;         // Optional
 
-		// vkWaitForFences(device.device(), 1, &inFlightFences[currentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max()); // Prevents stuttering for some reason...
+		vkWaitForFences(device.device(), 1, &inFlightFences[currentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max()); // Prevents stuttering for some reason...
 		// vkQueueWaitIdle(device.presentQueue());                                                                            // Prevents stuttering for some reason...
 
 		auto result = vkQueuePresentKHR(device.presentQueue(), &presentInfo); // Send image to be presented to the display.
@@ -272,327 +222,6 @@ namespace Aspen {
 		swapChainExtent = extent;
 	}
 
-	void SwapChain::createDepthPrePass() {
-		VkFormat depthFormat = findDepthFormat();
-
-		/*
-		    Create Depth Pre-Pass attachments/render targets.
-		*/
-		{
-			// Create depth attachment.
-			VkImageCreateInfo imageCreateInfo{};
-			imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-			imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
-			imageCreateInfo.format = depthFormat;
-			imageCreateInfo.extent.width = swapChainExtent.width;
-			imageCreateInfo.extent.height = swapChainExtent.height;
-			imageCreateInfo.extent.depth = 1;
-			imageCreateInfo.mipLevels = 1;
-			imageCreateInfo.arrayLayers = 1;
-			imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-			imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-			imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-			imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-			imageCreateInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT; // We will be reading from this depth buffer in subsequent render passes.
-
-			// Create image and allocate memory for it.
-			device.createImageWithInfo(imageCreateInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthPrePass.depth.image, depthPrePass.depth.memory);
-
-			VkImageViewCreateInfo imageViewCreateInfo{};
-			imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-			imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-			imageViewCreateInfo.format = depthFormat;
-			imageViewCreateInfo.subresourceRange = {};
-			imageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT; // TODO: Do we need stencil bit flag here?
-			imageViewCreateInfo.subresourceRange.baseMipLevel = 0;
-			imageViewCreateInfo.subresourceRange.levelCount = 1;
-			imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
-			imageViewCreateInfo.subresourceRange.layerCount = 1;
-			imageViewCreateInfo.image = depthPrePass.depth.image;
-
-			if (vkCreateImageView(device.device(), &imageViewCreateInfo, nullptr, &depthPrePass.depth.view) != VK_SUCCESS) {
-				throw std::runtime_error("Failed to create depth pre-pass image view!");
-			}
-		}
-
-		/*
-		    Create sampler for depth pre-pass.
-		*/
-		{
-			VkSamplerCreateInfo samplerCreateInfo{};
-			samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-			samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
-			samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
-			samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-			samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-			samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-			samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-			samplerCreateInfo.mipLodBias = 0.0f;
-			samplerCreateInfo.maxAnisotropy = 1.0f;
-			samplerCreateInfo.minLod = 0.0f;
-			samplerCreateInfo.maxLod = 1.0f;
-			samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-
-			if (vkCreateSampler(device.device(), &samplerCreateInfo, nullptr, &depthPrePass.sampler) != VK_SUCCESS) {
-				throw std::runtime_error("Failed to create depth pre-pass sampler!");
-			}
-		}
-
-		/*
-		    Create Depth Pre-Pass Render Pass.
-		*/
-		{
-			VkAttachmentDescription depthAttachment{};
-			depthAttachment.format = findDepthFormat();
-			depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-			depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-			depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-			depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-			depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-			depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-			depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-
-			// Attachment references to be used by subpasses.
-			VkAttachmentReference depthAttachmentRef{};
-			depthAttachmentRef.attachment = 0;
-			depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-			// Describe the subpass.
-			VkSubpassDescription subpassDescription = {};
-			subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-			subpassDescription.colorAttachmentCount = 0;
-			subpassDescription.pColorAttachments = nullptr;
-			subpassDescription.pDepthStencilAttachment = &depthAttachmentRef;
-
-			// Specify memory and execution dependencies between subpasses.
-			std::array<VkSubpassDependency, 2> dependencies = {};
-			dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
-			dependencies[0].dstSubpass = 0;
-			dependencies[0].srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-			dependencies[0].dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-			dependencies[0].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-			dependencies[0].dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-			dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-			dependencies[1].srcSubpass = 0;
-			dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
-			dependencies[1].srcStageMask = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-			dependencies[1].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-			dependencies[1].srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-			dependencies[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-			dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-			// Create a render pass object.
-			std::array<VkAttachmentDescription, 1> attachments = {depthAttachment};
-			VkRenderPassCreateInfo renderPassInfo = {};
-			renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-			renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-			renderPassInfo.pAttachments = attachments.data();
-			renderPassInfo.subpassCount = 1;
-			renderPassInfo.pSubpasses = &subpassDescription;
-			renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
-			renderPassInfo.pDependencies = dependencies.data();
-
-			if (vkCreateRenderPass(device.device(), &renderPassInfo, nullptr, &depthPrePass.renderPass) != VK_SUCCESS) {
-				throw std::runtime_error("Failed to create depth pre-pass render pass!");
-			}
-		}
-
-		/*
-		    Create Depth Pre-Pass Framebuffer.
-		*/
-		{
-			std::array<VkImageView, 1> attachments = {depthPrePass.depth.view};
-
-			VkExtent2D swapChainExtent = getSwapChainExtent();
-			VkFramebufferCreateInfo framebufferInfo = {};
-			framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-			framebufferInfo.renderPass = depthPrePass.renderPass; // You can only use a framebuffer with the render passes that it is compatible with (roughly means the same number of type of attachments).
-			framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-			framebufferInfo.pAttachments = attachments.data();
-			framebufferInfo.width = swapChainExtent.width;
-			framebufferInfo.height = swapChainExtent.height;
-			framebufferInfo.layers = 1; // Number of layers in the image array.
-
-			if (vkCreateFramebuffer(device.device(), &framebufferInfo, nullptr, &depthPrePass.frameBuffer) != VK_SUCCESS) {
-				throw std::runtime_error("Failed to create depth pre-pass framebuffer!");
-			}
-		}
-
-		// Fill a descriptor for later use in a descriptor set
-		depthPrePass.descriptor.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-		depthPrePass.descriptor.imageView = depthPrePass.depth.view;
-		depthPrePass.descriptor.sampler = depthPrePass.sampler;
-	}
-
-	void SwapChain::createMousePickingPass(VkFramebuffer& frameBuffer, FrameBufferAttachment& colorAttachment, FrameBufferAttachment& depthAttachment, VkRenderPass& renderPass) {
-		VkFormat depthFormat = findDepthFormat();
-
-		/*
-		    Create Mouse Picking attachments/render targets.
-		*/
-		{
-		    // Create color attachment
-		    // 	VkImageCreateInfo imageCreateInfo{};
-		    // 	imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-		    // 	imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
-		    // 	imageCreateInfo.format = VK_FORMAT_R32_SFLOAT;
-		    // 	imageCreateInfo.extent.width = swapChainExtent.width;
-		    // 	imageCreateInfo.extent.height = swapChainExtent.height;
-		    // 	imageCreateInfo.extent.depth = 1;
-		    // 	imageCreateInfo.mipLevels = 1;
-		    // 	imageCreateInfo.arrayLayers = 1;
-		    // 	imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-		    // 	imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-		    // 	imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		    // 	imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		    // 	imageCreateInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
-		    // 	// Create image and allocate memory for it.
-		    // 	device.createImageWithInfo(imageCreateInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colorAttachment.image, colorAttachment.memory);
-
-		    // 	VkImageViewCreateInfo imageViewCreateInfo{};
-		    // 	imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		    // 	imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		    // 	imageViewCreateInfo.format = VK_FORMAT_R32_SFLOAT;
-		    // 	imageViewCreateInfo.subresourceRange = {};
-		    // 	imageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		    // 	imageViewCreateInfo.subresourceRange.baseMipLevel = 0;
-		    // 	imageViewCreateInfo.subresourceRange.levelCount = 1;
-		    // 	imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
-		    // 	imageViewCreateInfo.subresourceRange.layerCount = 1;
-		    // 	imageViewCreateInfo.image = colorAttachment.image;
-
-		    // 	if (vkCreateImageView(device.device(), &imageViewCreateInfo, nullptr, &colorAttachment.view) != VK_SUCCESS) {
-		    // 		throw std::runtime_error("Failed to create mouse picking color image view!");
-		    // 	}
-		    // }
-
-		    // Create depth attachment.
-		    // VkImageCreateInfo imageCreateInfo{};
-		    // imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-		    // imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
-		    // imageCreateInfo.format = depthFormat;
-		    // imageCreateInfo.extent.width = swapChainExtent.width;
-		    // imageCreateInfo.extent.height = swapChainExtent.height;
-		    // imageCreateInfo.extent.depth = 1;
-		    // imageCreateInfo.mipLevels = 1;
-		    // imageCreateInfo.arrayLayers = 1;
-		    // imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-		    // imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-		    // imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-		    // imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		    // imageCreateInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT; // We will be reading from this depth buffer in subsequent render passes.
-
-		    // // Create image and allocate memory for it.
-		    // device.createImageWithInfo(imageCreateInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthAttachment.image, depthAttachment.memory);
-
-		    // VkImageViewCreateInfo imageViewCreateInfo{};
-		    // imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		    // imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		    // imageViewCreateInfo.format = depthFormat;
-		    // imageViewCreateInfo.subresourceRange = {};
-		    // imageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT; // TODO: Do we need stencil bit flag here?
-		    // imageViewCreateInfo.subresourceRange.baseMipLevel = 0;
-		    // imageViewCreateInfo.subresourceRange.levelCount = 1;
-		    // imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
-		    // imageViewCreateInfo.subresourceRange.layerCount = 1;
-		    // imageViewCreateInfo.image = depthAttachment.image;
-
-		    // if (vkCreateImageView(device.device(), &imageViewCreateInfo, nullptr, &depthAttachment.view) != VK_SUCCESS) {
-		    // 	throw std::runtime_error("Failed to create mouse picking depth image view!");
-		    // }
-		}
-
-		/*
-		    Create Mouse Picking Render Pass.
-		*/
-		{
-			// // Define the color attachment.
-			// VkAttachmentDescription colorAttachment = {};
-			// colorAttachment.format = VK_FORMAT_R32_SFLOAT;   // Use the same surface format as the swap chain images.
-			// colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT; // We are not doing any multi-sampling yet so just stick to one.
-			// colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-			// colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-			// colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-			// colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-			// colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-			// colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-			VkAttachmentDescription depthAttachment{};
-			depthAttachment.format = findDepthFormat();
-			depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-			depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-			depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-			depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-			depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-			depthAttachment.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-			depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-			// // Attachment references to be used by subpasses.
-			// VkAttachmentReference colorAttachmentRef = {};
-			// colorAttachmentRef.attachment = 0; // Which attachment to reference by its index in the attachment descriptions array.
-			// colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-			VkAttachmentReference depthAttachmentRef{};
-			depthAttachmentRef.attachment = 0;
-			depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-			// Describe the subpass.
-			VkSubpassDescription subpassDescription = {};
-			subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-			subpassDescription.colorAttachmentCount = 0;
-			// subpassDescription.pColorAttachments = &colorAttachmentRef;
-			subpassDescription.pDepthStencilAttachment = &depthAttachmentRef;
-
-			// Specify memory and execution dependencies between subpasses.
-			std::array<VkSubpassDependency, 1> dependencies = {};
-			dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
-			dependencies[0].dstSubpass = 0;
-			dependencies[0].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-			dependencies[0].srcAccessMask = 0;
-			dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-			dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-			// Create a render pass object.
-			std::array<VkAttachmentDescription, 1> attachments = {depthAttachment};
-			VkRenderPassCreateInfo renderPassInfo = {};
-			renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-			renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-			renderPassInfo.pAttachments = attachments.data();
-			renderPassInfo.subpassCount = 1;
-			renderPassInfo.pSubpasses = &subpassDescription;
-			renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
-			renderPassInfo.pDependencies = dependencies.data();
-
-			if (vkCreateRenderPass(device.device(), &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
-				throw std::runtime_error("Failed to create mouse picking render pass!");
-			}
-		}
-
-		/*
-		    Create Mouse Picking Framebuffer.
-		*/
-		{
-			// std::array<VkImageView, 2> attachments = {colorAttachment.view, depthAttachment.view};
-			std::array<VkImageView, 1> attachments = {depthPrePass.depth.view};
-
-			VkExtent2D swapChainExtent = getSwapChainExtent();
-			VkFramebufferCreateInfo framebufferInfo = {};
-			framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-			framebufferInfo.renderPass = renderPass; // You can only use a framebuffer with the render passes that it is compatible with (roughly means the same number of type of attachments).
-			framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-			framebufferInfo.pAttachments = attachments.data();
-			framebufferInfo.width = swapChainExtent.width;
-			framebufferInfo.height = swapChainExtent.height;
-			framebufferInfo.layers = 1; // Number of layers in the image array.
-
-			// frameBuffer = depthPrePass.frameBuffer;
-			if (vkCreateFramebuffer(device.device(), &framebufferInfo, nullptr, &frameBuffer) != VK_SUCCESS) {
-				throw std::runtime_error("Failed to create mouse picking framebuffer!");
-			}
-		}
-	}
-
 	// Create image views for all swap chain images for use as color targets.
 	void SwapChain::createImageViews() {
 		swapChainImageViews.resize(swapChainImages.size()); // Resize to the number of swap chain images.
@@ -626,42 +255,6 @@ namespace Aspen {
 				throw std::runtime_error("Failed to create texture image view!");
 			}
 		}
-
-		// Create offscreen color attachment.
-		VkImageCreateInfo offscreenImageCreateInfo{};
-		offscreenImageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-		offscreenImageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
-		offscreenImageCreateInfo.format = swapChainImageFormat;
-		offscreenImageCreateInfo.extent.width = swapChainExtent.width;
-		offscreenImageCreateInfo.extent.height = swapChainExtent.height;
-		offscreenImageCreateInfo.extent.depth = 1;
-		offscreenImageCreateInfo.mipLevels = 1;
-		offscreenImageCreateInfo.arrayLayers = 1;
-		offscreenImageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-		offscreenImageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-		offscreenImageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		offscreenImageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		offscreenImageCreateInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT; // We will sample directly from the color attachment.
-
-		// Create image and allocate memory for it.
-		device.createImageWithInfo(offscreenImageCreateInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, offscreenPass.color.image, offscreenPass.color.memory);
-
-		// Create image view for the color attachment created above.
-		VkImageViewCreateInfo offscreenImageViewCreateInfo{};
-		offscreenImageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		offscreenImageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		offscreenImageViewCreateInfo.format = swapChainImageFormat;
-		offscreenImageViewCreateInfo.subresourceRange = {};
-		offscreenImageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		offscreenImageViewCreateInfo.subresourceRange.baseMipLevel = 0;
-		offscreenImageViewCreateInfo.subresourceRange.levelCount = 1;
-		offscreenImageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
-		offscreenImageViewCreateInfo.subresourceRange.layerCount = 1;
-		offscreenImageViewCreateInfo.image = offscreenPass.color.image;
-
-		if (vkCreateImageView(device.device(), &offscreenImageViewCreateInfo, nullptr, &offscreenPass.color.view) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to create offscreen texture image view!");
-		}
 	}
 
 	void SwapChain::createSamplers() {
@@ -682,7 +275,7 @@ namespace Aspen {
 		samplerCreateInfo.maxLod = 1.0f;
 		samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
 
-		if (vkCreateSampler(device.device(), &samplerCreateInfo, nullptr, &offscreenPass.sampler) != VK_SUCCESS) {
+		if (vkCreateSampler(device.device(), &samplerCreateInfo, nullptr, /* SAMPLER HANDLE HERE --> */ nullptr /* <-- SAMPLER HANDLE HERE */) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create offscreen sampler!");
 		}
 	}
@@ -728,7 +321,7 @@ namespace Aspen {
 
 			// Check comments above.
 			VkAttachmentDescription depthAttachment{};
-			depthAttachment.format = findDepthFormat();
+			VulkanTools::getSupportedDepthFormat(device.physicalDevice(), &depthAttachment.format); // Get depth format
 			depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 			depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 			depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -783,77 +376,6 @@ namespace Aspen {
 				throw std::runtime_error("Failed to create render pass!");
 			}
 		}
-
-		// Offscreen Render Pass
-		{
-			VkAttachmentDescription colorAttachment{};
-			colorAttachment.format = swapChainImageFormat;
-			colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-			colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-			colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-			colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-			colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-			colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-			colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-			VkAttachmentReference colorAttachmentRef{};
-			colorAttachmentRef.attachment = 0;
-			colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-			VkAttachmentDescription depthAttachment{};
-			depthAttachment.format = findDepthFormat();
-			depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-			depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-			depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-			depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-			depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-			depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-			depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-			VkAttachmentReference depthAttachmentRef{};
-			depthAttachmentRef.attachment = 1;
-			depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-			// Describe the subpass.
-			VkSubpassDescription subpassDescription = {};
-			subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-			subpassDescription.colorAttachmentCount = 1;
-			subpassDescription.pColorAttachments = &colorAttachmentRef;
-			subpassDescription.pDepthStencilAttachment = &depthAttachmentRef;
-
-			// Specify memory and execution dependencies between subpasses.
-			std::array<VkSubpassDependency, 2> dependencies = {};
-			dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
-			dependencies[0].dstSubpass = 0;
-			dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-			dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-			dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-			dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-			dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-			dependencies[1].srcSubpass = 0;
-			dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
-			dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-			dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-			dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-			dependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-			dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-			// Create a render pass object.
-			std::array<VkAttachmentDescription, 2> attachments = {colorAttachment, depthAttachment};
-			VkRenderPassCreateInfo renderPassInfo = {};
-			renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-			renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-			renderPassInfo.pAttachments = attachments.data();
-			renderPassInfo.subpassCount = 1;
-			renderPassInfo.pSubpasses = &subpassDescription;
-			renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
-			renderPassInfo.pDependencies = dependencies.data();
-
-			if (vkCreateRenderPass(device.device(), &renderPassInfo, nullptr, &offscreenPass.renderPass) != VK_SUCCESS) {
-				throw std::runtime_error("Failed to create offscreen render pass!");
-			}
-		}
 	}
 
 	// Create a framebuffer object for every image in the swap chain.
@@ -876,37 +398,10 @@ namespace Aspen {
 				throw std::runtime_error("Failed to create framebuffer!");
 			}
 		}
-
-		/*
-		    Create framebuffer for offscreen rendering.
-		*/
-		VkImageView attachments[2];
-		attachments[0] = offscreenPass.color.view;
-		attachments[1] = offscreenPass.depth.view;
-
-		VkFramebufferCreateInfo framebufferCreateInfo{};
-		framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		framebufferCreateInfo.renderPass = offscreenPass.renderPass;
-		framebufferCreateInfo.attachmentCount = 2;
-		framebufferCreateInfo.pAttachments = attachments;
-		framebufferCreateInfo.width = swapChainExtent.width;
-		framebufferCreateInfo.height = swapChainExtent.height;
-		framebufferCreateInfo.layers = 1;
-
-		if (vkCreateFramebuffer(device.device(), &framebufferCreateInfo, nullptr, &offscreenPass.frameBuffer) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to create offscreen framebuffer!");
-		}
-
-		// TODO: Move this into its own function.
-		// Fill a descriptor for later use in a descriptor set
-		offscreenPass.descriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		offscreenPass.descriptor.imageView = offscreenPass.color.view;
-		offscreenPass.descriptor.sampler = offscreenPass.sampler;
 	}
 
 	void SwapChain::createDepthResources() {
-		VkFormat depthFormat = findDepthFormat();
-		swapChainDepthFormat = depthFormat;
+		VulkanTools::getSupportedDepthFormat(device.physicalDevice(), &swapChainDepthFormat); // Get depth format
 		VkExtent2D swapChainExtent = getSwapChainExtent();
 
 		depthImages.resize(imageCount());
@@ -922,7 +417,7 @@ namespace Aspen {
 			imageInfo.extent.depth = 1;
 			imageInfo.mipLevels = 1;
 			imageInfo.arrayLayers = 1;
-			imageInfo.format = depthFormat;
+			imageInfo.format = swapChainDepthFormat;
 			imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 			imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 			imageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
@@ -936,7 +431,7 @@ namespace Aspen {
 			viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 			viewInfo.image = depthImages[i];
 			viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-			viewInfo.format = depthFormat;
+			viewInfo.format = swapChainDepthFormat;
 			viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 			viewInfo.subresourceRange.baseMipLevel = 0;
 			viewInfo.subresourceRange.levelCount = 1;
@@ -946,42 +441,6 @@ namespace Aspen {
 			if (vkCreateImageView(device.device(), &viewInfo, nullptr, &depthImageViews[i]) != VK_SUCCESS) {
 				throw std::runtime_error("Failed to create depth image view!");
 			}
-		}
-
-		// Create offscreen depth attachment.
-		VkImageCreateInfo offscreenDepthImageCreateInfo{};
-		offscreenDepthImageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-		offscreenDepthImageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
-		offscreenDepthImageCreateInfo.format = depthFormat;
-		offscreenDepthImageCreateInfo.extent.width = swapChainExtent.width;
-		offscreenDepthImageCreateInfo.extent.height = swapChainExtent.height;
-		offscreenDepthImageCreateInfo.extent.depth = 1;
-		offscreenDepthImageCreateInfo.mipLevels = 1;
-		offscreenDepthImageCreateInfo.arrayLayers = 1;
-		offscreenDepthImageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-		offscreenDepthImageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-		offscreenDepthImageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		offscreenDepthImageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		offscreenDepthImageCreateInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-
-		// Create image and allocate memory for it.
-		device.createImageWithInfo(offscreenDepthImageCreateInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, offscreenPass.depth.image, offscreenPass.depth.memory);
-
-		// Create image view for the color attachment created above.
-		VkImageViewCreateInfo offscreenDepthImageViewCreateInfo{};
-		offscreenDepthImageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		offscreenDepthImageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		offscreenDepthImageViewCreateInfo.format = depthFormat;
-		offscreenDepthImageViewCreateInfo.subresourceRange = {};
-		offscreenDepthImageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT; // TODO: Do we need stencil bit flag here?
-		offscreenDepthImageViewCreateInfo.subresourceRange.baseMipLevel = 0;
-		offscreenDepthImageViewCreateInfo.subresourceRange.levelCount = 1;
-		offscreenDepthImageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
-		offscreenDepthImageViewCreateInfo.subresourceRange.layerCount = 1;
-		offscreenDepthImageViewCreateInfo.image = offscreenPass.depth.image;
-
-		if (vkCreateImageView(device.device(), &offscreenDepthImageViewCreateInfo, nullptr, &offscreenPass.depth.view) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to create offscreen depth image view!");
 		}
 	}
 
@@ -1028,19 +487,17 @@ namespace Aspen {
 	// 3. VK_PRESENT_MODE_FIFO_KHR - This present mode is always guarenteed to be
 	// available so is the safe pick.
 	VkPresentModeKHR SwapChain::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes) {
-		// for (const auto& availablePresentMode : availablePresentModes) {
-		// 	if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
-		// 		// std::cout << "Present mode: Mailbox" << std::endl;
-		// 		return availablePresentMode;
-		// 	}
-		// }
+		for (const auto& availablePresentMode : availablePresentModes) {
+			if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR && desiredPresentMode == 1) {
+				std::cout << "Present mode: Mailbox" << std::endl;
+				return availablePresentMode;
+			}
 
-		// for (const auto &availablePresentMode : availablePresentModes) {
-		//   if (availablePresentMode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
-		//     std::cout << "Present mode: Immediate" << std::endl;
-		//     return availablePresentMode;
-		//   }
-		// }
+			if (availablePresentMode == VK_PRESENT_MODE_IMMEDIATE_KHR && desiredPresentMode == 2) {
+				std::cout << "Present mode: Immediate" << std::endl;
+				return availablePresentMode;
+			}
+		}
 
 		std::cout << "Present mode: V-Sync" << std::endl;
 		return VK_PRESENT_MODE_FIFO_KHR;
@@ -1067,10 +524,6 @@ namespace Aspen {
 
 			return actualExtent;
 		}
-	}
-
-	VkFormat SwapChain::findDepthFormat() {
-		return device.findSupportedFormat({VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT}, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 	}
 
 } // namespace Aspen

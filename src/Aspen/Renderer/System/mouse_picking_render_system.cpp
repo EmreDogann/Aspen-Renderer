@@ -6,45 +6,48 @@ namespace Aspen {
 		alignas(16) uint64_t objectId;
 	};
 
-	MousePickingRenderSystem::MousePickingRenderSystem(Device& device, Renderer& renderer, std::unique_ptr<DescriptorSetLayout>& globalDescriptorSetLayout)
-	    : device(device), renderer(renderer) {
+	MousePickingRenderSystem::MousePickingRenderSystem(Device& device, Renderer& renderer, std::unique_ptr<DescriptorSetLayout>& globalDescriptorSetLayout, std::shared_ptr<Framebuffer> resources)
+	    : device(device), renderer(renderer), resources(std::make_unique<Framebuffer>(device)), resourcesDepthPrePass(resources), globalDescriptorSetLayout(*globalDescriptorSetLayout) {
 		// Create a UBO buffer. This will just be one instance per frame.
-		storageBuffer = std::make_unique<Buffer>(
-		    device,
-		    sizeof(MousePickingStorageBuffer),
-		    1,
-		    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-		    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-		    device.properties.limits.minUniformBufferOffsetAlignment);
+		{
+			storageBuffer = std::make_unique<Buffer>(
+			    device,
+			    sizeof(MousePickingStorageBuffer),
+			    1,
+			    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+			    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+			    device.properties.limits.minUniformBufferOffsetAlignment);
 
-		// Map the buffer's memory so we can begin writing to it.
-		storageBuffer->map();
+			// Map the buffer's memory so we can begin writing to it.
+			storageBuffer->map();
+		}
 
-		renderer.createMousePickingPass(mousePickingResources);
+		loadAttachment();
 
 		createDescriptorSetLayout();
 		createDescriptorSet();
 
-		createPipelineLayout(globalDescriptorSetLayout);
+		createPipelineLayout();
 		createPipelines();
 	}
 
-	MousePickingRenderSystem::~MousePickingRenderSystem() {
-		// Color Attachment
-		vkDestroyImageView(device.device(), mousePickingResources.color.view, nullptr);
-		vkDestroyImage(device.device(), mousePickingResources.color.image, nullptr);
-		vkFreeMemory(device.device(), mousePickingResources.color.memory, nullptr);
+	void MousePickingRenderSystem::loadAttachment() {
+		std::shared_ptr<Framebuffer> tempFramebuffer = resourcesDepthPrePass.lock();
 
-		// Depth Attachment
-		vkDestroyImageView(device.device(), mousePickingResources.depth.view, nullptr);
-		vkDestroyImage(device.device(), mousePickingResources.depth.image, nullptr);
-		vkFreeMemory(device.device(), mousePickingResources.depth.memory, nullptr);
+		AttachmentAddInfo attachmentAddInfo{};
+		VulkanTools::getSupportedDepthFormat(device.physicalDevice(), &attachmentAddInfo.format);
+		attachmentAddInfo.imageSampleCount = VK_SAMPLE_COUNT_1_BIT;
+		attachmentAddInfo.view = tempFramebuffer->attachments[0].view;
+		attachmentAddInfo.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+		attachmentAddInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+		attachmentAddInfo.layerCount = 1;
+		attachmentAddInfo.width = renderer.getSwapChainExtent().width;
+		attachmentAddInfo.height = renderer.getSwapChainExtent().height;
+		attachmentAddInfo.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+		attachmentAddInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 
-		// Framebuffer
-		vkDestroyFramebuffer(device.device(), mousePickingResources.frameBuffer, nullptr);
-
-		// Renderpass
-		vkDestroyRenderPass(device.device(), mousePickingResources.renderPass, nullptr);
+		resources->addLoadAttachment(attachmentAddInfo);
+		resources->createRenderPass();
 	}
 
 	// Create a Descriptor Set Layout for a Storage & Uniformbuffer.
@@ -59,7 +62,7 @@ namespace Aspen {
 	// Create Descriptor Sets.
 	void MousePickingRenderSystem::createDescriptorSet() {
 		auto bufferInfo = storageBuffer->descriptorInfo();
-		auto depthPrePass = renderer.getDepthPrePass();
+		// auto depthPrePass = renderer.getDepthPrePass();
 		DescriptorWriter(*descriptorSetLayout, device.getDescriptorPool())
 		    .writeBuffer(0, &bufferInfo)
 		    // .writeImage(1, &depthPrePass.descriptor)
@@ -67,13 +70,13 @@ namespace Aspen {
 	}
 
 	// Create a pipeline layout.
-	void MousePickingRenderSystem::createPipelineLayout(std::unique_ptr<DescriptorSetLayout>& globalDescriptorSetLayout) {
+	void MousePickingRenderSystem::createPipelineLayout() {
 		VkPushConstantRange pushConstantRange{};
 		pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // Which shaders will have access to this push constant range?
 		pushConstantRange.offset = 0;                              // To be used if you are using separate ranges for the vertex and fragment shaders.
 		pushConstantRange.size = sizeof(SimplePushConstantData);
 
-		std::vector<VkDescriptorSetLayout> descriptorSetLayouts{globalDescriptorSetLayout->getDescriptorSetLayout(), descriptorSetLayout->getDescriptorSetLayout()};
+		std::vector<VkDescriptorSetLayout> descriptorSetLayouts{globalDescriptorSetLayout.getDescriptorSetLayout(), descriptorSetLayout->getDescriptorSetLayout()};
 		pipeline.createPipelineLayout(descriptorSetLayouts, pushConstantRange);
 	}
 
@@ -83,10 +86,10 @@ namespace Aspen {
 
 		PipelineConfigInfo pipelineConfig{};
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
-		pipelineConfig.renderPass = mousePickingResources.renderPass;
+		pipelineConfig.renderPass = resources->renderPass;
 		pipelineConfig.pipelineLayout = pipeline.getPipelineLayout();
 		pipelineConfig.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
-		pipelineConfig.rasterizationInfo.cullMode = VK_CULL_MODE_FRONT_BIT;
+		// pipelineConfig.rasterizationInfo.cullMode = VK_CULL_MODE_FRONT_BIT;
 		pipelineConfig.depthStencilInfo.depthWriteEnable = VK_FALSE;
 
 		pipeline.createShaderModule("assets/shaders/mouse_picking_shader.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
@@ -95,7 +98,53 @@ namespace Aspen {
 		pipeline.createGraphicsPipeline(pipelineConfig, pipeline.getPipeline());
 	}
 
+	RenderInfo MousePickingRenderSystem::prepareRenderInfo() {
+		RenderInfo renderInfo{};
+		renderInfo.renderPass = resources->renderPass;
+		renderInfo.framebuffer = resources->framebuffer;
+
+		std::vector<VkClearValue> clearValues{1};
+		clearValues[0].depthStencil = {1.0f, 0};
+		renderInfo.clearValues = clearValues;
+
+		VkViewport viewport{};
+		viewport.x = 0.0f;
+		viewport.y = 0.0f;
+		viewport.width = static_cast<float>(renderer.getSwapChainExtent().width);
+		viewport.height = static_cast<float>(renderer.getSwapChainExtent().height);
+		viewport.minDepth = 0.0f;
+		viewport.maxDepth = 1.0f;
+		renderInfo.viewport = viewport;
+
+		renderInfo.scissorDimensions = VkRect2D{{static_cast<int32_t>(Input::GetMouseX() > 0 ? Input::GetMouseX() : 0), static_cast<int32_t>(Input::GetMouseY() > 0 ? Input::GetMouseY() : 0)}, {1, 1}};
+
+		return renderInfo;
+	}
+
+	void MousePickingRenderSystem::render(FrameInfo& frameInfo) { // Flush changes to update on the GPU side.
+		// Bind the graphics pipieline.
+		pipeline.bind(frameInfo.commandBuffer, pipeline.getPipeline());
+		vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getPipelineLayout(), 0, 2, std::array<VkDescriptorSet, 2>{frameInfo.descriptorSet, descriptorSet}.data(), 0, nullptr);
+
+		auto group = frameInfo.scene->getRenderComponents();
+		for (auto& entity : group) {
+			auto [transform, mesh] = group.get<TransformComponent, MeshComponent>(entity);
+
+			SimplePushConstantData push{};
+			// Projection, View, Model Transformation matrix.
+			push.modelMatrix = transform.transform();
+			push.objectId = static_cast<int64_t>(entity);
+
+			vkCmdPushConstants(frameInfo.commandBuffer, pipeline.getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SimplePushConstantData), &push);
+			Aspen::Model::bind(frameInfo.commandBuffer, mesh.vertexBuffer, mesh.indexBuffer);
+			Aspen::Model::draw(frameInfo.commandBuffer, static_cast<uint32_t>(mesh.indices.size()));
+		}
+	}
+
 	void MousePickingRenderSystem::onResize() {
+		resources->clearFramebuffer();
+		loadAttachment();
+
 		// for (int i = 0; i < offscreenDescriptorSets.size(); ++i) {
 		// 	auto bufferInfo = uboBuffers[i]->descriptorInfo();
 		// 	DescriptorWriter(*descriptorSetLayout, device.getDescriptorPool())
@@ -114,32 +163,4 @@ namespace Aspen {
 
 		// vkUpdateDescriptorSets(device.device(), 1, &offScreenWriteDescriptorSets, 0, nullptr);
 	}
-
-	void MousePickingRenderSystem::render(FrameInfo& frameInfo) { // Flush changes to update on the GPU side.
-		// Bind the graphics pipieline.
-		pipeline.bind(frameInfo.commandBuffer, pipeline.getPipeline());
-		vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getPipelineLayout(), 0, 2, std::array<VkDescriptorSet, 2>{frameInfo.descriptorSet, descriptorSet}.data(), 0, nullptr);
-
-		auto group = frameInfo.scene->getRenderComponents();
-		for (auto& entity : group) {
-			auto [transform, mesh] = group.get<TransformComponent, MeshComponent>(entity);
-			// transform.rotation.y = glm::mod(transform.rotation.y + 0.0001f, glm::two_pi<float>());  // Slowly rotate game objects.
-			// transform.rotation.x = glm::mod(transform.rotation.x + 0.00003f, glm::two_pi<float>()); // Slowly rotate game objects.
-
-			SimplePushConstantData push{};
-			// Projection, View, Model Transformation matrix.
-			push.modelMatrix = transform.transform();
-			push.objectId = static_cast<int64_t>(entity);
-
-			vkCmdPushConstants(frameInfo.commandBuffer, pipeline.getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SimplePushConstantData), &push);
-			Aspen::Model::bind(frameInfo.commandBuffer, mesh.vertexBuffer, mesh.indexBuffer);
-			Aspen::Model::draw(frameInfo.commandBuffer, static_cast<uint32_t>(mesh.indices.size()));
-		}
-	}
-
-	// void MousePickingRenderSystem::renderUI(VkCommandBuffer commandBuffer) {
-	// 	// Bind the graphics pipieline.
-	// 	// vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &offscreenDescriptorSets[0], 0, nullptr);
-	// 	pipeline->bind(commandBuffer, pipeline->getPresentPipeline());
-	// }
 } // namespace Aspen

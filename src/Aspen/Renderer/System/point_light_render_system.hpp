@@ -4,7 +4,7 @@
 namespace Aspen {
 	class PointLightRenderSystem {
 	public:
-		PointLightRenderSystem(Device& device, Renderer& renderer, std::unique_ptr<DescriptorSetLayout>& descriptorSetLayout);
+		PointLightRenderSystem(Device& device, Renderer& renderer, std::unique_ptr<DescriptorSetLayout>& descriptorSetLayout, std::shared_ptr<Framebuffer> resources);
 		~PointLightRenderSystem() = default;
 
 		PointLightRenderSystem(const PointLightRenderSystem&) = delete;
@@ -14,6 +14,7 @@ namespace Aspen {
 		PointLightRenderSystem& operator=(PointLightRenderSystem&&) = delete; // Move Assignment Operator
 
 		void render(FrameInfo& frameInfo);
+		RenderInfo prepareRenderInfo();
 		void onResize();
 
 		VkDescriptorSet getCurrentDescriptorSet(int frameIndex) {
@@ -28,6 +29,7 @@ namespace Aspen {
 
 		Device& device;
 		Renderer& renderer;
+		std::weak_ptr<Framebuffer> resourcesSimpleRender;
 		Pipeline pipeline{device};
 
 		std::unique_ptr<DescriptorSetLayout> descriptorSetLayout{};
