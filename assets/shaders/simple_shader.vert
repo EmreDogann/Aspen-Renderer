@@ -31,6 +31,8 @@ layout(push_constant) uniform Push {
     mat4 normalMatrix;
 } push;
 
+invariant gl_Position;
+
 // gl_Positions is the default output variable.
 // gl_VertexIndex contains the current vertex index for everytime the main() function is executed.
 void main() {

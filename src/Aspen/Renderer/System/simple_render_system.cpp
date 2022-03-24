@@ -6,8 +6,8 @@ namespace Aspen {
 		glm::mat4 normalMatrix{1.0f};
 	};
 
-	SimpleRenderSystem::SimpleRenderSystem(Device& device, Renderer& renderer, std::unique_ptr<DescriptorSetLayout>& globalDescriptorSetLayout)
-	    : device(device), renderer(renderer), resources(std::make_unique<Framebuffer>(device)), uboBuffers(SwapChain::MAX_FRAMES_IN_FLIGHT), descriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT) {
+	SimpleRenderSystem::SimpleRenderSystem(Device& device, Renderer& renderer, std::unique_ptr<DescriptorSetLayout>& globalDescriptorSetLayout, std::shared_ptr<Framebuffer> resources)
+	    : device(device), renderer(renderer), resources(std::make_unique<Framebuffer>(device)), resourcesDepthPrePass(resources), uboBuffers(SwapChain::MAX_FRAMES_IN_FLIGHT), descriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT) {
 
 		createResources();
 
@@ -30,21 +30,44 @@ namespace Aspen {
 			attachmentCreateInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 			attachmentCreateInfo.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 			attachmentCreateInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+			attachmentCreateInfo.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+			attachmentCreateInfo.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 			resources->createAttachment(attachmentCreateInfo);
 		}
 
 		// Depth Attachment
 		{
-			AttachmentCreateInfo attachmentCreateInfo{};
-			VulkanTools::getSupportedDepthFormat(device.physicalDevice(), &attachmentCreateInfo.format);
-			attachmentCreateInfo.width = renderer.getSwapChainExtent().width;
-			attachmentCreateInfo.height = renderer.getSwapChainExtent().height;
-			attachmentCreateInfo.imageSampleCount = VK_SAMPLE_COUNT_1_BIT;
-			attachmentCreateInfo.layerCount = 1;
-			attachmentCreateInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-			attachmentCreateInfo.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-			attachmentCreateInfo.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-			resources->createAttachment(attachmentCreateInfo);
+			// AttachmentCreateInfo attachmentCreateInfo{};
+			// VulkanTools::getSupportedDepthFormat(device.physicalDevice(), &attachmentCreateInfo.format);
+			// attachmentCreateInfo.width = renderer.getSwapChainExtent().width;
+			// attachmentCreateInfo.height = renderer.getSwapChainExtent().height;
+			// attachmentCreateInfo.imageSampleCount = VK_SAMPLE_COUNT_1_BIT;
+			// attachmentCreateInfo.layerCount = 1;
+			// attachmentCreateInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+			// attachmentCreateInfo.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+			// attachmentCreateInfo.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+			// attachmentCreateInfo.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+			// attachmentCreateInfo.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+
+			// resources->createAttachment(attachmentCreateInfo);
+
+			std::shared_ptr<Framebuffer> tempFramebuffer = resourcesDepthPrePass.lock();
+
+			AttachmentAddInfo attachmentAddInfo{};
+			VulkanTools::getSupportedDepthFormat(device.physicalDevice(), &attachmentAddInfo.format);
+			attachmentAddInfo.imageSampleCount = VK_SAMPLE_COUNT_1_BIT;
+			attachmentAddInfo.view = tempFramebuffer->attachments[0].view;
+			attachmentAddInfo.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+			attachmentAddInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+			attachmentAddInfo.layerCount = 1;
+			attachmentAddInfo.width = renderer.getSwapChainExtent().width;
+			attachmentAddInfo.height = renderer.getSwapChainExtent().height;
+			attachmentAddInfo.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+			attachmentAddInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+			attachmentAddInfo.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+			attachmentAddInfo.stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
+
+			resources->addLoadAttachment(attachmentAddInfo);
 		}
 
 		resources->createSampler(VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
@@ -114,6 +137,8 @@ namespace Aspen {
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
 		pipelineConfig.renderPass = resources->renderPass;
 		pipelineConfig.pipelineLayout = pipeline.getPipelineLayout();
+		pipelineConfig.depthStencilInfo.depthWriteEnable = VK_FALSE;
+		pipelineConfig.depthStencilInfo.stencilTestEnable = VK_FALSE;
 		pipelineConfig.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 		pipelineConfig.rasterizationInfo.cullMode = VK_CULL_MODE_FRONT_BIT;
 		// pipelineConfig.rasterizationInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;

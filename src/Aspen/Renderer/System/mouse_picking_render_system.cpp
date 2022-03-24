@@ -45,6 +45,8 @@ namespace Aspen {
 		attachmentAddInfo.height = renderer.getSwapChainExtent().height;
 		attachmentAddInfo.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
 		attachmentAddInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		attachmentAddInfo.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		attachmentAddInfo.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 
 		resources->addLoadAttachment(attachmentAddInfo);
 		resources->createRenderPass();

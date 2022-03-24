@@ -1,9 +1,6 @@
 #pragma once
-#include "Aspen/Core/model.hpp"
 #include "Aspen/Renderer/pipeline.hpp"
 #include "Aspen/Renderer/renderer.hpp"
-#include "Aspen/Scene/scene.hpp"
-#include "Aspen/Renderer/frame_info.hpp"
 #include "Aspen/Renderer/framebuffer.hpp"
 
 namespace Aspen {

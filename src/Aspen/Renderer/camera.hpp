@@ -1,5 +1,4 @@
 #pragma once
-// #include "pch.h"
 
 // Libs & defines
 #define GLM_FORCE_RADIANS           // Ensures that GLM will expect angles to be specified in radians, not degrees.

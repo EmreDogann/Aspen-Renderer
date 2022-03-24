@@ -8,10 +8,9 @@
 
 #pragma once
 #include "pch.h"
+
 #include "Aspen/Renderer/device.hpp"
 #include "Aspen/Renderer/tools.hpp"
-
-#include "vulkan/vulkan.h"
 
 // Custom define for better code readability
 #define VK_FLAGS_NONE 0
@@ -76,6 +75,8 @@ namespace Aspen {
 		VkImageUsageFlags usage;
 		VkAttachmentLoadOp loadOp;
 		VkAttachmentStoreOp storeOp;
+		VkAttachmentLoadOp stencilLoadOp;
+		VkAttachmentStoreOp stencilStoreOp;
 		VkSampleCountFlagBits imageSampleCount = VK_SAMPLE_COUNT_1_BIT;
 	};
 
@@ -88,6 +89,8 @@ namespace Aspen {
 		VkFormat format;
 		VkAttachmentLoadOp loadOp;
 		VkAttachmentStoreOp storeOp;
+		VkAttachmentLoadOp stencilLoadOp;
+		VkAttachmentStoreOp stencilStoreOp;
 		VkImageUsageFlags usage;
 		VkImageLayout initialLayout;
 		VkSampleCountFlagBits imageSampleCount = VK_SAMPLE_COUNT_1_BIT;
@@ -233,8 +236,6 @@ namespace Aspen {
 			imageView.viewType = (createinfo.layerCount == 1) ? VK_IMAGE_VIEW_TYPE_2D : VK_IMAGE_VIEW_TYPE_2D_ARRAY;
 			imageView.format = createinfo.format;
 			imageView.subresourceRange = attachment.subresourceRange;
-			// todo: workaround for depth+stencil attachments
-			imageView.subresourceRange.aspectMask = (attachment.hasDepth()) ? VK_IMAGE_ASPECT_DEPTH_BIT : aspectMask;
 			imageView.image = attachment.image;
 			VK_CHECK_RESULT(vkCreateImageView(device.device(), &imageView, nullptr, &attachment.view));
 
@@ -244,8 +245,8 @@ namespace Aspen {
 			attachment.description.loadOp = createinfo.loadOp;
 			// attachment.description.storeOp = (createinfo.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE;
 			attachment.description.storeOp = createinfo.storeOp;
-			attachment.description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-			attachment.description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+			attachment.description.stencilLoadOp = createinfo.stencilLoadOp;
+			attachment.description.stencilStoreOp = createinfo.stencilStoreOp;
 			attachment.description.format = createinfo.format;
 			attachment.description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 			// Final layout
@@ -310,8 +311,8 @@ namespace Aspen {
 			// attachment.description.storeOp = (addInfo.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE;
 			attachment.description.loadOp = addInfo.loadOp;
 			attachment.description.storeOp = addInfo.storeOp;
-			attachment.description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-			attachment.description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+			attachment.description.stencilLoadOp = addInfo.stencilLoadOp;
+			attachment.description.stencilStoreOp = addInfo.stencilStoreOp;
 			attachment.description.format = addInfo.format;
 			attachment.description.initialLayout = addInfo.initialLayout;
 

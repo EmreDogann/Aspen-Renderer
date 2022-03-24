@@ -10,7 +10,7 @@ namespace Aspen {
 
 	class SimpleRenderSystem {
 	public:
-		SimpleRenderSystem(Device& device, Renderer& renderer, std::unique_ptr<DescriptorSetLayout>& globalDescriptorSetLayout);
+		SimpleRenderSystem(Device& device, Renderer& renderer, std::unique_ptr<DescriptorSetLayout>& globalDescriptorSetLayout, std::shared_ptr<Framebuffer> resourcesDepthPrePass);
 		~SimpleRenderSystem() = default;
 
 		SimpleRenderSystem(const SimpleRenderSystem&) = delete;
@@ -41,6 +41,7 @@ namespace Aspen {
 		Device& device;
 		Renderer& renderer;
 		std::shared_ptr<Framebuffer> resources;
+		std::weak_ptr<Framebuffer> resourcesDepthPrePass;
 		Pipeline pipeline{device};
 
 		SpecializationData specializationData{};

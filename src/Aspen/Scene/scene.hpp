@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Aspen/Renderer/device.hpp"
 #include "Aspen/Scene/components.hpp"
 #include <entt/entt.hpp>
 

@@ -13,7 +13,7 @@ namespace Aspen {
 		DepthPrePassRenderSystem(DepthPrePassRenderSystem&&) = delete;            // Move Constructor
 		DepthPrePassRenderSystem& operator=(DepthPrePassRenderSystem&&) = delete; // Move Assignment Operator
 
-		void render(FrameInfo& frameInfo);
+		void render(FrameInfo& frameInfo, entt::entity selectedEntity);
 		void createResources();
 		RenderInfo prepareRenderInfo();
 		void onResize();
@@ -35,7 +35,8 @@ namespace Aspen {
 		Device& device;
 		Renderer& renderer;
 		std::shared_ptr<Framebuffer> resources;
-		Pipeline pipeline{device};
+		Pipeline depthPipeline{device};
+		Pipeline stencilPipeline{device};
 
 		std::unique_ptr<DescriptorSetLayout> descriptorSetLayout{};
 		VkDescriptorSet descriptorSet;

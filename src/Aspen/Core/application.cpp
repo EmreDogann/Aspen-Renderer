@@ -257,7 +257,7 @@ namespace Aspen {
 			*/
 			{
 				renderer.beginRenderPass(commandBuffer, depthPrePassRenderSystem.prepareRenderInfo());
-				depthPrePassRenderSystem.render(frameInfo);
+				depthPrePassRenderSystem.render(frameInfo, uiState.selectedEntity.getEntity());
 				renderer.endRenderPass(commandBuffer);
 			}
 
@@ -268,11 +268,17 @@ namespace Aspen {
 				renderer.beginRenderPass(commandBuffer, simpleRenderSystem.prepareRenderInfo());
 				simpleRenderSystem.render(frameInfo);
 				pointLightRenderSystem.render(frameInfo);
+				// Only render an outline if an entity has been selected.
+				if (uiState.selectedEntity) {
+					outlineRenderSystem.render(frameInfo, uiState.selectedEntity.getEntity());
+				}
 				renderer.endRenderPass(commandBuffer);
 			}
 
+			/*
+			    Find object id at the mouse cursor by performing depth testing on the depth pre-pass.
+			*/
 			bool mousePickingRead = false;
-
 			{
 				if (mousePicking) {
 					mousePicking = false; // Reset bool.
@@ -534,7 +540,7 @@ namespace Aspen {
 
 			Entity object2 = m_Scene->createEntity("Vase2");
 			auto& object2Transform = object2.getComponent<TransformComponent>();
-			object2Transform.translation = {1.0f, 0.0f, 2.5f};
+			object2Transform.translation = {1.0f, -0.4f, 2.5f};
 			object2Transform.scale = {3.0f, 3.0f, 3.0f};
 
 			auto& object2Mesh = object2.addComponent<MeshComponent>();

@@ -30,9 +30,12 @@ layout(push_constant) uniform Push {
     uint64_t objectId;
 } push;
 
+invariant gl_Position;
+
 // gl_Positions is the default output variable.
 // gl_VertexIndex contains the current vertex index for everytime the main() function is executed.
 void main() {
-    gl_Position = ubo.projectionMatrix * ubo.viewMatrix * push.modelMatrix * vec4(position, 1.0);;
+    vec4 worldPosition = push.modelMatrix * vec4(position, 1.0);
+    gl_Position = ubo.projectionMatrix * ubo.viewMatrix * worldPosition;
     outId = push.objectId;
 }

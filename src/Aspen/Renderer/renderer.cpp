@@ -186,16 +186,6 @@ namespace Aspen {
 		// has both inline commands and secondary command buffers.
 		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-		// Setup dynamic viewport and scissor.
-		// VkViewport viewport{};
-		// viewport.x = 0.0f;
-		// viewport.y = 0.0f;
-		// viewport.width = static_cast<float>(swapChain->getSwapChainExtent().width);
-		// viewport.height = static_cast<float>(swapChain->getSwapChainExtent().height);
-		// viewport.minDepth = 0.0f;
-		// viewport.maxDepth = 1.0f;
-		// VkRect2D scissor{{0, 0}, swapChain->getSwapChainExtent()};
-
 		vkCmdSetViewport(commandBuffer, 0, 1, &renderInfo.viewport);
 		vkCmdSetScissor(commandBuffer, 0, 1, &renderInfo.scissorDimensions);
 	}

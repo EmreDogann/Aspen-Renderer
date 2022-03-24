@@ -1,8 +1,5 @@
 #pragma once
 
-#include "Aspen/Core/window.hpp"
-#include "Aspen/Renderer/buffer.hpp"
-#include "Aspen/Renderer/device.hpp"
 #include "Aspen/Renderer/swap_chain.hpp"
 #include "Aspen/Renderer/frame_info.hpp"
 

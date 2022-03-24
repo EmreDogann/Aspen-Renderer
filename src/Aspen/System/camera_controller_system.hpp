@@ -4,6 +4,7 @@
 #include "Aspen/Scene/components.hpp"
 
 namespace Aspen {
+	class CameraControllerArcball;
 	class CameraControllerSystem {
 	public:
 		static void OnUpdate(CameraControllerArcball& controller, glm::vec2 viewportSize);

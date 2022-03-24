@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Aspen/Renderer/buffer.hpp"
-#include "Aspen/Renderer/device.hpp"
 #include "Aspen/Renderer/tools.hpp"
 
 namespace Aspen {

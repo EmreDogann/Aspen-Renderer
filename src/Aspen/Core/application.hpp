@@ -2,21 +2,15 @@
 #include "pch.h"
 
 #include "Aspen/Core/timer.hpp"
-#include "Aspen/Core/window.hpp"
-#include "Aspen/Renderer/device.hpp"
-#include "Aspen/Renderer/renderer.hpp"
 #include "Aspen/Renderer/System/simple_render_system.hpp"
 #include "Aspen/Renderer/System/point_light_render_system.hpp"
 #include "Aspen/Renderer/System/ui_render_system.hpp"
 #include "Aspen/Renderer/System/mouse_picking_render_system.hpp"
 #include "Aspen/Renderer/System/depth_prepass_render_system.hpp"
+#include "Aspen/Renderer/System/outline_render_system.hpp"
 #include "Aspen/Scene/entity.hpp"
 #include "Aspen/System/camera_controller_system.hpp"
 #include "Aspen/System/camera_system.hpp"
-
-// Libs & defines
-#define GLM_FORCE_RADIANS           // Ensures that GLM will expect angles to be specified in radians, not degrees.
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE // Tells GLM to expect depth values in the range 0-1 instead of -1 to 1.
 
 // #define BIND_EVENT_FN(x) std::bind(&x, this, std::placeholders::_1)
 #define BIND_EVENT_FN(fn) [this](auto&&... args) -> decltype(auto) { return this->fn(std::forward<decltype(args)>(args)...); }
@@ -78,20 +72,26 @@ namespace Aspen {
 		bool mousePicking = false;
 
 		GlobalRenderSystem globalRenderSystem{device, renderer};
-		SimpleRenderSystem simpleRenderSystem{
+		DepthPrePassRenderSystem depthPrePassRenderSystem{
 		    device,
 		    renderer,
 		    globalRenderSystem.getDescriptorSetLayout()};
+		SimpleRenderSystem simpleRenderSystem{
+		    device,
+		    renderer,
+		    globalRenderSystem.getDescriptorSetLayout(),
+		    depthPrePassRenderSystem.getResources()};
 		PointLightRenderSystem pointLightRenderSystem{
 		    device,
 		    renderer,
 		    globalRenderSystem.getDescriptorSetLayout(),
 		    simpleRenderSystem.getResources()};
-		UIRenderSystem uiRenderSystem{
+		OutlineRenderSystem outlineRenderSystem{
 		    device,
 		    renderer,
-		    globalRenderSystem.getDescriptorSetLayout()};
-		DepthPrePassRenderSystem depthPrePassRenderSystem{
+		    globalRenderSystem.getDescriptorSetLayout(),
+		    simpleRenderSystem.getResources()};
+		UIRenderSystem uiRenderSystem{
 		    device,
 		    renderer,
 		    globalRenderSystem.getDescriptorSetLayout()};

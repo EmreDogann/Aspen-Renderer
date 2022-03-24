@@ -37,6 +37,10 @@ namespace Aspen {
 			m_EntityHandle = entity;
 		}
 
+		entt::entity& getEntity() {
+			return m_EntityHandle;
+		}
+
 		void setScene(Scene* scene) {
 			m_Scene = scene;
 		}

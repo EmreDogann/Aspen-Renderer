@@ -1,5 +1,4 @@
 #include "Aspen/Core/model.hpp"
-#include <memory>
 
 #define TINYOBJLOADER_IMPLEMENTATION // Tells the pre-processor that this file will contain the implementation for TinyOBJLoader.
 // #define TINYOBJLOADER_USE_MAPBOX_EARCUT // Uses robust triangulation. WARNING: THIS BREAKS THE MODELS.

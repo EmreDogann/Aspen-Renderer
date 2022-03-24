@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Aspen/Renderer/camera.hpp"
 #include "Aspen/Scene/scene.hpp"
 
 namespace Aspen {

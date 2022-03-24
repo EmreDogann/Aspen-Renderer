@@ -1,10 +1,6 @@
 #pragma once
 
 #include "Aspen/Core/model.hpp"
-#include "Aspen/Renderer/device.hpp"
-
-// Libs
-#include <vulkan/vulkan_core.h>
 
 namespace Aspen {
 	// Data specifying how we want to configure our pipeline.

@@ -2,7 +2,8 @@
 
 namespace Aspen {
 	struct SimplePushConstantData {
-		glm::mat4 MVPMatrix{1.0f};
+		glm::mat4 projectionViewMatrix{1.0f};
+		glm::mat4 modelMatrix{1.0f};
 	};
 
 	DepthPrePassRenderSystem::DepthPrePassRenderSystem(Device& device, Renderer& renderer, std::unique_ptr<DescriptorSetLayout>& globalDescriptorSetLayout)
@@ -23,6 +24,8 @@ namespace Aspen {
 		attachmentCreateInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 		attachmentCreateInfo.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		attachmentCreateInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		attachmentCreateInfo.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		attachmentCreateInfo.stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
 
 		resources->createAttachment(attachmentCreateInfo);
 		resources->createRenderPass();
@@ -54,24 +57,42 @@ namespace Aspen {
 		pushConstantRange.size = sizeof(SimplePushConstantData);
 
 		std::vector<VkDescriptorSetLayout> descriptorSetLayouts{globalDescriptorSetLayout->getDescriptorSetLayout()};
-		pipeline.createPipelineLayout(descriptorSetLayouts, pushConstantRange);
+		depthPipeline.createPipelineLayout(descriptorSetLayouts, pushConstantRange);
+		stencilPipeline.createPipelineLayout(descriptorSetLayouts, pushConstantRange);
 	}
 
 	// Create the graphics pipeline defined in aspen_pipeline.cpp
 	void DepthPrePassRenderSystem::createPipelines() {
-		assert(pipeline.getPipelineLayout() != nullptr && "Cannot create pipeline before pipeline layout!");
+		assert(depthPipeline.getPipelineLayout() != nullptr && "Cannot create depth pipeline before pipeline layout!");
+		assert(stencilPipeline.getPipelineLayout() != nullptr && "Cannot create stencil pipeline before pipeline layout!");
 
 		PipelineConfigInfo pipelineConfig{};
 		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
 		pipelineConfig.renderPass = resources->renderPass;
-		pipelineConfig.pipelineLayout = pipeline.getPipelineLayout();
+		pipelineConfig.pipelineLayout = depthPipeline.getPipelineLayout();
 		pipelineConfig.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 		pipelineConfig.rasterizationInfo.cullMode = VK_CULL_MODE_FRONT_BIT;
 		pipelineConfig.colorBlendInfo.attachmentCount = 0;
 
-		pipeline.createShaderModule("assets/shaders/depth_prepass_shader.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+		depthPipeline.createShaderModule("assets/shaders/depth_prepass_shader.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+		depthPipeline.createGraphicsPipeline(pipelineConfig, depthPipeline.getPipeline());
 
-		pipeline.createGraphicsPipeline(pipelineConfig, pipeline.getPipeline());
+		// Stencil Configuration
+		pipelineConfig.rasterizationInfo.cullMode = VK_CULL_MODE_NONE;
+		pipelineConfig.depthStencilInfo.depthWriteEnable = VK_FALSE;
+		pipelineConfig.pipelineLayout = stencilPipeline.getPipelineLayout();
+		pipelineConfig.depthStencilInfo.stencilTestEnable = VK_TRUE;
+		pipelineConfig.depthStencilInfo.back.compareOp = VK_COMPARE_OP_ALWAYS;
+		pipelineConfig.depthStencilInfo.back.failOp = VK_STENCIL_OP_REPLACE;
+		pipelineConfig.depthStencilInfo.back.depthFailOp = VK_STENCIL_OP_REPLACE;
+		pipelineConfig.depthStencilInfo.back.passOp = VK_STENCIL_OP_REPLACE;
+		pipelineConfig.depthStencilInfo.back.compareMask = 0xff;
+		pipelineConfig.depthStencilInfo.back.writeMask = 0xff;
+		pipelineConfig.depthStencilInfo.back.reference = 1;
+		pipelineConfig.depthStencilInfo.front = pipelineConfig.depthStencilInfo.back;
+
+		stencilPipeline.createShaderModule("assets/shaders/depth_prepass_shader.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+		stencilPipeline.createGraphicsPipeline(pipelineConfig, stencilPipeline.getPipeline());
 	}
 
 	RenderInfo DepthPrePassRenderSystem::prepareRenderInfo() {
@@ -97,21 +118,41 @@ namespace Aspen {
 		return renderInfo;
 	}
 
-	void DepthPrePassRenderSystem::render(FrameInfo& frameInfo) {
-		// Bind the graphics pipieline.
-		pipeline.bind(frameInfo.commandBuffer, pipeline.getPipeline());
+	void DepthPrePassRenderSystem::render(FrameInfo& frameInfo, entt::entity selectedEntity) {
+		// First, write the selected entity to the stencil buffer.
+		{
+			if (selectedEntity != entt::null) {
+				stencilPipeline.bind(frameInfo.commandBuffer, stencilPipeline.getPipeline());
+				auto [transform, mesh] = frameInfo.scene->getRenderComponents().get<TransformComponent, MeshComponent>(selectedEntity);
 
-		auto group = frameInfo.scene->getRenderComponents();
-		for (auto& entity : group) {
-			auto [transform, mesh] = group.get<TransformComponent, MeshComponent>(entity);
+				SimplePushConstantData push{};
+				// Projection, View, Model Transformation matrix.
+				push.projectionViewMatrix = frameInfo.camera.getProjection() * frameInfo.camera.getView();
+				push.modelMatrix = transform.transform();
+				vkCmdPushConstants(frameInfo.commandBuffer, stencilPipeline.getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SimplePushConstantData), &push);
 
-			SimplePushConstantData push{};
-			// Projection, View, Model Transformation matrix.
-			push.MVPMatrix = frameInfo.camera.getProjection() * frameInfo.camera.getView() * transform.transform();
+				Aspen::Model::bind(frameInfo.commandBuffer, mesh.vertexBuffer, mesh.indexBuffer);
+				Aspen::Model::draw(frameInfo.commandBuffer, static_cast<uint32_t>(mesh.indices.size()));
+			}
+		}
 
-			vkCmdPushConstants(frameInfo.commandBuffer, pipeline.getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SimplePushConstantData), &push);
-			Aspen::Model::bind(frameInfo.commandBuffer, mesh.vertexBuffer, mesh.indexBuffer);
-			Aspen::Model::draw(frameInfo.commandBuffer, static_cast<uint32_t>(mesh.indices.size()));
+		// Then write the entire scene (including the selected entity) to the depth buffer.
+		{
+			// Bind the graphics pipieline.
+			depthPipeline.bind(frameInfo.commandBuffer, depthPipeline.getPipeline());
+			auto group = frameInfo.scene->getRenderComponents();
+			for (auto& entity : group) {
+				auto [transform, mesh] = group.get<TransformComponent, MeshComponent>(entity);
+
+				SimplePushConstantData push{};
+				// Projection, View, Model Transformation matrix.
+				push.projectionViewMatrix = frameInfo.camera.getProjection() * frameInfo.camera.getView();
+				push.modelMatrix = transform.transform();
+				vkCmdPushConstants(frameInfo.commandBuffer, depthPipeline.getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SimplePushConstantData), &push);
+
+				Aspen::Model::bind(frameInfo.commandBuffer, mesh.vertexBuffer, mesh.indexBuffer);
+				Aspen::Model::draw(frameInfo.commandBuffer, static_cast<uint32_t>(mesh.indices.size()));
+			}
 		}
 	}
 
