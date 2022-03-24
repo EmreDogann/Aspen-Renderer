@@ -1,12 +1,13 @@
 cmake_minimum_required(VERSION 3.7)
 
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Toolchain_clang-mingw.cmake")
 
 # Use ccahce if available
-find_program(CCACHE_FOUND ccache)
-if(CCACHE_FOUND)
-  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
-endif(CCACHE_FOUND)
+find_program(CCACHE_PROGRAM ccache)
+if(CCACHE_PROGRAM)
+  message("Using ccache!")
+  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE_PROGRAM}")
+endif(CCACHE_PROGRAM)
 
 set(NAME aspen-vulkan-renderer)
 project(${NAME} VERSION 0.10.0)
@@ -41,7 +42,7 @@ set_property(TARGET ${PROJECT_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CM
 target_precompile_headers(${PROJECT_NAME} PRIVATE "${PROJECT_SOURCE_DIR}/src/pch.h")
 
 # Disable precompiled headers for the following files.
-set_source_files_properties("include/imguizmo/**.cpp" PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+# set_source_files_properties("include/imguizmo/**.cpp" PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 
 # Download All Git Submodules
 # find_package(Git QUIET)
