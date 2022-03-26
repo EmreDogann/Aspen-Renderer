@@ -2,16 +2,15 @@
 
 namespace Aspen {
 	struct SimplePushConstantData {
-		glm::mat4 modelMatrix{1.0f};
-		glm::mat4 normalMatrix{1.0f};
+		alignas(16) int imageIndex;
 	};
 
-	SimpleRenderSystem::SimpleRenderSystem(Device& device, Renderer& renderer, std::unique_ptr<DescriptorSetLayout>& globalDescriptorSetLayout, std::shared_ptr<Framebuffer> resources)
-	    : device(device), renderer(renderer), resources(std::make_unique<Framebuffer>(device)), resourcesDepthPrePass(resources), uboBuffers(SwapChain::MAX_FRAMES_IN_FLIGHT), descriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT) {
+	SimpleRenderSystem::SimpleRenderSystem(Device& device, Renderer& renderer, std::vector<std::unique_ptr<DescriptorSetLayout>>& globalDescriptorSetLayout, std::shared_ptr<Framebuffer> resources)
+	    : device(device), renderer(renderer), resources(std::make_unique<Framebuffer>(device)), resourcesDepthPrePass(resources), descriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT) {
 
 		createResources();
 
-		// createDescriptorSetLayout();
+		createDescriptorSetLayout();
 		// createDescriptorSet();
 
 		createPipelineLayout(globalDescriptorSetLayout);
@@ -74,38 +73,61 @@ namespace Aspen {
 		resources->createRenderPass();
 	}
 
+	void SimpleRenderSystem::assignTextures(Scene& scene) {
+		auto group = scene.getRenderComponents();
+		std::vector<VkDescriptorImageInfo> descriptorImageInfos{4};
+		std::vector<VkDescriptorImageInfo> samplerDescriptorImageInfos{4};
+		for (const auto& entity : group) {
+			auto& mesh = group.get<MeshComponent>(entity);
+
+			for (int i = 0; i < descriptorImageInfos.size(); ++i) {
+				descriptorImageInfos[i].imageLayout = mesh.texture.imageLayout;
+				descriptorImageInfos[i].imageView = mesh.texture.view;
+				descriptorImageInfos[i].sampler = nullptr;
+				samplerDescriptorImageInfos[i].sampler = mesh.texture.sampler;
+			}
+		}
+
+		for (int i = 0; i < descriptorSets.size(); ++i) {
+			DescriptorWriter(*descriptorSetLayout, device.getDescriptorPool())
+			    .writeImage(0, samplerDescriptorImageInfos.data(), 4)
+			    .writeImage(1, descriptorImageInfos.data(), 4)
+			    .build(descriptorSets[i]);
+		}
+	}
+
 	// Create a Descriptor Set Layout for a Uniform Buffer Object (UBO) & Textures.
 	void SimpleRenderSystem::createDescriptorSetLayout() {
 		descriptorSetLayout = DescriptorSetLayout::Builder(device)
-		                          //   .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT) // Binding 0: Vertex shader uniform buffer
-		                          .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Binding 1: Fragment shader image sampler
+		                          .addBinding(0, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 4)       // Binding 0: Fragment shader image sampler.
+		                          .addBinding(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT, 4) // Binding 1: Fragment shader image. Make it an array of 4 image samplers.
 		                          .build();
 	}
 
 	// Create Descriptor Sets.
 	void SimpleRenderSystem::createDescriptorSet() {
 		for (int i = 0; i < descriptorSets.size(); ++i) {
-			// auto bufferInfo = uboBuffers[i]->descriptorInfo();
-			VkDescriptorImageInfo descriptorImageInfo{};
-			descriptorImageInfo.imageLayout = resources->attachments[0].description.finalLayout;
-			descriptorImageInfo.imageView = resources->attachments[0].view;
-			descriptorImageInfo.sampler = resources->sampler;
+			auto bufferInfo = uboBuffer->descriptorInfo();
+			// VkDescriptorImageInfo descriptorImageInfo{};
+			// descriptorImageInfo.imageLayout = resources->attachments[0].description.finalLayout;
+			// descriptorImageInfo.imageView = resources->attachments[0].view;
+			// descriptorImageInfo.sampler = resources->sampler;
 
 			DescriptorWriter(*descriptorSetLayout, device.getDescriptorPool())
-			    // .writeBuffer(0, &bufferInfo)
-			    .writeImage(0, &descriptorImageInfo)
+			    .writeBuffer(0, &bufferInfo)
+			    // .writeImage(0, &descriptorImageInfo)
 			    .build(descriptorSets[i]);
 		}
 	}
 
 	// Create a pipeline layout.
-	void SimpleRenderSystem::createPipelineLayout(std::unique_ptr<DescriptorSetLayout>& globalDescriptorSetLayout) {
+	void SimpleRenderSystem::createPipelineLayout(std::vector<std::unique_ptr<DescriptorSetLayout>>& globalDescriptorSetLayout) {
 		VkPushConstantRange pushConstantRange{};
-		pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; // Which shaders will have access to this push constant range?
-		pushConstantRange.offset = 0;                                                             // To be used if you are using separate ranges for the vertex and fragment shaders.
+		pushConstantRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT; // Which shaders will have access to this push constant range?
+		pushConstantRange.offset = 0;                                // To be used if you are using separate ranges for the vertex and fragment shaders.
 		pushConstantRange.size = sizeof(SimplePushConstantData);
 
-		std::vector<VkDescriptorSetLayout> descriptorSetLayouts{globalDescriptorSetLayout->getDescriptorSetLayout()};
+		std::vector<VkDescriptorSetLayout> descriptorSetLayouts{globalDescriptorSetLayout[0]->getDescriptorSetLayout(), globalDescriptorSetLayout[1]->getDescriptorSetLayout(), descriptorSetLayout->getDescriptorSetLayout()};
 		pipeline.createPipelineLayout(descriptorSetLayouts, pushConstantRange);
 	}
 
@@ -176,22 +198,27 @@ namespace Aspen {
 	void SimpleRenderSystem::render(FrameInfo& frameInfo) { // Flush changes to update on the GPU side.
 		// Bind the graphics pipieline.
 		pipeline.bind(frameInfo.commandBuffer, pipeline.getPipeline());
-		vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getPipelineLayout(), 0, 1, &frameInfo.descriptorSet, 0, nullptr);
+
+		int index = 0;
 
 		auto group = frameInfo.scene->getRenderComponents();
-		for (auto& entity : group) {
+		for (const auto& entity : group) {
+			uint32_t dynamicOffset = index * frameInfo.dynamicOffset;
+			std::vector<VkDescriptorSet> descriptorSetsCombined{frameInfo.descriptorSet[0], frameInfo.descriptorSet[1], descriptorSets[frameInfo.frameIndex]};
+			vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getPipelineLayout(), 0, 3, descriptorSetsCombined.data(), 1, &dynamicOffset);
+
 			auto [transform, mesh] = group.get<TransformComponent, MeshComponent>(entity);
 			// transform.rotation.y = glm::mod(transform.rotation.y + 0.0001f, glm::two_pi<float>());  // Slowly rotate game objects.
 			// transform.rotation.x = glm::mod(transform.rotation.x + 0.00003f, glm::two_pi<float>()); // Slowly rotate game objects.
 
 			SimplePushConstantData push{};
-			// Projection, View, Model Transformation matrix.
-			push.modelMatrix = transform.transform();
-			push.normalMatrix = transform.computeNormalMatrix();
+			push.imageIndex = index;
 
-			vkCmdPushConstants(frameInfo.commandBuffer, pipeline.getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);
+			vkCmdPushConstants(frameInfo.commandBuffer, pipeline.getPipelineLayout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);
 			Aspen::Model::bind(frameInfo.commandBuffer, mesh.vertexBuffer, mesh.indexBuffer);
 			Aspen::Model::draw(frameInfo.commandBuffer, static_cast<uint32_t>(mesh.indices.size()));
+
+			++index;
 		}
 	}
 

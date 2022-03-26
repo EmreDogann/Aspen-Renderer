@@ -8,6 +8,7 @@
 layout (location = 0) in vec3 fragColor;
 layout (location = 1) in vec3 fragWorldPosition;
 layout (location = 2) in vec3 fragNormal;
+layout (location = 3) in vec2 fragUV;
 
 // Outputs
 layout (location = 0) out vec4 outColor;
@@ -29,10 +30,13 @@ layout(set = 0, binding = 0) uniform GlobalUbo {
     vec3 ambientLightColor;
 } ubo;
 
+// Textures
+layout(set = 2, binding = 0) uniform sampler samp;
+layout(set = 2, binding = 1) uniform texture2D textures[4];
+
 // Push Constants
 layout(push_constant) uniform Push {
-    mat4 modelMatrix; // projection * view * matrix
-    mat4 normalMatrix;
+    int imageIndex;
 } push;
 
 void main() {
@@ -76,5 +80,5 @@ void main() {
         specularLighting += light.color.xyz * attenuation * blinnTerm;
     }
 
-    outColor = vec4((specularLighting + diffuseLighting) * fragColor, 1.0); // RGBA
+    outColor = texture(sampler2D(textures[push.imageIndex], samp), fragUV) * vec4((specularLighting + diffuseLighting) * fragColor, 1.0); // RGBA
 }

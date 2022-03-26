@@ -10,6 +10,7 @@ layout(location = 3) in vec2 uv;
 layout(location = 0) out vec3 fragColor;
 layout(location = 1) out vec3 fragWorldPosition;
 layout(location = 2) out vec3 fragNormal;
+layout(location = 3) out vec2 fragUV;
 
 struct PointLight {
   vec4 position;
@@ -26,17 +27,17 @@ layout(set = 0, binding = 0) uniform GlobalUbo {
 } ubo;
 
 // Push Constants
-layout(push_constant) uniform Push {
+layout(set = 1, binding = 0) uniform DynamicUbo {
     mat4 modelMatrix; // projection * view * matrix
     mat4 normalMatrix;
-} push;
+} dynamicUbo;
 
 invariant gl_Position;
 
 // gl_Positions is the default output variable.
 // gl_VertexIndex contains the current vertex index for everytime the main() function is executed.
 void main() {
-    vec4 worldPosition = push.modelMatrix * vec4(position, 1.0);
+    vec4 worldPosition = dynamicUbo.modelMatrix * vec4(position, 1.0);
 
     // w = 1 refers to a position. w = 0 refers to a direction.
     gl_Position = ubo.projectionMatrix * ubo.viewMatrix * worldPosition;
@@ -53,7 +54,8 @@ void main() {
     // vec3 normalWorldSpace = normalize(normalMatrix * normal);
 
     // Instead, we compute the normal matrix on the CPU side.
-    fragNormal = normalize(mat3(push.normalMatrix) * normal);
+    fragNormal = normalize(mat3(dynamicUbo.normalMatrix) * normal);
     fragWorldPosition = worldPosition.xyz;
     fragColor = color;
+    fragUV = uv;
 }

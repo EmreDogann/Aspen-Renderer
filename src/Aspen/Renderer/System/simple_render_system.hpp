@@ -10,7 +10,7 @@ namespace Aspen {
 
 	class SimpleRenderSystem {
 	public:
-		SimpleRenderSystem(Device& device, Renderer& renderer, std::unique_ptr<DescriptorSetLayout>& globalDescriptorSetLayout, std::shared_ptr<Framebuffer> resourcesDepthPrePass);
+		SimpleRenderSystem(Device& device, Renderer& renderer, std::vector<std::unique_ptr<DescriptorSetLayout>>& globalDescriptorSetLayout, std::shared_ptr<Framebuffer> resourcesDepthPrePass);
 		~SimpleRenderSystem() = default;
 
 		SimpleRenderSystem(const SimpleRenderSystem&) = delete;
@@ -21,6 +21,7 @@ namespace Aspen {
 
 		void render(FrameInfo& frameInfo);
 		void createResources();
+		void assignTextures(Scene& scene);
 		RenderInfo prepareRenderInfo();
 		void onResize();
 
@@ -36,7 +37,7 @@ namespace Aspen {
 		void createDescriptorSetLayout();
 		void createDescriptorSet();
 		void createPipelines();
-		void createPipelineLayout(std::unique_ptr<DescriptorSetLayout>& globalDescriptorSetLayout);
+		void createPipelineLayout(std::vector<std::unique_ptr<DescriptorSetLayout>>& globalDescriptorSetLayout);
 
 		Device& device;
 		Renderer& renderer;
@@ -49,6 +50,6 @@ namespace Aspen {
 		std::unique_ptr<DescriptorSetLayout> descriptorSetLayout{};
 		std::vector<VkDescriptorSet> descriptorSets;
 
-		std::vector<std::unique_ptr<Buffer>> uboBuffers;
+		std::unique_ptr<Buffer> uboBuffer;
 	};
 } // namespace Aspen

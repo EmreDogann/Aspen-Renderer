@@ -7,10 +7,10 @@ namespace Aspen {
 		alignas(4) float radius{0.0f};
 	};
 
-	PointLightRenderSystem::PointLightRenderSystem(Device& device, Renderer& renderer, std::unique_ptr<DescriptorSetLayout>& descriptorSetLayout, std::shared_ptr<Framebuffer> resources)
+	PointLightRenderSystem::PointLightRenderSystem(Device& device, Renderer& renderer, std::vector<std::unique_ptr<DescriptorSetLayout>>& descriptorSetLayout, std::shared_ptr<Framebuffer> resources)
 	    : device(device), renderer(renderer), resourcesSimpleRender(resources), uboBuffers(SwapChain::MAX_FRAMES_IN_FLIGHT), descriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT) {
 
-		createPipelineLayout(descriptorSetLayout);
+		createPipelineLayout(descriptorSetLayout[0]);
 		createPipelines();
 	}
 
@@ -95,7 +95,7 @@ namespace Aspen {
 	void PointLightRenderSystem::render(FrameInfo& frameInfo) {
 		// Bind the graphics pipieline.
 		pipeline.bind(frameInfo.commandBuffer, pipeline.getPipeline());
-		vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getPipelineLayout(), 0, 1, &frameInfo.descriptorSet, 0, nullptr);
+		vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getPipelineLayout(), 0, 1, &frameInfo.descriptorSet[0], 0, nullptr);
 
 		auto group = frameInfo.scene->getPointLights();
 		for (auto& entity : group) {

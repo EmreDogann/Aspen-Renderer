@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Aspen/Renderer/buffer.hpp"
+#include "Aspen/Renderer/texture.hpp"
 #include "Aspen/Renderer/camera.hpp"
 #include "Aspen/Core/uuid.hpp"
 
@@ -121,6 +121,7 @@ namespace Aspen {
 		std::vector<uint32_t> indices;
 		std::unique_ptr<Buffer> vertexBuffer;
 		std::unique_ptr<Buffer> indexBuffer;
+		Texture2D texture; // TODO: I need to design a better way to associate textures with objects.
 
 		MeshComponent() = default;
 	};

@@ -8,7 +8,7 @@ namespace Aspen {
 			alignas(16) int64_t objectId;
 		};
 
-		MousePickingRenderSystem(Device& device, Renderer& renderer, std::unique_ptr<DescriptorSetLayout>& globalDescriptorSetLayout, std::shared_ptr<Framebuffer> resources);
+		MousePickingRenderSystem(Device& device, Renderer& renderer, std::vector<std::unique_ptr<DescriptorSetLayout>>& globalDescriptorSetLayout, std::shared_ptr<Framebuffer> resources);
 		~MousePickingRenderSystem() = default;
 
 		MousePickingRenderSystem(const MousePickingRenderSystem&) = delete;

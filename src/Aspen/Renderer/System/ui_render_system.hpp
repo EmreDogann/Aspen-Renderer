@@ -26,7 +26,7 @@ namespace Aspen {
 
 	class UIRenderSystem {
 	public:
-		UIRenderSystem(Device& device, Renderer& renderer, std::unique_ptr<DescriptorSetLayout>& descriptorSetLayout);
+		UIRenderSystem(Device& device, Renderer& renderer, std::vector<std::unique_ptr<DescriptorSetLayout>>& descriptorSetLayout);
 		~UIRenderSystem() = default;
 
 		UIRenderSystem(const UIRenderSystem&) = delete;

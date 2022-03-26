@@ -1,7 +1,5 @@
 #include "Aspen/Core/application.hpp"
 
-#include <thread>
-
 namespace Aspen {
 	Application::Application() {
 		s_Instance = this;
@@ -238,19 +236,15 @@ namespace Aspen {
 		if (auto* commandBuffer = renderer.beginFrame()) {
 			FrameInfo frameInfo{
 			    renderer.getFrameIndex(),
-			    static_cast<float>(deltaTime),                                    // Interpolation - Normalized value.
-			    globalRenderSystem.getDescriptorSets()[renderer.getFrameIndex()], // Get the global descriptor set of the current frame.
+			    static_cast<float>(deltaTime),                                                                                                                     // Interpolation - Normalized value.
+			    {globalRenderSystem.getUboDescriptorSets()[renderer.getFrameIndex()], globalRenderSystem.getDynamicUboDescriptorSets()[renderer.getFrameIndex()]}, // Get the global descriptor sets of the current frame.
+			    static_cast<uint32_t>(globalRenderSystem.getDynamicUboBuffers()[renderer.getFrameIndex()]->getAlignmentSize()),
 			    commandBuffer,
 			    cameraComponent.camera,
 			    m_Scene};
 
-			auto& uboBuffers = globalRenderSystem.getUboBuffers();
-
 			// Update our UBO buffer.
-			GlobalRenderSystem::GlobalUbo ubo{};
-			globalRenderSystem.updateUBOs(frameInfo, ubo);
-			uboBuffers[frameInfo.frameIndex]->writeToBuffer(&ubo); // Write info to the UBO.
-			uboBuffers[frameInfo.frameIndex]->flush();
+			globalRenderSystem.updateUBOs(frameInfo);
 
 			/*
 			    Depth Prepass
@@ -407,10 +401,12 @@ namespace Aspen {
 	}
 
 	bool Application::OnWindowResize(WindowResizeEvent& e) {
+		vkDeviceWaitIdle(device.device());
+
 		window.resetWindowResizedFlag();
 		renderer.recreateSwapChain();
-		simpleRenderSystem.onResize();
 		depthPrePassRenderSystem.onResize();
+		simpleRenderSystem.onResize();
 		mousePickingRenderSystem.onResize();
 
 		uiState.viewportSize = glm::vec2(renderer.getSwapChainExtent().width, renderer.getSwapChainExtent().height);
@@ -525,6 +521,7 @@ namespace Aspen {
 			createFloorModel(device,
 			                 {0.0f, 0.0f, 0.0f},
 			                 floorMesh); // Converts the unique pointer returned from the function to a shared pointer.
+			floorMesh.texture.loadFromFile(&device, "assets/textures/FloorHerringbone.png", VK_FORMAT_R8G8B8A8_SRGB, device.graphicsQueue());
 		}
 
 		// Create Vases
@@ -536,15 +533,17 @@ namespace Aspen {
 
 			auto& objectMesh = object.addComponent<MeshComponent>();
 			Model::createModelFromFile(device, objectMesh, "assets/models/flat_vase.obj");
+			objectMesh.texture.loadFromFile(&device, "assets/textures/RustedPlates.png", VK_FORMAT_R8G8B8A8_SRGB, device.graphicsQueue());
 			std::cout << "Flat Vase Vertex Count: " << objectMesh.vertices.size() << std::endl;
 
 			Entity object2 = m_Scene->createEntity("Vase2");
 			auto& object2Transform = object2.getComponent<TransformComponent>();
-			object2Transform.translation = {1.0f, -0.4f, 2.5f};
+			object2Transform.translation = {1.0f, 0.0f, 2.5f};
 			object2Transform.scale = {3.0f, 3.0f, 3.0f};
 
 			auto& object2Mesh = object2.addComponent<MeshComponent>();
 			Model::createModelFromFile(device, object2Mesh, "assets/models/smooth_vase.obj");
+			object2Mesh.texture.loadFromFile(&device, "assets/textures/LaticeWall.png", VK_FORMAT_R8G8B8A8_SRGB, device.graphicsQueue());
 			std::cout << "Smooth Vase Vertex Count: " << object2Mesh.vertices.size() << std::endl;
 		}
 
@@ -558,8 +557,12 @@ namespace Aspen {
 
 			auto& objectMesh = object.addComponent<MeshComponent>();
 			Model::createModelFromFile(device, objectMesh, "assets/models/cube.obj");
-			std::cout << "Colored Cube Vertex Count: " << objectMesh.vertices.size() << std::endl;
+			objectMesh.texture.loadFromFile(&device, "assets/textures/Wool.jpg", VK_FORMAT_R8G8B8A8_SRGB, device.graphicsQueue());
+			std::cout << "Cube Vertex Count: " << objectMesh.vertices.size() << std::endl;
 		}
+
+		// Assign these textures to a render system.
+		simpleRenderSystem.assignTextures(*m_Scene);
 
 		// Create point lights
 		{

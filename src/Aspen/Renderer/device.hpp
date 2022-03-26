@@ -3,6 +3,7 @@
 
 #include "Aspen/Core/window.hpp"
 #include "Aspen/Renderer/descriptors.hpp"
+#include "Aspen/Renderer/tools.hpp"
 
 namespace Aspen {
 
@@ -107,6 +108,7 @@ namespace Aspen {
 		void createImageWithInfo(const VkImageCreateInfo& imageInfo, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
 
 		VkPhysicalDeviceProperties properties{};
+		VkPhysicalDeviceFeatures enabledFeatures{};
 
 	private:
 		void createInstance();

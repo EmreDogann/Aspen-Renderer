@@ -6,11 +6,11 @@ namespace Aspen {
 		alignas(4) float outlineWidth;
 	};
 
-	OutlineRenderSystem::OutlineRenderSystem(Device& device, Renderer& renderer, std::unique_ptr<DescriptorSetLayout>& globalDescriptorSetLayout, std::shared_ptr<Framebuffer> resources)
+	OutlineRenderSystem::OutlineRenderSystem(Device& device, Renderer& renderer, std::vector<std::unique_ptr<DescriptorSetLayout>>& globalDescriptorSetLayout, std::shared_ptr<Framebuffer> resources)
 	    : device(device), renderer(renderer), resourcesSimpleRender(resources) {
 
 		// createResources();
-		createPipelineLayout(globalDescriptorSetLayout);
+		createPipelineLayout(globalDescriptorSetLayout[0]);
 		createPipelines();
 	}
 

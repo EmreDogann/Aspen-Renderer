@@ -114,6 +114,7 @@ if (WIN32)
     ${PROJECT_SOURCE_DIR}/src
     ${Vulkan_INCLUDE_DIRS}
     "include/imguizmo"
+    "include/stb_image"
     )
 
   target_link_libraries(${PROJECT_NAME} glfw glm EnTT ImGui tinyobjloader ${Vulkan_LIBRARIES})
@@ -149,6 +150,7 @@ add_custom_command(TARGET Make_Assets_Folder POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_SOURCE_DIR}/build/assets"
   COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_SOURCE_DIR}/build/assets/shaders"
   COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_SOURCE_DIR}/build/assets/models"
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_SOURCE_DIR}/build/assets/textures"
 )
 
 # install(DIRECTORY ${PROJECT_SOURCE_DIR}/assets DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/build
@@ -188,6 +190,16 @@ add_custom_target(
 # Copy changed files from config to the binary folder after a successful build
 set(source_dir "${PROJECT_SOURCE_DIR}/assets/models")
 set(dest_dir "${PROJECT_SOURCE_DIR}/build/assets/models")
+add_custom_command(TARGET "Copy_Assets"
+  POST_BUILD
+  COMMAND ${CMAKE_COMMAND}
+    -Dsource_dir="${source_dir}"
+    -Ddest_dir="${dest_dir}"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/update_directory.cmake"
+)
+
+set(source_dir "${PROJECT_SOURCE_DIR}/assets/textures")
+set(dest_dir "${PROJECT_SOURCE_DIR}/build/assets/textures")
 add_custom_command(TARGET "Copy_Assets"
   POST_BUILD
   COMMAND ${CMAKE_COMMAND}

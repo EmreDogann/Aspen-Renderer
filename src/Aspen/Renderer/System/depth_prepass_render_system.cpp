@@ -6,11 +6,11 @@ namespace Aspen {
 		glm::mat4 modelMatrix{1.0f};
 	};
 
-	DepthPrePassRenderSystem::DepthPrePassRenderSystem(Device& device, Renderer& renderer, std::unique_ptr<DescriptorSetLayout>& globalDescriptorSetLayout)
+	DepthPrePassRenderSystem::DepthPrePassRenderSystem(Device& device, Renderer& renderer, std::vector<std::unique_ptr<DescriptorSetLayout>>& globalDescriptorSetLayout)
 	    : device(device), renderer(renderer), resources(std::make_unique<Framebuffer>(device)) {
 
 		createResources();
-		createPipelineLayout(globalDescriptorSetLayout);
+		createPipelineLayout(globalDescriptorSetLayout[0]); // We only care about the normal UBO for this render system.
 		createPipelines();
 	}
 

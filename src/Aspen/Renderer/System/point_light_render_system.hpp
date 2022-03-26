@@ -4,7 +4,7 @@
 namespace Aspen {
 	class PointLightRenderSystem {
 	public:
-		PointLightRenderSystem(Device& device, Renderer& renderer, std::unique_ptr<DescriptorSetLayout>& descriptorSetLayout, std::shared_ptr<Framebuffer> resources);
+		PointLightRenderSystem(Device& device, Renderer& renderer, std::vector<std::unique_ptr<DescriptorSetLayout>>& descriptorSetLayout, std::shared_ptr<Framebuffer> resources);
 		~PointLightRenderSystem() = default;
 
 		PointLightRenderSystem(const PointLightRenderSystem&) = delete;

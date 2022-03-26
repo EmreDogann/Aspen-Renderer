@@ -23,8 +23,6 @@ If you cloned the repository non-recursively before then run the command below t
 git submodule update --init
 ```
 
-This project uses CMake as a build environment. I have only tested this using MinGW and the CMakeLists.txt is only set-up for compilation with GCC/G++ so I cannot guarantee that it will work with other compilers such as MSVC or clang.
-
 The following must be installed:
 - [CMake (v3.21+)](https://cmake.org/download/) - I recommend the `Windows x64 Installer` as it can automatically add its /bin folder to the system PATH environment variable, otherwise you will have to do this manually with the .zip version
 - [Vulkan SDK (v1.2.189.2+)](https://vulkan.lunarg.com/) - Recommended to install in the default location. Use the `SDK Installer` instead of the runtime/zip file.
@@ -65,9 +63,10 @@ After this there should be a `aspen-vulkan-renderer.exe` executable in the `/bui
 - [GLFW](https://github.com/glfw/glfw) - For platform-specific window management.
 - [GLM](https://github.com/g-truc/glm) - For Maths computations used for rendering.
 - [EnTT](https://github.com/skypjack/entt) - Used for implementation of an ECS.
-- [ImGui](https://github.com/ocornut/imgui/tree/docking) - Used for UI. **docking** branch is used.
+- [ImGui](https://github.com/ocornut/imgui/tree/docking) - Used for UI (**docking** branch is used).
 - [ImGuizmo](https://github.com/CedricGuillemet/ImGuizmo) - Used for gizmos.
 - [Tinyobjloader](https://github.com/tinyobjloader/tinyobjloader) - Used to load .obj models.
+- [stb_image](https://github.com/nothings/stb/blob/master/stb_image.h) - Used to load images from a file/memory.
 
 # Credit
 Some code samples/system design for this project was adapted from:

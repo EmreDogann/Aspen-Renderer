@@ -25,9 +25,15 @@ namespace Aspen {
 			glm::mat4 projectionMatrix{1.0f};
 			glm::mat4 viewMatrix{1.0f};
 			glm::mat4 inverseViewMatrix{1.0f};
+			glm::mat4 modelMatrix{1.0f};
 			PointLight lights[MAX_LIGHTS];
 			alignas(16) glm::vec3 ambientLightColor{0.02f};
 			// alignas(4) int numLights;
+		};
+
+		struct ModelUboDynamic {
+			glm::mat4 modelMatrix;
+			glm::mat4 normalMatrix;
 		};
 
 		GlobalRenderSystem(Device& device, Renderer& renderer);
@@ -41,18 +47,26 @@ namespace Aspen {
 
 		// void render(FrameInfo& frameInfo) override;
 		// void onResize() override;
-		void updateUBOs(FrameInfo& frameInfo, GlobalUbo& ubo);
+		void updateUBOs(FrameInfo& frameInfo);
 
-		std::unique_ptr<DescriptorSetLayout>& getDescriptorSetLayout() {
-			return descriptorSetLayout;
+		std::vector<std::unique_ptr<DescriptorSetLayout>>& getDescriptorSetLayout() {
+			return descriptorSetLayouts;
 		}
 
-		std::vector<VkDescriptorSet>& getDescriptorSets() {
-			return descriptorSets;
+		std::vector<VkDescriptorSet>& getUboDescriptorSets() {
+			return uboDescriptorSets;
+		}
+
+		std::vector<VkDescriptorSet>& getDynamicUboDescriptorSets() {
+			return dynamicUboDescriptorSets;
 		}
 
 		std::vector<std::unique_ptr<Buffer>>& getUboBuffers() {
 			return uboBuffers;
+		}
+
+		std::vector<std::unique_ptr<Buffer>>& getDynamicUboBuffers() {
+			return dynamicUboBuffers;
 		}
 
 	private:
@@ -62,8 +76,11 @@ namespace Aspen {
 		Device& device;
 		Renderer& renderer;
 
-		std::unique_ptr<DescriptorSetLayout> descriptorSetLayout{};
-		std::vector<VkDescriptorSet> descriptorSets;
+		std::vector<std::unique_ptr<DescriptorSetLayout>> descriptorSetLayouts{};
+		std::vector<VkDescriptorSet> uboDescriptorSets;
+		std::vector<VkDescriptorSet> dynamicUboDescriptorSets;
+
 		std::vector<std::unique_ptr<Buffer>> uboBuffers;
+		std::vector<std::unique_ptr<Buffer>> dynamicUboBuffers;
 	};
 } // namespace Aspen

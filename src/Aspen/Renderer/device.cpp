@@ -193,12 +193,13 @@ namespace Aspen {
 		}
 
 		// Specify the device features we will be using.
-		VkPhysicalDeviceFeatures deviceFeatures = {};
-		deviceFeatures.samplerAnisotropy = VK_TRUE;
-		deviceFeatures.fragmentStoresAndAtomics = VK_TRUE;
-		deviceFeatures.shaderInt64 = VK_TRUE;
-		// deviceFeatures.fillModeNonSolid = true;
-		// deviceFeatures.wideLines = true;
+		enabledFeatures.samplerAnisotropy = VK_TRUE;
+		enabledFeatures.fragmentStoresAndAtomics = VK_TRUE;
+		enabledFeatures.shaderInt64 = VK_TRUE;
+		enabledFeatures.samplerAnisotropy = VK_TRUE;
+		// enabledFeatures.shaderSampledImageArrayDynamicIndexing = VK_TRUE;
+		// enabledFeatures.fillModeNonSolid = true;
+		// enabledFeatures.wideLines = true;
 
 		// Create logical device object.
 		VkDeviceCreateInfo createInfo = {};
@@ -207,7 +208,7 @@ namespace Aspen {
 		createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
 		createInfo.pQueueCreateInfos = queueCreateInfos.data();
 
-		createInfo.pEnabledFeatures = &deviceFeatures;
+		createInfo.pEnabledFeatures = &enabledFeatures;
 
 		// Enable device specific extensions (e.g. swap chain).
 		createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
@@ -263,22 +264,10 @@ namespace Aspen {
 	}
 
 	void Device::createDescriptorPool() {
-		// VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 8}, {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 6}};
-
-		// VkDescriptorPoolCreateInfo poolInfo = {};
-		// poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-		// poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-		// poolInfo.maxSets = 5;
-		// poolInfo.poolSizeCount = std::size(poolSizes);
-		// poolInfo.pPoolSizes = poolSizes;
-
-		// if (vkCreateDescriptorPool(device_, &poolInfo, nullptr, &descriptorPool)) {
-		// 	throw std::runtime_error("Failed to create descriptor pool!");
-		// }
-
 		descriptorPool = DescriptorPool::Builder(*this)
 		                     .setMaxSets(10)
 		                     .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10)
+		                     .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 10)
 		                     .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10)
 		                     .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10)
 		                     .build();
@@ -557,11 +546,33 @@ namespace Aspen {
 		// and so a custom memory allocator is needed to split up the allocations among many different objects (e.g. VMA).
 		// Allocate the memory for the buffer and return a handle.
 		if (vkAllocateMemory(device_, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to allocate vertex buffer memory!");
+			throw std::runtime_error("Failed to allocate buffer memory!");
 		}
 
 		// If successful, we can then associate this memory with the buffer.
 		vkBindBufferMemory(device_, buffer, bufferMemory, 0); // Last parameter is offset within the region of memory.
+	}
+
+	void Device::createImageWithInfo(const VkImageCreateInfo& imageInfo, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) {
+		if (vkCreateImage(device_, &imageInfo, nullptr, &image) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create image!");
+		}
+
+		VkMemoryRequirements memRequirements;
+		vkGetImageMemoryRequirements(device_, image, &memRequirements);
+
+		VkMemoryAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		allocInfo.allocationSize = memRequirements.size;
+		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
+
+		if (vkAllocateMemory(device_, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to allocate image memory!");
+		}
+
+		if (vkBindImageMemory(device_, image, imageMemory, 0) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to bind image memory!");
+		}
 	}
 
 	// Create a temporary command buffer for the purposes of copying from the staging buffer.
@@ -610,6 +621,7 @@ namespace Aspen {
 
 		vkQueueSubmit(graphicsQueue_, 1, &submitInfo, VK_NULL_HANDLE);
 		vkQueueWaitIdle(graphicsQueue_); // Wait for the transfer operation to finish.
+		                                 // Look into combining all command buffer submits into a single command buffer and execute them asynchronously for higher throughput?
 		                                 // TODO: Use fences and vkWaitForFences in order to allow multiple tranfers simultaneously, instead of executing one at a time.
 
 		vkFreeCommandBuffers(device_, graphicsCommandPool, 1, &commandBuffer);
@@ -648,53 +660,8 @@ namespace Aspen {
 		endSingleTimeCommandBuffers(commandBuffer);
 	}
 
-	void Device::createImageWithInfo(const VkImageCreateInfo& imageInfo, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) {
-		if (vkCreateImage(device_, &imageInfo, nullptr, &image) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to create image!");
-		}
-
-		VkMemoryRequirements memRequirements;
-		vkGetImageMemoryRequirements(device_, image, &memRequirements);
-
-		VkMemoryAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		allocInfo.allocationSize = memRequirements.size;
-		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
-
-		if (vkAllocateMemory(device_, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to allocate image memory!");
-		}
-
-		if (vkBindImageMemory(device_, image, imageMemory, 0) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to bind image memory!");
-		}
-	}
-
 	// Initialize ImGui and pass in Vulkan handles.
 	void Device::initImGuiBackend() {
-		// VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
-		//                                     {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
-		//                                     {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
-		//                                     {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000},
-		//                                     {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000},
-		//                                     {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000},
-		//                                     {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000},
-		//                                     {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000},
-		//                                     {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
-		//                                     {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
-		//                                     {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000}};
-
-		// VkDescriptorPoolCreateInfo poolInfo = {};
-		// poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-		// poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-		// poolInfo.maxSets = 1000;
-		// poolInfo.poolSizeCount = std::size(poolSizes);
-		// poolInfo.pPoolSizes = poolSizes;
-
-		// if (vkCreateDescriptorPool(device_, &poolInfo, nullptr, &ImGui_descriptorPool)) {
-		// 	throw std::runtime_error("Failed to create descriptor pool for ImGui!");
-		// }
-
 		descriptorPoolImGui = DescriptorPool::Builder(*this)
 		                          .setMaxSets(1000)
 		                          .addPoolSize(VK_DESCRIPTOR_TYPE_SAMPLER, 1000)

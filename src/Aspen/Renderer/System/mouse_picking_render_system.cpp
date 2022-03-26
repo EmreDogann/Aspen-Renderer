@@ -6,8 +6,8 @@ namespace Aspen {
 		alignas(16) uint64_t objectId;
 	};
 
-	MousePickingRenderSystem::MousePickingRenderSystem(Device& device, Renderer& renderer, std::unique_ptr<DescriptorSetLayout>& globalDescriptorSetLayout, std::shared_ptr<Framebuffer> resources)
-	    : device(device), renderer(renderer), resources(std::make_unique<Framebuffer>(device)), resourcesDepthPrePass(resources), globalDescriptorSetLayout(*globalDescriptorSetLayout) {
+	MousePickingRenderSystem::MousePickingRenderSystem(Device& device, Renderer& renderer, std::vector<std::unique_ptr<DescriptorSetLayout>>& globalDescriptorSetLayout, std::shared_ptr<Framebuffer> resources)
+	    : device(device), renderer(renderer), resources(std::make_unique<Framebuffer>(device)), resourcesDepthPrePass(resources), globalDescriptorSetLayout(*globalDescriptorSetLayout[0]) {
 		// Create a UBO buffer. This will just be one instance per frame.
 		{
 			storageBuffer = std::make_unique<Buffer>(
@@ -126,7 +126,7 @@ namespace Aspen {
 	void MousePickingRenderSystem::render(FrameInfo& frameInfo) { // Flush changes to update on the GPU side.
 		// Bind the graphics pipieline.
 		pipeline.bind(frameInfo.commandBuffer, pipeline.getPipeline());
-		vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getPipelineLayout(), 0, 2, std::array<VkDescriptorSet, 2>{frameInfo.descriptorSet, descriptorSet}.data(), 0, nullptr);
+		vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getPipelineLayout(), 0, 2, std::array<VkDescriptorSet, 2>{frameInfo.descriptorSet[0], descriptorSet}.data(), 0, nullptr);
 
 		auto group = frameInfo.scene->getRenderComponents();
 		for (auto& entity : group) {

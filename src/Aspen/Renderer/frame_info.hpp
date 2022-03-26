@@ -6,7 +6,8 @@ namespace Aspen {
 	struct FrameInfo {
 		int frameIndex;
 		float frameTime;
-		VkDescriptorSet descriptorSet;
+		std::vector<VkDescriptorSet> descriptorSet;
+		uint32_t dynamicOffset;
 		VkCommandBuffer commandBuffer;
 		Camera& camera;
 		std::shared_ptr<Scene>& scene;

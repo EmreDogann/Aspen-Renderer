@@ -6,10 +6,10 @@ namespace Aspen {
 		glm::mat4 normalMatrix{1.0f};
 	};
 
-	UIRenderSystem::UIRenderSystem(Device& device, Renderer& renderer, std::unique_ptr<DescriptorSetLayout>& descriptorSetLayout)
+	UIRenderSystem::UIRenderSystem(Device& device, Renderer& renderer, std::vector<std::unique_ptr<DescriptorSetLayout>>& descriptorSetLayout)
 	    : device(device), renderer(renderer), uboBuffers(SwapChain::MAX_FRAMES_IN_FLIGHT), descriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT) {
 
-		createPipelineLayout(descriptorSetLayout);
+		createPipelineLayout(descriptorSetLayout[0]);
 		createPipelines();
 	}
 
@@ -53,8 +53,8 @@ namespace Aspen {
 		pipelineConfig.renderPass = renderer.getPresentRenderPass();
 		pipelineConfig.pipelineLayout = pipeline.getPipelineLayout();
 
-		pipeline.createShaderModule("assets/shaders/simple_shader.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-		pipeline.createShaderModule("assets/shaders/simple_shader.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+		pipeline.createShaderModule("assets/shaders/ui_shader.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+		// pipeline.createShaderModule("assets/shaders/ui_shader.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 
 		pipeline.createGraphicsPipeline(pipelineConfig, pipeline.getPipeline());
 	}
@@ -82,7 +82,7 @@ namespace Aspen {
 	void UIRenderSystem::render(FrameInfo& frameInfo, UIState& uiState, ApplicationState& appState) { // Flush changes to update on the GPU side.
 		// Bind the graphics pipieline.
 		pipeline.bind(frameInfo.commandBuffer, pipeline.getPipeline());
-		vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getPipelineLayout(), 0, 1, &frameInfo.descriptorSet, 0, nullptr);
+		vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getPipelineLayout(), 0, 1, &frameInfo.descriptorSet[0], 0, nullptr);
 
 		// Start the Dear ImGui frame
 		ImGui_ImplVulkan_NewFrame();

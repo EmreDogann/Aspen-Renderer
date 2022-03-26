@@ -4,7 +4,7 @@
 namespace Aspen {
 	class OutlineRenderSystem {
 	public:
-		OutlineRenderSystem(Device& device, Renderer& renderer, std::unique_ptr<DescriptorSetLayout>& globalDescriptorSetLayout, std::shared_ptr<Framebuffer> resources);
+		OutlineRenderSystem(Device& device, Renderer& renderer, std::vector<std::unique_ptr<DescriptorSetLayout>>& globalDescriptorSetLayout, std::shared_ptr<Framebuffer> resources);
 		~OutlineRenderSystem() = default;
 
 		OutlineRenderSystem(const OutlineRenderSystem&) = delete;

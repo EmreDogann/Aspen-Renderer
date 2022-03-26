@@ -4,7 +4,7 @@
 namespace Aspen {
 	class DepthPrePassRenderSystem {
 	public:
-		DepthPrePassRenderSystem(Device& device, Renderer& renderer, std::unique_ptr<DescriptorSetLayout>& globalDescriptorSetLayout);
+		DepthPrePassRenderSystem(Device& device, Renderer& renderer, std::vector<std::unique_ptr<DescriptorSetLayout>>& globalDescriptorSetLayout);
 		~DepthPrePassRenderSystem() = default;
 
 		DepthPrePassRenderSystem(const DepthPrePassRenderSystem&) = delete;
@@ -39,6 +39,6 @@ namespace Aspen {
 		Pipeline stencilPipeline{device};
 
 		std::unique_ptr<DescriptorSetLayout> descriptorSetLayout{};
-		VkDescriptorSet descriptorSet;
+		VkDescriptorSet descriptorSet{};
 	};
 } // namespace Aspen
