@@ -9,6 +9,7 @@ namespace Aspen {
 	    uint32_t binding,
 	    VkDescriptorType descriptorType,
 	    VkShaderStageFlags stageFlags,
+	    VkDescriptorBindingFlags descriptorBindingFlags,
 	    uint32_t count) {
 		// Check that binding at the specified index in the map has not already been added.
 		assert(bindings.count(binding) == 0 && "Binding already in use");
@@ -18,7 +19,7 @@ namespace Aspen {
 		layoutBinding.descriptorType = descriptorType;
 		layoutBinding.descriptorCount = count;
 		layoutBinding.stageFlags = stageFlags;
-		bindings[binding] = layoutBinding;
+		bindings[binding] = {layoutBinding, descriptorBindingFlags};
 
 		return *this;
 	}
@@ -31,20 +32,28 @@ namespace Aspen {
 
 	DescriptorSetLayout::DescriptorSetLayout(
 	    Device& device,
-	    std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> bindings)
+	    std::unordered_map<uint32_t, std::tuple<VkDescriptorSetLayoutBinding, VkDescriptorBindingFlags>> bindings)
 	    : device{device}, bindings{bindings} {
 
 		// Vulkan only cares about the descriptor set layout bindings. So we turn our map into a vector of those.
 		std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings{};
+		std::vector<VkDescriptorBindingFlags> setLayoutBindingFlags{};
 		for (auto kv : bindings) {
-			setLayoutBindings.push_back(kv.second);
+			setLayoutBindings.push_back(get<0>(kv.second));
+			setLayoutBindingFlags.push_back(get<1>(kv.second));
 		}
+
+		VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsCreateInfo{};
+		bindingFlagsCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+		bindingFlagsCreateInfo.bindingCount = static_cast<uint32_t>(setLayoutBindingFlags.size());
+		bindingFlagsCreateInfo.pBindingFlags = setLayoutBindingFlags.data();
 
 		// Create a set layout.
 		VkDescriptorSetLayoutCreateInfo descriptorSetLayoutInfo{};
 		descriptorSetLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 		descriptorSetLayoutInfo.bindingCount = static_cast<uint32_t>(setLayoutBindings.size());
 		descriptorSetLayoutInfo.pBindings = setLayoutBindings.data();
+		descriptorSetLayoutInfo.pNext = &bindingFlagsCreateInfo;
 
 		if (vkCreateDescriptorSetLayout(
 		        device.device(),
@@ -111,12 +120,21 @@ namespace Aspen {
 	// Allocates a descriptor set from the descriptor pool.
 	bool DescriptorPool::allocateDescriptorSet(
 	    const VkDescriptorSetLayout descriptorSetLayout,
-	    VkDescriptorSet& descriptorSet) const {
+	    VkDescriptorSet& descriptorSet,
+	    uint32_t variableDescriptorCount) const {
+
+		uint32_t variableDescriptorCounts[1] = {variableDescriptorCount};
+		VkDescriptorSetVariableDescriptorCountAllocateInfo variableDescriptorCountAllocInfo{};
+		variableDescriptorCountAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO_EXT;
+		variableDescriptorCountAllocInfo.descriptorSetCount = 1;
+		variableDescriptorCountAllocInfo.pDescriptorCounts = variableDescriptorCounts;
+
 		VkDescriptorSetAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 		allocInfo.descriptorPool = descriptorPool;
 		allocInfo.pSetLayouts = &descriptorSetLayout;
 		allocInfo.descriptorSetCount = 1;
+		allocInfo.pNext = &variableDescriptorCountAllocInfo;
 
 		// Might want to create a "DescriptorPoolManager" class that handles this case, and builds
 		// a new pool whenever an old pool fills up. But this is beyond our current scope
@@ -145,7 +163,7 @@ namespace Aspen {
 	    VkDescriptorBufferInfo* bufferInfo) {
 		assert(setLayout.bindings.count(binding) == 1 && "Layout does not contain specified binding");
 
-		auto& bindingDescription = setLayout.bindings[binding];
+		auto& bindingDescription = get<0>(setLayout.bindings[binding]);
 
 		assert(bindingDescription.descriptorCount == 1 && "Binding single descriptor info, but binding expects multiple");
 
@@ -163,10 +181,10 @@ namespace Aspen {
 	DescriptorWriter& DescriptorWriter::writeImage(
 	    uint32_t binding,
 	    VkDescriptorImageInfo* imageInfo,
-	    uint32_t descriptorCount) {
+	    uint32_t descriptorCount) { // TODO: Why don't we just take the descriptor count from the size of imageInfo? We could make imageInfo an array and handle it like that.
 		assert(setLayout.bindings.count(binding) == 1 && "Layout does not contain specified binding");
 
-		auto& bindingDescription = setLayout.bindings[binding];
+		auto& bindingDescription = get<0>(setLayout.bindings[binding]);
 
 		// assert(bindingDescription.descriptorCount == 1 && "Binding single descriptor info, but binding expects multiple");
 
@@ -174,15 +192,23 @@ namespace Aspen {
 		write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		write.descriptorType = bindingDescription.descriptorType;
 		write.dstBinding = binding;
-		write.pImageInfo = imageInfo;
+		write.dstArrayElement = 0; // Start at array index 0.
 		write.descriptorCount = descriptorCount;
+		write.pImageInfo = imageInfo;
 
 		writes.push_back(write);
 		return *this;
 	}
 
 	bool DescriptorWriter::build(VkDescriptorSet& set) {
-		bool success = pool.allocateDescriptorSet(setLayout.getDescriptorSetLayout(), set);
+		VkDescriptorBindingFlags bindingFlags = get<1>(setLayout.bindings[setLayout.bindings.size() - 1]);
+		bool success = false;
+		if (bindingFlags & VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT) {
+			success = pool.allocateDescriptorSet(setLayout.getDescriptorSetLayout(), set, get<0>(setLayout.bindings[setLayout.bindings.size() - 1]).descriptorCount);
+		} else {
+			success = pool.allocateDescriptorSet(setLayout.getDescriptorSetLayout(), set);
+		}
+
 		if (!success) {
 			return false;
 		}

@@ -1,5 +1,6 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
+#extension GL_EXT_nonuniform_qualifier : require
 
 // Outputting to location 0.
 // in = input data from the location into a variable
@@ -32,7 +33,7 @@ layout(set = 0, binding = 0) uniform GlobalUbo {
 } ubo;
 
 // Textures
-layout(set = 2, binding = 0) uniform sampler2D samp[4];
+layout(set = 2, binding = 0) uniform sampler2D samp[];
 
 // Push Constants
 layout(push_constant) uniform Push {

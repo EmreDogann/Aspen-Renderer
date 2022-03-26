@@ -18,17 +18,18 @@ namespace Aspen {
 			    uint32_t binding,
 			    VkDescriptorType descriptorType,
 			    VkShaderStageFlags stageFlags,
+			    VkDescriptorBindingFlags descriptorBindingFlags = 0,
 			    uint32_t count = 1);
 			std::unique_ptr<DescriptorSetLayout> build() const;
 
 		private:
 			Device& device;
-			std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> bindings{};
+			std::unordered_map<uint32_t, std::tuple<VkDescriptorSetLayoutBinding, VkDescriptorBindingFlags>> bindings{};
 		};
 
 		DescriptorSetLayout(
 		    Device& device,
-		    std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> bindings);
+		    std::unordered_map<uint32_t, std::tuple<VkDescriptorSetLayoutBinding, VkDescriptorBindingFlags>> bindings);
 		~DescriptorSetLayout();
 		DescriptorSetLayout(const DescriptorSetLayout&) = delete;
 		DescriptorSetLayout& operator=(const DescriptorSetLayout&) = delete;
@@ -40,7 +41,7 @@ namespace Aspen {
 	private:
 		Device& device;
 		VkDescriptorSetLayout descriptorSetLayout;
-		std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> bindings;
+		std::unordered_map<uint32_t, std::tuple<VkDescriptorSetLayoutBinding, VkDescriptorBindingFlags>> bindings;
 
 		friend class DescriptorWriter;
 	};
@@ -79,7 +80,8 @@ namespace Aspen {
 
 		bool allocateDescriptorSet(
 		    const VkDescriptorSetLayout descriptorSetLayout,
-		    VkDescriptorSet& descriptorSet) const;
+		    VkDescriptorSet& descriptorSet,
+		    uint32_t variableDescriptorCount = 1) const;
 
 		void freeDescriptorSets(std::vector<VkDescriptorSet>& descriptorSets) const;
 

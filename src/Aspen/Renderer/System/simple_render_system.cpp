@@ -90,8 +90,6 @@ namespace Aspen {
 
 		for (int i = 0; i < descriptorSets.size(); ++i) {
 			DescriptorWriter(*descriptorSetLayout, device.getDescriptorPool())
-			    // .writeImage(0, samplerDescriptorImageInfos.data(), 4)
-			    // .writeImage(1, descriptorImageInfos.data(), 4)
 			    .writeImage(0, descriptorImageInfos.data(), 4)
 			    .build(descriptorSets[i]);
 		}
@@ -100,7 +98,7 @@ namespace Aspen {
 	// Create a Descriptor Set Layout for a Uniform Buffer Object (UBO) & Textures.
 	void SimpleRenderSystem::createDescriptorSetLayout() {
 		descriptorSetLayout = DescriptorSetLayout::Builder(device)
-		                          .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 4) // Binding 0: Fragment shader combined image sampler. Make it an array of 4 image samplers.
+		                          .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT, 32) // Binding 0: Fragment shader combined image sampler. Make it an array of 4 image samplers.
 		                          .build();
 	}
 

@@ -197,18 +197,24 @@ namespace Aspen {
 		enabledFeatures.fragmentStoresAndAtomics = VK_TRUE;
 		enabledFeatures.shaderInt64 = VK_TRUE;
 		enabledFeatures.samplerAnisotropy = VK_TRUE;
-		enabledFeatures.shaderSampledImageArrayDynamicIndexing = VK_TRUE;
+		// enabledFeatures.shaderSampledImageArrayDynamicIndexing = VK_TRUE;
 		// enabledFeatures.fillModeNonSolid = true;
 		// enabledFeatures.wideLines = true;
+
+		// Enable features for descriptor indexing.
+		enabledDescriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+		enabledDescriptorIndexingFeatures.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+		enabledDescriptorIndexingFeatures.runtimeDescriptorArray = VK_TRUE;
+		enabledDescriptorIndexingFeatures.descriptorBindingVariableDescriptorCount = VK_TRUE;
+		enabledDescriptorIndexingFeatures.descriptorBindingPartiallyBound = VK_TRUE;
 
 		// Create logical device object.
 		VkDeviceCreateInfo createInfo = {};
 		createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-
 		createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
 		createInfo.pQueueCreateInfos = queueCreateInfos.data();
-
 		createInfo.pEnabledFeatures = &enabledFeatures;
+		createInfo.pNext = &enabledDescriptorIndexingFeatures;
 
 		// Enable device specific extensions (e.g. swap chain).
 		createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());

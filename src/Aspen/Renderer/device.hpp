@@ -109,6 +109,7 @@ namespace Aspen {
 
 		VkPhysicalDeviceProperties properties{};
 		VkPhysicalDeviceFeatures enabledFeatures{};
+		VkPhysicalDeviceDescriptorIndexingFeatures enabledDescriptorIndexingFeatures{};
 
 	private:
 		void createInstance();
