@@ -1,4 +1,5 @@
 #version 450
+#extension GL_ARB_separate_shader_objects : enable
 
 // Outputting to location 0.
 // in = input data from the location into a variable
@@ -31,8 +32,7 @@ layout(set = 0, binding = 0) uniform GlobalUbo {
 } ubo;
 
 // Textures
-layout(set = 2, binding = 0) uniform sampler samp;
-layout(set = 2, binding = 1) uniform texture2D textures[4];
+layout(set = 2, binding = 0) uniform sampler2D samp[4];
 
 // Push Constants
 layout(push_constant) uniform Push {
@@ -80,5 +80,6 @@ void main() {
         specularLighting += light.color.xyz * attenuation * blinnTerm;
     }
 
-    outColor = texture(sampler2D(textures[push.imageIndex], samp), fragUV) * vec4((specularLighting + diffuseLighting) * fragColor, 1.0); // RGBA
+    // vec4 textureColor = texture(sampler2D(textures[push.imageIndex], samp), fragUV);
+    outColor = vec4(texture(samp[push.imageIndex], fragUV).xyz * (specularLighting + diffuseLighting) * fragColor, 1.0); // RGBA
 }

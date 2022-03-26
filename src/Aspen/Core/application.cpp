@@ -492,11 +492,11 @@ namespace Aspen {
 		meshComponent.vertices = {
 
 		    // Top face (blue, remember y axis points down)
-		    // Vertex, Color, Normal
-		    {{-.5f, .0f, -.5f}, {0.3f, 0.49f, 0.66f}, {0.0f, -1.0f, 0.0f}},
-		    {{.5f, .0f, .5f}, {0.3f, 0.49f, 0.66f}, {0.0f, -1.0f, 0.0f}},
-		    {{-.5f, .0f, .5f}, {0.3f, 0.49f, 0.66f}, {0.0f, -1.0f, 0.0f}},
-		    {{.5f, .0f, -.5f}, {0.3f, 0.49f, 0.66f}, {0.0f, -1.0f, 0.0f}},
+		    // Vertex, Color, Normal, uv
+		    {{-.5f, .0f, -.5f}, {0.3f, 0.49f, 0.66f}, {0.0f, -1.0f, 0.0f}, {0.0f, 0.0f}},
+		    {{.5f, .0f, .5f}, {0.3f, 0.49f, 0.66f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f}},
+		    {{-.5f, .0f, .5f}, {0.3f, 0.49f, 0.66f}, {0.0f, -1.0f, 0.0f}, {0.0f, 1.0f}},
+		    {{.5f, .0f, -.5f}, {0.3f, 0.49f, 0.66f}, {0.0f, -1.0f, 0.0f}, {1.0f, 0.0f}},
 
 		};
 
@@ -583,7 +583,7 @@ namespace Aspen {
 				auto [pointLightTransform, pointLightComponent] = pointLightEntity.getComponent<TransformComponent, PointLightComponent>();
 				pointLightTransform.translation = glm::vec3{0.0f, -1.0f, 2.5f};
 				pointLightComponent.color = colors[i];
-				pointLightComponent.lightIntensity = 0.5f;
+				pointLightComponent.lightIntensity = 2.5f;
 
 				auto rotateLight = glm::rotate(pointLightTransform.transform(), (i * glm::two_pi<float>()) / colors.size(), {0.0f, -1.0f, 0.0f});
 				pointLightTransform.translation = glm::vec3(rotateLight * glm::vec4{pointLightTransform.translation, 1.0f});

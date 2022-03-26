@@ -74,24 +74,25 @@ namespace Aspen {
 	}
 
 	void SimpleRenderSystem::assignTextures(Scene& scene) {
+		std::vector<VkDescriptorImageInfo> descriptorImageInfos(4);
+		std::vector<VkDescriptorImageInfo> samplerDescriptorImageInfos(4);
+
+		int index = 0;
 		auto group = scene.getRenderComponents();
-		std::vector<VkDescriptorImageInfo> descriptorImageInfos{4};
-		std::vector<VkDescriptorImageInfo> samplerDescriptorImageInfos{4};
 		for (const auto& entity : group) {
 			auto& mesh = group.get<MeshComponent>(entity);
 
-			for (int i = 0; i < descriptorImageInfos.size(); ++i) {
-				descriptorImageInfos[i].imageLayout = mesh.texture.imageLayout;
-				descriptorImageInfos[i].imageView = mesh.texture.view;
-				descriptorImageInfos[i].sampler = nullptr;
-				samplerDescriptorImageInfos[i].sampler = mesh.texture.sampler;
-			}
+			descriptorImageInfos[index].imageLayout = mesh.texture.imageLayout;
+			descriptorImageInfos[index].imageView = mesh.texture.view;
+			descriptorImageInfos[index].sampler = mesh.texture.sampler;
+			++index;
 		}
 
 		for (int i = 0; i < descriptorSets.size(); ++i) {
 			DescriptorWriter(*descriptorSetLayout, device.getDescriptorPool())
-			    .writeImage(0, samplerDescriptorImageInfos.data(), 4)
-			    .writeImage(1, descriptorImageInfos.data(), 4)
+			    // .writeImage(0, samplerDescriptorImageInfos.data(), 4)
+			    // .writeImage(1, descriptorImageInfos.data(), 4)
+			    .writeImage(0, descriptorImageInfos.data(), 4)
 			    .build(descriptorSets[i]);
 		}
 	}
@@ -99,8 +100,7 @@ namespace Aspen {
 	// Create a Descriptor Set Layout for a Uniform Buffer Object (UBO) & Textures.
 	void SimpleRenderSystem::createDescriptorSetLayout() {
 		descriptorSetLayout = DescriptorSetLayout::Builder(device)
-		                          .addBinding(0, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 4)       // Binding 0: Fragment shader image sampler.
-		                          .addBinding(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT, 4) // Binding 1: Fragment shader image. Make it an array of 4 image samplers.
+		                          .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 4) // Binding 0: Fragment shader combined image sampler. Make it an array of 4 image samplers.
 		                          .build();
 	}
 
@@ -108,14 +108,9 @@ namespace Aspen {
 	void SimpleRenderSystem::createDescriptorSet() {
 		for (int i = 0; i < descriptorSets.size(); ++i) {
 			auto bufferInfo = uboBuffer->descriptorInfo();
-			// VkDescriptorImageInfo descriptorImageInfo{};
-			// descriptorImageInfo.imageLayout = resources->attachments[0].description.finalLayout;
-			// descriptorImageInfo.imageView = resources->attachments[0].view;
-			// descriptorImageInfo.sampler = resources->sampler;
 
 			DescriptorWriter(*descriptorSetLayout, device.getDescriptorPool())
 			    .writeBuffer(0, &bufferInfo)
-			    // .writeImage(0, &descriptorImageInfo)
 			    .build(descriptorSets[i]);
 		}
 	}

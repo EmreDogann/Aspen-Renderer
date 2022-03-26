@@ -197,7 +197,7 @@ namespace Aspen {
 		enabledFeatures.fragmentStoresAndAtomics = VK_TRUE;
 		enabledFeatures.shaderInt64 = VK_TRUE;
 		enabledFeatures.samplerAnisotropy = VK_TRUE;
-		// enabledFeatures.shaderSampledImageArrayDynamicIndexing = VK_TRUE;
+		enabledFeatures.shaderSampledImageArrayDynamicIndexing = VK_TRUE;
 		// enabledFeatures.fillModeNonSolid = true;
 		// enabledFeatures.wideLines = true;
 
