@@ -26,7 +26,6 @@ layout(set = 0, binding = 0) uniform GlobalUbo {
     mat4 inverseViewMatrix;
     PointLight lights[10];
     vec3 ambientLightColor;
-    int numLights;
 } ubo;
 
 layout(push_constant) uniform Push {

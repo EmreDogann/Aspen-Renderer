@@ -583,7 +583,7 @@ namespace Aspen {
 				auto [pointLightTransform, pointLightComponent] = pointLightEntity.getComponent<TransformComponent, PointLightComponent>();
 				pointLightTransform.translation = glm::vec3{0.0f, -1.0f, 2.5f};
 				pointLightComponent.color = colors[i];
-				pointLightComponent.lightIntensity = 2.5f;
+				pointLightComponent.lightIntensity = 0.5f;
 
 				auto rotateLight = glm::rotate(pointLightTransform.transform(), (i * glm::two_pi<float>()) / colors.size(), {0.0f, -1.0f, 0.0f});
 				pointLightTransform.translation = glm::vec3(rotateLight * glm::vec4{pointLightTransform.translation, 1.0f});

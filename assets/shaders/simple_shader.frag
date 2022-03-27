@@ -81,6 +81,6 @@ void main() {
         specularLighting += light.color.xyz * attenuation * blinnTerm;
     }
 
-    // vec4 textureColor = texture(sampler2D(textures[push.imageIndex], samp), fragUV);
-    outColor = vec4(texture(samp[push.imageIndex], fragUV).xyz * (specularLighting + diffuseLighting) * fragColor, 1.0); // RGBA
+    outColor = vec4(texture(samp[push.imageIndex], fragUV).xyz * (specularLighting + diffuseLighting), 1.0); // RGBA
+    // outColor = vec4((specularLighting + diffuseLighting) * fragColor, 1.0); // RGBA
 }
