@@ -7,6 +7,7 @@
 #include "Aspen/Renderer/System/ui_render_system.hpp"
 #include "Aspen/Renderer/System/mouse_picking_render_system.hpp"
 #include "Aspen/Renderer/System/depth_prepass_render_system.hpp"
+#include "Aspen/Renderer/System/shadow_render_system.hpp"
 #include "Aspen/Renderer/System/outline_render_system.hpp"
 #include "Aspen/Scene/entity.hpp"
 #include "Aspen/System/camera_controller_system.hpp"
@@ -18,8 +19,8 @@
 namespace Aspen {
 	class Application {
 	public:
-		static constexpr int WIDTH = 1920;
-		static constexpr int HEIGHT = 1080;
+		static constexpr int WIDTH = 1280;
+		static constexpr int HEIGHT = 720;
 
 		Application();
 		~Application();
@@ -76,11 +77,16 @@ namespace Aspen {
 		    device,
 		    renderer,
 		    globalRenderSystem.getDescriptorSetLayout()};
+		ShadowRenderSystem shadowRenderSystem{
+		    device,
+		    renderer,
+		    globalRenderSystem.getDescriptorSetLayout()};
 		SimpleRenderSystem simpleRenderSystem{
 		    device,
 		    renderer,
 		    globalRenderSystem.getDescriptorSetLayout(),
-		    depthPrePassRenderSystem.getResources()};
+		    depthPrePassRenderSystem.getResources(),
+		    shadowRenderSystem.getResources()};
 		PointLightRenderSystem pointLightRenderSystem{
 		    device,
 		    renderer,

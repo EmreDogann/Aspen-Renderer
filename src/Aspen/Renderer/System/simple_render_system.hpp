@@ -10,7 +10,7 @@ namespace Aspen {
 
 	class SimpleRenderSystem {
 	public:
-		SimpleRenderSystem(Device& device, Renderer& renderer, std::vector<std::unique_ptr<DescriptorSetLayout>>& globalDescriptorSetLayout, std::shared_ptr<Framebuffer> resourcesDepthPrePass);
+		SimpleRenderSystem(Device& device, Renderer& renderer, std::vector<std::unique_ptr<DescriptorSetLayout>>& globalDescriptorSetLayout, std::shared_ptr<Framebuffer> resourcesDepthPrePass, std::shared_ptr<Framebuffer> resourcesShadow);
 		~SimpleRenderSystem() = default;
 
 		SimpleRenderSystem(const SimpleRenderSystem&) = delete;
@@ -26,7 +26,7 @@ namespace Aspen {
 		void onResize();
 
 		VkDescriptorSet getCurrentDescriptorSet(int frameIndex) {
-			return descriptorSets[frameIndex];
+			return textureDescriptorSets[frameIndex];
 		}
 
 		std::shared_ptr<Framebuffer> getResources() {
@@ -43,12 +43,18 @@ namespace Aspen {
 		Renderer& renderer;
 		std::shared_ptr<Framebuffer> resources;
 		std::weak_ptr<Framebuffer> resourcesDepthPrePass;
+		std::weak_ptr<Framebuffer> resourcesShadow;
 		Pipeline pipeline{device};
 
 		SpecializationData specializationData{};
 
-		std::unique_ptr<DescriptorSetLayout> descriptorSetLayout{};
-		std::vector<VkDescriptorSet> descriptorSets;
+		// Shadows
+		std::unique_ptr<DescriptorSetLayout> shadowDescriptorSetLayout{};
+		std::vector<VkDescriptorSet> shadowDescriptorSets;
+
+		// Textures
+		std::unique_ptr<DescriptorSetLayout> textureDescriptorSetLayout{};
+		std::vector<VkDescriptorSet> textureDescriptorSets;
 
 		std::unique_ptr<Buffer> uboBuffer;
 	};

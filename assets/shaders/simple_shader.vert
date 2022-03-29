@@ -1,4 +1,5 @@
 #version 450 // GLSL version 4.50
+#extension GL_ARB_separate_shader_objects : enable
 
 // Input
 layout(location = 0) in vec3 position;
@@ -7,10 +8,12 @@ layout(location = 2) in vec3 normal;
 layout(location = 3) in vec2 uv;
 
 // Output
-layout(location = 0) out vec3 fragColor;
-layout(location = 1) out vec3 fragWorldPosition;
-layout(location = 2) out vec3 fragNormal;
-layout(location = 3) out vec2 fragUV;
+layout(location = 0) out vec3 outColor;
+layout(location = 1) out vec3 outWorldPosition;
+layout(location = 2) out vec3 outNormal;
+layout(location = 3) out vec2 outUV;
+layout(location = 4) out vec3 outLocalPos;
+layout(location = 5) out vec3 outLightPos;
 
 struct PointLight {
   vec4 position;
@@ -26,7 +29,7 @@ layout(set = 0, binding = 0) uniform GlobalUbo {
     vec3 ambientLightColor;
 } ubo;
 
-// Push Constants
+// Dynamic Uniform Buffer Object
 layout(set = 1, binding = 0) uniform DynamicUbo {
     mat4 modelMatrix; // projection * view * matrix
     mat4 normalMatrix;
@@ -54,8 +57,10 @@ void main() {
     // vec3 normalWorldSpace = normalize(normalMatrix * normal);
 
     // Instead, we compute the normal matrix on the CPU side.
-    fragNormal = normalize(mat3(dynamicUbo.normalMatrix) * normal);
-    fragWorldPosition = worldPosition.xyz;
-    fragColor = color;
-    fragUV = uv;
+    outNormal = normalize(mat3(dynamicUbo.normalMatrix) * normal);
+    outWorldPosition = worldPosition.xyz;
+    outColor = color;
+    outUV = uv;
+    outLocalPos = position;
+    outLightPos = ubo.lights[0].position.xyz;
 }

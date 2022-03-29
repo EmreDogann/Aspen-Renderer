@@ -7,10 +7,12 @@
 // out = variable to be used as an output.
 // vec4 = variable type.
 // outColor = variable name.
-layout (location = 0) in vec3 fragColor;
-layout (location = 1) in vec3 fragWorldPosition;
-layout (location = 2) in vec3 fragNormal;
-layout (location = 3) in vec2 fragUV;
+layout(location = 0) in vec3 inColor;
+layout(location = 1) in vec3 inWorldPosition;
+layout(location = 2) in vec3 inNormal;
+layout(location = 3) in vec2 inUV;
+layout(location = 4) in vec3 inLocalPos;
+layout(location = 5) in vec3 inLightPos;
 
 // Outputs
 layout (location = 0) out vec4 outColor;
@@ -32,13 +34,31 @@ layout(set = 0, binding = 0) uniform GlobalUbo {
     vec3 ambientLightColor;
 } ubo;
 
+// Shadows
+layout(set = 2, binding = 0) uniform samplerCube samplerShadowCubeMap;
+
 // Textures
-layout(set = 2, binding = 0) uniform sampler2D samp[];
+layout(set = 3, binding = 0) uniform sampler2D samplerTextures[];
 
 // Push Constants
 layout(push_constant) uniform Push {
     int imageIndex;
 } push;
+
+// Constants
+#define SHADOW_BIAS 0.0001
+#define SHADOW_OPACITY 0.5
+
+float VectorToDepthValue(vec3 Vec)
+{
+    vec3 AbsVec = abs(Vec);
+    float LocalZcomp = max(AbsVec.x, max(AbsVec.y, AbsVec.z));
+
+    const float f = 25.0;
+    const float n = 0.01;
+    float NormZComp = (f+n) / (f-n) - (2*f*n)/(f-n)/LocalZcomp;
+    return (NormZComp + 1.0) * 0.5;
+}
 
 void main() {
     // vec3 directionToLight = ubo.lightPosition - fragPositionWorld;
@@ -55,7 +75,7 @@ void main() {
     // Blinn-Phong Lighting Model
     vec3 diffuseLighting = ubo.ambientLightColor;
     vec3 specularLighting = vec3(0.0);
-    vec3 surfaceNormal = normalize(fragNormal);
+    vec3 surfaceNormal = normalize(inNormal);
 
     vec3 cameraPositionWorld = ubo.inverseViewMatrix[3].xyz;
 
@@ -63,7 +83,7 @@ void main() {
     for (int i = 0; i < numLights; i++) {
         PointLight light = ubo.lights[i];
 
-        vec3 directionToLight = light.position.xyz - fragWorldPosition;
+        vec3 directionToLight = light.position.xyz - inWorldPosition;
         float attenuation = light.color.w / dot(directionToLight, directionToLight); // distance squared
         float cosAngIncidence = dot(surfaceNormal, directionToLight);
         cosAngIncidence = clamp(cosAngIncidence, 0, 1);
@@ -72,7 +92,7 @@ void main() {
         diffuseLighting += light.color.xyz * attenuation * cosAngIncidence;
 
         // Specular lighting
-        vec3 viewDirection = normalize(cameraPositionWorld - fragWorldPosition);
+        vec3 viewDirection = normalize(cameraPositionWorld - inWorldPosition);
         vec3 halfAngle = normalize(directionToLight + viewDirection);
         float blinnTerm = dot(surfaceNormal, halfAngle);
         blinnTerm = clamp(blinnTerm, 0, 1);
@@ -81,6 +101,16 @@ void main() {
         specularLighting += light.color.xyz * attenuation * blinnTerm;
     }
 
-    outColor = vec4(texture(samp[push.imageIndex], fragUV).xyz * (specularLighting + diffuseLighting), 1.0); // RGBA
-    // outColor = vec4((specularLighting + diffuseLighting) * fragColor, 1.0); // RGBA
+    // Shadow
+	vec3 lightVec = inWorldPosition - inLightPos;
+    float sampledDist = texture(samplerShadowCubeMap, lightVec).x;
+    float dist = VectorToDepthValue(inLightPos - inWorldPosition);
+    // float dist = length(lightVec);
+
+	// Check if fragment is in shadow
+    float bias = max(0.0001 * (1.0 - clamp(dot(surfaceNormal, (inLightPos - inWorldPosition)), 0, 1)), 0.0001);
+    float shadow = (sampledDist + bias > dist) ? 1.0 : 0.1;
+
+    outColor = vec4(texture(samplerTextures[push.imageIndex], inUV).xyz * (specularLighting + diffuseLighting) * shadow, 1.0); // RGBA
+    // outColor = vec4((specularLighting + diffuseLighting) * inColor * shadow, 1.0); // RGBA
 }

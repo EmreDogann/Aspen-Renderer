@@ -114,8 +114,22 @@ namespace Aspen {
 		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 		createInfo.pApplicationInfo = &appInfo;
 
+		// Print and return the available and required extensions.
+		std::unordered_set<std::string> availableExtensions = availableInstanceExtensions();
+
 		// Because Vulkan is a platform agnostic API, we need to tell GLFW to give us the required extensions to interface with the window system of the OS.
 		auto extensions = getRequiredExtensions();
+
+		// Add the requested instance extensions if they are available.
+		for (const auto& requestedExtension : instanceExtensions) {
+			if (availableExtensions.find(std::string(requestedExtension)) != availableExtensions.end()) {
+				std::cout << "Adding Instance-Level Extension: " << requestedExtension << std::endl;
+				extensions.push_back(requestedExtension);
+			} else {
+				std::cout << "\tThe Following extension is not available: " << requestedExtension << std::endl;
+			}
+		}
+
 		createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
 		createInfo.ppEnabledExtensionNames = extensions.data();
 
@@ -136,9 +150,6 @@ namespace Aspen {
 		if (vkCreateInstance(&createInfo, nullptr, &instance_) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create instance_!");
 		}
-
-		// Print the available and required extensions.
-		hasGflwRequiredInstanceExtensions();
 	}
 
 	// Choose a suitable physical device.
@@ -208,13 +219,18 @@ namespace Aspen {
 		enabledDescriptorIndexingFeatures.descriptorBindingVariableDescriptorCount = VK_TRUE;
 		enabledDescriptorIndexingFeatures.descriptorBindingPartiallyBound = VK_TRUE;
 
+		// Enable features for multiview.
+		enabledMultiviewFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES_KHR;
+		enabledMultiviewFeatures.multiview = VK_TRUE;
+		enabledMultiviewFeatures.pNext = &enabledDescriptorIndexingFeatures;
+
 		// Create logical device object.
 		VkDeviceCreateInfo createInfo = {};
 		createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 		createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
 		createInfo.pQueueCreateInfos = queueCreateInfos.data();
 		createInfo.pEnabledFeatures = &enabledFeatures;
-		createInfo.pNext = &enabledDescriptorIndexingFeatures;
+		createInfo.pNext = &enabledMultiviewFeatures;
 
 		// Enable device specific extensions (e.g. swap chain).
 		createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
@@ -271,7 +287,7 @@ namespace Aspen {
 
 	void Device::createDescriptorPool() {
 		descriptorPool = DescriptorPool::Builder(*this)
-		                     .setMaxSets(10)
+		                     .setMaxSets(20)
 		                     .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10)
 		                     .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 10)
 		                     .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10)
@@ -383,7 +399,7 @@ namespace Aspen {
 	}
 
 	// Print out the available extensions from GLFW and which ones were required by the application.
-	void Device::hasGflwRequiredInstanceExtensions() {
+	std::unordered_set<std::string> Device::availableInstanceExtensions() {
 		uint32_t extensionCount = 0;
 		vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
 		std::vector<VkExtensionProperties> extensions(extensionCount);
@@ -404,6 +420,8 @@ namespace Aspen {
 				throw std::runtime_error("Missing required glfw extension");
 			}
 		}
+
+		return available;
 	}
 
 	// Get the features that are supported by this physical device.

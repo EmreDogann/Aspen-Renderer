@@ -169,7 +169,7 @@ namespace Aspen {
 		// Here we specify the swap chain extent and not the window extent because for
 		// high density displays (e.g. Apple's Retina displays), the size of the
 		// window will not be 1:1 with the size of the swap chain.
-		renderPassInfo.renderArea.extent = swapChain->getSwapChainExtent();
+		renderPassInfo.renderArea.extent = {static_cast<uint32_t>(renderInfo.viewport.width), static_cast<uint32_t>(renderInfo.viewport.height)};
 
 		// What inital values we want our frame buffer attatchments to be cleared to.
 		// This corresponds to how we've structured our render pass: Index 0 = color

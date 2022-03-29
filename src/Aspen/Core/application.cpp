@@ -214,18 +214,18 @@ namespace Aspen {
 		cameraComponent.camera.setPerspectiveProjection(glm::radians(65.0f), aspect, 0.1f, 100.0f);
 		cameraComponent.camera.setView(cameraTransform.translation, cameraTransform.rotation);
 
-		auto group = m_Scene->getPointLights();
-		for (auto& entity : group) {
-			auto [transform, pointLight] = group.get<TransformComponent, PointLightComponent>(entity);
-			auto rotateLights = glm::rotate(glm::mat4(1.0f), static_cast<float>(deltaTime), {0.0f, -1.0f, 0.0f});
+		// auto group = m_Scene->getPointLights();
+		// for (auto& entity : group) {
+		// 	auto [transform, pointLight] = group.get<TransformComponent, PointLightComponent>(entity);
+		// 	auto rotateLights = glm::rotate(glm::mat4(1.0f), static_cast<float>(deltaTime), {0.0f, -1.0f, 0.0f});
 
-			// Update light position
-			// 1) Translate the light to the center
-			// 2) Make the rotation
-			// 3) Translate the object back to its original location
-			auto transformTemp = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 2.5f));
-			transform.translation = (transformTemp * rotateLights * glm::inverse(transformTemp)) * glm::vec4(transform.translation, 1.0f);
-		}
+		// 	// Update light position
+		// 	// 1) Translate the light to the center
+		// 	// 2) Make the rotation
+		// 	// 3) Translate the object back to its original location
+		// 	auto transformTemp = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 2.5f));
+		// 	transform.translation = (transformTemp * rotateLights * glm::inverse(transformTemp)) * glm::vec4(transform.translation, 1.0f);
+		// }
 
 		Input::OnUpdate(); // Update input manager state.
 	}
@@ -245,13 +245,18 @@ namespace Aspen {
 
 			// Update our UBO buffer.
 			globalRenderSystem.updateUBOs(frameInfo);
+			shadowRenderSystem.updateUBOs(frameInfo);
 
 			/*
-			    Depth Prepass
+			    Depth Prepass & Shadow Mapping Pass
 			*/
 			{
 				renderer.beginRenderPass(commandBuffer, depthPrePassRenderSystem.prepareRenderInfo());
 				depthPrePassRenderSystem.render(frameInfo, uiState.selectedEntity.getEntity());
+				renderer.endRenderPass(commandBuffer);
+
+				renderer.beginRenderPass(commandBuffer, shadowRenderSystem.prepareRenderInfo());
+				shadowRenderSystem.render(frameInfo);
 				renderer.endRenderPass(commandBuffer);
 			}
 
@@ -515,7 +520,7 @@ namespace Aspen {
 			floor = m_Scene->createEntity("Floor");
 			auto& floorTransform = floor.getComponent<TransformComponent>();
 			floorTransform.translation = {0.0f, 0.0f, 2.5f};
-			floorTransform.scale = {5.0f, 5.0f, 5.0f};
+			floorTransform.scale = {15.0f, 15.0f, 15.0f};
 
 			auto& floorMesh = floor.addComponent<MeshComponent>();
 			createFloorModel(device,
@@ -538,7 +543,7 @@ namespace Aspen {
 
 			Entity object2 = m_Scene->createEntity("Vase2");
 			auto& object2Transform = object2.getComponent<TransformComponent>();
-			object2Transform.translation = {1.0f, 0.0f, 2.5f};
+			object2Transform.translation = {1.0f, 0.0f, 3.0f};
 			object2Transform.scale = {3.0f, 3.0f, 3.0f};
 
 			auto& object2Mesh = object2.addComponent<MeshComponent>();
@@ -551,7 +556,7 @@ namespace Aspen {
 		{
 			object = m_Scene->createEntity("Cube");
 			auto& objectTransform = object.getComponent<TransformComponent>();
-			objectTransform.translation = {0.0f, -1.5f, 3.25f};
+			objectTransform.translation = {0.0f, -2.0f, 3.25f};
 			objectTransform.rotation = glm::quat(glm::vec3(1.0f, 2.0f, 1.5f));
 			objectTransform.scale = glm::vec3(0.5f);
 
@@ -568,11 +573,11 @@ namespace Aspen {
 		{
 			// https://www.color-hex.com/color-palette/5361
 			std::vector<glm::vec3> colors{
-			    {1.0f, 0.1f, 0.1f},
-			    {0.1f, 0.1f, 1.0f},
-			    {0.1f, 1.0f, 0.1f},
-			    {1.0f, 1.0f, 0.1f},
-			    {0.1f, 1.0f, 1.0f},
+			    // {1.0f, 0.1f, 0.1f},
+			    // {0.1f, 0.1f, 1.0f},
+			    // {0.1f, 1.0f, 0.1f},
+			    // {1.0f, 1.0f, 0.1f},
+			    // {0.1f, 1.0f, 1.0f},
 			    {1.0f, 1.0f, 1.0f},
 			};
 
@@ -585,8 +590,8 @@ namespace Aspen {
 				pointLightComponent.color = colors[i];
 				pointLightComponent.lightIntensity = 0.5f;
 
-				auto rotateLight = glm::rotate(pointLightTransform.transform(), (i * glm::two_pi<float>()) / colors.size(), {0.0f, -1.0f, 0.0f});
-				pointLightTransform.translation = glm::vec3(rotateLight * glm::vec4{pointLightTransform.translation, 1.0f});
+				// auto rotateLight = glm::rotate(pointLightTransform.transform(), (i * glm::two_pi<float>()) / colors.size(), {0.0f, -1.0f, 0.0f});
+				// pointLightTransform.translation = glm::vec3(rotateLight * glm::vec4{pointLightTransform.translation, 1.0f});
 			}
 		}
 	}

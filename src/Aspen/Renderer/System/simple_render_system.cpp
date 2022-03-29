@@ -5,13 +5,13 @@ namespace Aspen {
 		alignas(16) int imageIndex;
 	};
 
-	SimpleRenderSystem::SimpleRenderSystem(Device& device, Renderer& renderer, std::vector<std::unique_ptr<DescriptorSetLayout>>& globalDescriptorSetLayout, std::shared_ptr<Framebuffer> resources)
-	    : device(device), renderer(renderer), resources(std::make_unique<Framebuffer>(device)), resourcesDepthPrePass(resources), descriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT) {
+	SimpleRenderSystem::SimpleRenderSystem(Device& device, Renderer& renderer, std::vector<std::unique_ptr<DescriptorSetLayout>>& globalDescriptorSetLayout, std::shared_ptr<Framebuffer> resourcesDepthPrePass, std::shared_ptr<Framebuffer> resourcesShadow)
+	    : device(device), renderer(renderer), resources(std::make_unique<Framebuffer>(device)), resourcesDepthPrePass(resourcesDepthPrePass), resourcesShadow(resourcesShadow), textureDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT), shadowDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT) {
 
 		createResources();
 
 		createDescriptorSetLayout();
-		// createDescriptorSet();
+		createDescriptorSet();
 
 		createPipelineLayout(globalDescriptorSetLayout);
 		createPipelines();
@@ -75,7 +75,6 @@ namespace Aspen {
 
 	void SimpleRenderSystem::assignTextures(Scene& scene) {
 		std::vector<VkDescriptorImageInfo> descriptorImageInfos(4);
-		std::vector<VkDescriptorImageInfo> samplerDescriptorImageInfos(4);
 
 		int index = 0;
 		auto group = scene.getRenderComponents();
@@ -88,28 +87,38 @@ namespace Aspen {
 			++index;
 		}
 
-		for (int i = 0; i < descriptorSets.size(); ++i) {
-			DescriptorWriter(*descriptorSetLayout, device.getDescriptorPool())
+		for (int i = 0; i < textureDescriptorSets.size(); ++i) {
+			DescriptorWriter(*textureDescriptorSetLayout, device.getDescriptorPool())
 			    .writeImage(0, descriptorImageInfos.data(), 4)
-			    .build(descriptorSets[i]);
+			    .build(textureDescriptorSets[i]);
 		}
 	}
 
 	// Create a Descriptor Set Layout for a Uniform Buffer Object (UBO) & Textures.
 	void SimpleRenderSystem::createDescriptorSetLayout() {
-		descriptorSetLayout = DescriptorSetLayout::Builder(device)
-		                          .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT, 32) // Binding 0: Fragment shader combined image sampler. Make it an array of 4 image samplers.
-		                          .build();
+		textureDescriptorSetLayout = DescriptorSetLayout::Builder(device)
+		                                 .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT, 32) // Binding 0: Fragment shader combined image sampler for textures.
+		                                 .build();
+
+		shadowDescriptorSetLayout = DescriptorSetLayout::Builder(device)
+		                                .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Binding 0: Fragment shader combined image sampler for shadows.
+		                                .build();
 	}
 
 	// Create Descriptor Sets.
 	void SimpleRenderSystem::createDescriptorSet() {
-		for (int i = 0; i < descriptorSets.size(); ++i) {
-			auto bufferInfo = uboBuffer->descriptorInfo();
+		std::shared_ptr<Framebuffer> tempFramebuffer = resourcesShadow.lock();
 
-			DescriptorWriter(*descriptorSetLayout, device.getDescriptorPool())
-			    .writeBuffer(0, &bufferInfo)
-			    .build(descriptorSets[i]);
+		VkDescriptorImageInfo descriptorImageInfo{};
+
+		descriptorImageInfo.imageLayout = tempFramebuffer->attachments[0].description.finalLayout;
+		descriptorImageInfo.imageView = tempFramebuffer->attachments[0].view;
+		descriptorImageInfo.sampler = tempFramebuffer->sampler;
+
+		for (int i = 0; i < shadowDescriptorSets.size(); ++i) {
+			DescriptorWriter(*shadowDescriptorSetLayout, device.getDescriptorPool())
+			    .writeImage(0, &descriptorImageInfo, 1)
+			    .build(shadowDescriptorSets[i]);
 		}
 	}
 
@@ -120,7 +129,7 @@ namespace Aspen {
 		pushConstantRange.offset = 0;                                // To be used if you are using separate ranges for the vertex and fragment shaders.
 		pushConstantRange.size = sizeof(SimplePushConstantData);
 
-		std::vector<VkDescriptorSetLayout> descriptorSetLayouts{globalDescriptorSetLayout[0]->getDescriptorSetLayout(), globalDescriptorSetLayout[1]->getDescriptorSetLayout(), descriptorSetLayout->getDescriptorSetLayout()};
+		std::vector<VkDescriptorSetLayout> descriptorSetLayouts{globalDescriptorSetLayout[0]->getDescriptorSetLayout(), globalDescriptorSetLayout[1]->getDescriptorSetLayout(), shadowDescriptorSetLayout->getDescriptorSetLayout(), textureDescriptorSetLayout->getDescriptorSetLayout()};
 		pipeline.createPipelineLayout(descriptorSetLayouts, pushConstantRange);
 	}
 
@@ -197,8 +206,8 @@ namespace Aspen {
 		auto group = frameInfo.scene->getRenderComponents();
 		for (const auto& entity : group) {
 			uint32_t dynamicOffset = index * frameInfo.dynamicOffset;
-			std::vector<VkDescriptorSet> descriptorSetsCombined{frameInfo.descriptorSet[0], frameInfo.descriptorSet[1], descriptorSets[frameInfo.frameIndex]};
-			vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getPipelineLayout(), 0, 3, descriptorSetsCombined.data(), 1, &dynamicOffset);
+			std::vector<VkDescriptorSet> descriptorSetsCombined{frameInfo.descriptorSet[0], frameInfo.descriptorSet[1], shadowDescriptorSets[frameInfo.frameIndex], textureDescriptorSets[frameInfo.frameIndex]};
+			vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getPipelineLayout(), 0, 4, descriptorSetsCombined.data(), 1, &dynamicOffset);
 
 			auto [transform, mesh] = group.get<TransformComponent, MeshComponent>(entity);
 			// transform.rotation.y = glm::mod(transform.rotation.y + 0.0001f, glm::two_pi<float>());  // Slowly rotate game objects.

@@ -110,6 +110,7 @@ namespace Aspen {
 		VkPhysicalDeviceProperties properties{};
 		VkPhysicalDeviceFeatures enabledFeatures{};
 		VkPhysicalDeviceDescriptorIndexingFeatures enabledDescriptorIndexingFeatures{};
+		VkPhysicalDeviceMultiviewFeaturesKHR enabledMultiviewFeatures{};
 
 	private:
 		void createInstance();
@@ -126,7 +127,7 @@ namespace Aspen {
 		bool checkValidationLayerSupport();
 		QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 		static void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
-		void hasGflwRequiredInstanceExtensions();
+		std::unordered_set<std::string> availableInstanceExtensions();
 		bool checkDeviceExtensionSupport(VkPhysicalDevice device);
 		void createSyncObjects();
 		SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
@@ -153,7 +154,8 @@ namespace Aspen {
 		std::unique_ptr<DescriptorPool> descriptorPoolImGui{};
 
 		const std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
-		const std::vector<const char*> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME};
+		const std::vector<const char*> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_MULTIVIEW_EXTENSION_NAME};
+		const std::vector<const char*> instanceExtensions = {VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME};
 	};
 
 } // namespace Aspen

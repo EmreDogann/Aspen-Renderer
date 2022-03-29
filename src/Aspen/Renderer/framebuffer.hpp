@@ -70,14 +70,15 @@ namespace Aspen {
 	 */
 	struct AttachmentCreateInfo {
 		uint32_t width, height;
-		uint32_t layerCount;
-		VkFormat format;
-		VkImageUsageFlags usage;
-		VkAttachmentLoadOp loadOp;
-		VkAttachmentStoreOp storeOp;
-		VkAttachmentLoadOp stencilLoadOp;
-		VkAttachmentStoreOp stencilStoreOp;
+		uint32_t layerCount = 1;
+		VkFormat format{};
+		VkImageUsageFlags usage{};
+		VkAttachmentLoadOp loadOp{};
+		VkAttachmentStoreOp storeOp{};
+		VkAttachmentLoadOp stencilLoadOp{};
+		VkAttachmentStoreOp stencilStoreOp{};
 		VkSampleCountFlagBits imageSampleCount = VK_SAMPLE_COUNT_1_BIT;
+		VkImageCreateFlags flags{};
 	};
 
 	/**
@@ -213,6 +214,7 @@ namespace Aspen {
 			image.samples = createinfo.imageSampleCount;
 			image.tiling = VK_IMAGE_TILING_OPTIMAL;
 			image.usage = createinfo.usage;
+			image.flags = createinfo.flags;
 
 			VkMemoryAllocateInfo memAlloc{};
 			memAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -233,7 +235,8 @@ namespace Aspen {
 
 			VkImageViewCreateInfo imageView{};
 			imageView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-			imageView.viewType = (createinfo.layerCount == 1) ? VK_IMAGE_VIEW_TYPE_2D : VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+			imageView.viewType = (createinfo.layerCount == 1) ? VK_IMAGE_VIEW_TYPE_2D : (createinfo.layerCount == 6) ? VK_IMAGE_VIEW_TYPE_CUBE
+			                                                                                                         : VK_IMAGE_VIEW_TYPE_2D_ARRAY;
 			imageView.format = createinfo.format;
 			imageView.subresourceRange = attachment.subresourceRange;
 			imageView.image = attachment.image;
@@ -348,11 +351,14 @@ namespace Aspen {
 			samplerInfo.addressModeU = adressMode;
 			samplerInfo.addressModeV = adressMode;
 			samplerInfo.addressModeW = adressMode;
+			samplerInfo.unnormalizedCoordinates = false;
 			samplerInfo.mipLodBias = 0.0f;
 			samplerInfo.maxAnisotropy = 1.0f;
 			samplerInfo.minLod = 0.0f;
 			samplerInfo.maxLod = 1.0f;
-			samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+			samplerInfo.compareEnable = VK_TRUE;
+			samplerInfo.compareOp = VK_COMPARE_OP_LESS;
+			samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
 			return vkCreateSampler(device.device(), &samplerInfo, nullptr, &sampler);
 		}
 
@@ -451,6 +457,131 @@ namespace Aspen {
 			framebufferInfo.width = width;
 			framebufferInfo.height = height;
 			framebufferInfo.layers = maxLayers;
+			VK_CHECK_RESULT(vkCreateFramebuffer(device.device(), &framebufferInfo, nullptr, &framebuffer));
+
+			return VK_SUCCESS;
+		}
+
+		/**
+		 * Creates a default multi-view render pass setup with one sub pass
+		 *
+		 * @return VK_SUCCESS if all resources have been created successfully
+		 */
+		VkResult createMultiViewRenderPass(uint32_t multiViewCount) {
+			std::vector<VkAttachmentDescription> attachmentDescriptions;
+			for (auto& attachment : attachments) {
+				attachmentDescriptions.push_back(attachment.description);
+			};
+
+			// Collect attachment references
+			std::vector<VkAttachmentReference> colorReferences;
+			VkAttachmentReference depthReference{};
+			bool hasDepth = false;
+			bool hasColor = false;
+
+			uint32_t attachmentIndex = 0;
+
+			for (auto& attachment : attachments) {
+				if (attachment.isDepthStencil()) {
+					// Only one depth attachment allowed
+					assert(!hasDepth);
+					depthReference.attachment = attachmentIndex;
+					depthReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+					hasDepth = true;
+				} else {
+					colorReferences.push_back({attachmentIndex, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL});
+					hasColor = true;
+				}
+				attachmentIndex++;
+			};
+
+			// Default render pass setup uses only one subpass
+			VkSubpassDescription subpass{};
+			subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+			if (hasColor) {
+				subpass.pColorAttachments = colorReferences.data();
+				subpass.colorAttachmentCount = static_cast<uint32_t>(colorReferences.size());
+			}
+			if (hasDepth) {
+				subpass.pDepthStencilAttachment = &depthReference;
+			}
+
+			// Use subpass dependencies for attachment layout transitions
+			std::array<VkSubpassDependency, 2> dependencies{};
+
+			dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+			dependencies[0].dstSubpass = 0;
+			dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+			dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+			dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+			dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+			dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+			dependencies[1].srcSubpass = 0;
+			dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+			dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+			dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+			dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+			dependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+			dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+			// Create render pass
+			VkRenderPassCreateInfo renderPassInfo = {};
+			renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+			renderPassInfo.pAttachments = attachmentDescriptions.data();
+			renderPassInfo.attachmentCount = static_cast<uint32_t>(attachmentDescriptions.size());
+			renderPassInfo.subpassCount = 1;
+			renderPassInfo.pSubpasses = &subpass;
+			renderPassInfo.dependencyCount = 2;
+			renderPassInfo.pDependencies = dependencies.data();
+
+			/*
+			    Setup multiview info for the renderpass
+			*/
+
+			/*
+			    Bit mask that specifies which view rendering is broadcast to
+			    0011 = Broadcast to first and second view (layer)
+			*/
+			const uint32_t viewMask = 0b00111111;
+
+			/*
+			    Bit mask that specifies correlation between views
+			    An implementation may use this for optimizations (concurrent render)
+			*/
+			const uint32_t correlationMask = 0b00111111;
+
+			VkRenderPassMultiviewCreateInfo renderPassMultiviewCreateInfo{};
+			renderPassMultiviewCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO;
+			renderPassMultiviewCreateInfo.subpassCount = 1;
+			renderPassMultiviewCreateInfo.pViewMasks = &viewMask;
+			// renderPassMultiviewCreateInfo.correlationMaskCount = 1;
+			// renderPassMultiviewCreateInfo.pCorrelationMasks = &correlationMask;
+
+			renderPassInfo.pNext = &renderPassMultiviewCreateInfo;
+			VK_CHECK_RESULT(vkCreateRenderPass(device.device(), &renderPassInfo, nullptr, &renderPass));
+
+			std::vector<VkImageView> attachmentViews;
+			for (auto attachment : attachments) {
+				attachmentViews.push_back(attachment.view);
+			}
+
+			// Find. max number of layers across attachments
+			uint32_t maxLayers = 0;
+			for (auto attachment : attachments) {
+				if (attachment.subresourceRange.layerCount > maxLayers) {
+					maxLayers = attachment.subresourceRange.layerCount;
+				}
+			}
+
+			VkFramebufferCreateInfo framebufferInfo = {};
+			framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+			framebufferInfo.renderPass = renderPass;
+			framebufferInfo.pAttachments = attachmentViews.data();
+			framebufferInfo.attachmentCount = static_cast<uint32_t>(attachmentViews.size());
+			framebufferInfo.width = width;
+			framebufferInfo.height = height;
+			framebufferInfo.layers = 1;
 			VK_CHECK_RESULT(vkCreateFramebuffer(device.device(), &framebufferInfo, nullptr, &framebuffer));
 
 			return VK_SUCCESS;
