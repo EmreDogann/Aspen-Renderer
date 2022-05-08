@@ -16,9 +16,9 @@ namespace Aspen {
 	};
 
 	struct BuildAccelerationStructure {
-		VkAccelerationStructureBuildGeometryInfoKHR buildGeomInfo{};
+		VkAccelerationStructureBuildGeometryInfoKHR buildGeomInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR};
 		VkAccelerationStructureBuildRangeInfoKHR* buildRangeInfo{};
-		VkAccelerationStructureBuildSizesInfoKHR buildSizeInfo{};
+		VkAccelerationStructureBuildSizesInfoKHR buildSizeInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
 		AccelerationStructure accelerationStructure{};
 		AccelerationStructure oldAccelerationStructure{};
 	};
@@ -26,7 +26,7 @@ namespace Aspen {
 	class RayTracingRenderSystem {
 	public:
 		RayTracingRenderSystem(Device& device, Renderer& renderer, std::vector<std::unique_ptr<DescriptorSetLayout>>& globalDescriptorSetLayout, std::shared_ptr<Framebuffer> resourcesDepthPrePass);
-		~RayTracingRenderSystem() = default;
+		~RayTracingRenderSystem();
 
 		RayTracingRenderSystem(const RayTracingRenderSystem&) = delete;
 		RayTracingRenderSystem& operator=(const RayTracingRenderSystem&) = delete;

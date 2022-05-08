@@ -219,30 +219,37 @@ namespace Aspen {
 		// enabledFeatures.fillModeNonSolid = true;
 		// enabledFeatures.wideLines = true;
 
-		// Enable features for descriptor indexing.
-		enabledDescriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
-		enabledDescriptorIndexingFeatures.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
-		enabledDescriptorIndexingFeatures.runtimeDescriptorArray = VK_TRUE;
-		enabledDescriptorIndexingFeatures.descriptorBindingVariableDescriptorCount = VK_TRUE;
-		enabledDescriptorIndexingFeatures.descriptorBindingPartiallyBound = VK_TRUE;
+		/* ---- Enable Vulkan 1.2 specific features. ---- */
+		{
+			enabledVK12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+			enabledVK12Features.hostQueryReset = VK_TRUE;
 
-		// Enable features for multiview.
-		enabledMultiviewFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES_KHR;
-		enabledMultiviewFeatures.multiview = VK_TRUE;
-		enabledMultiviewFeatures.pNext = &enabledDescriptorIndexingFeatures;
+			// Descriptor Indexing
+			enabledVK12Features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+			enabledVK12Features.runtimeDescriptorArray = VK_TRUE;
+			enabledVK12Features.descriptorBindingVariableDescriptorCount = VK_TRUE;
+			enabledVK12Features.descriptorBindingPartiallyBound = VK_TRUE;
+
+			enabledVK12Features.bufferDeviceAddress = VK_TRUE;
+		}
+
+		/* ---- Enable features for multiview. ---- */
+		{
+			enabledMultiviewFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES_KHR;
+			enabledMultiviewFeatures.multiview = VK_TRUE;
+			enabledMultiviewFeatures.pNext = &enabledVK12Features;
+		}
 
 		/* ---- Ray Tracing extension features ---- */
-		enabledBufferAddressFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
-		enabledBufferAddressFeatures.bufferDeviceAddress = VK_TRUE;
-		enabledBufferAddressFeatures.pNext = &enabledMultiviewFeatures;
+		{
+			enabledRayTracingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+			enabledRayTracingFeatures.rayTracingPipeline = VK_TRUE;
+			enabledRayTracingFeatures.pNext = &enabledMultiviewFeatures;
 
-		enabledRayTracingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
-		enabledRayTracingFeatures.rayTracingPipeline = VK_TRUE;
-		enabledRayTracingFeatures.pNext = &enabledBufferAddressFeatures;
-
-		enabledAccelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
-		enabledAccelerationStructureFeatures.accelerationStructure = VK_TRUE;
-		enabledAccelerationStructureFeatures.pNext = &enabledRayTracingFeatures;
+			enabledAccelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+			enabledAccelerationStructureFeatures.accelerationStructure = VK_TRUE;
+			enabledAccelerationStructureFeatures.pNext = &enabledRayTracingFeatures;
+		}
 
 		// Create logical device object.
 		VkDeviceCreateInfo createInfo = {};

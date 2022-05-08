@@ -121,10 +121,9 @@ namespace Aspen {
 		VkPhysicalDeviceRayTracingPipelinePropertiesKHR rtProperties{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR};
 
 		VkPhysicalDeviceFeatures enabledFeatures{};
-		VkPhysicalDeviceBufferDeviceAddressFeatures enabledBufferAddressFeatures{};
+		VkPhysicalDeviceVulkan12Features enabledVK12Features{};
 		VkPhysicalDeviceRayTracingPipelineFeaturesKHR enabledRayTracingFeatures{};
 		VkPhysicalDeviceAccelerationStructureFeaturesKHR enabledAccelerationStructureFeatures{};
-		VkPhysicalDeviceDescriptorIndexingFeatures enabledDescriptorIndexingFeatures{};
 		VkPhysicalDeviceMultiviewFeaturesKHR enabledMultiviewFeatures{};
 
 		std::shared_ptr<DeviceProcedures> deviceProcedures_;

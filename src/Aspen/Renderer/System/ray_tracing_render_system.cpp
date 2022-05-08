@@ -17,6 +17,19 @@ namespace Aspen {
 		// createPipelines();
 	}
 
+	RayTracingRenderSystem::~RayTracingRenderSystem() {
+		vkDestroyImageView(device.device(), storage_image.view, nullptr);
+		vkDestroyImage(device.device(), storage_image.image, nullptr);
+		vkFreeMemory(device.device(), storage_image.memory, nullptr);
+
+		for (auto& blas : m_BLAS) {
+			blas.buffer.reset();
+			deviceProcedures.vkDestroyAccelerationStructureKHR(device.device(), blas.handle, nullptr);
+		}
+		m_TLAS.buffer.reset();
+		deviceProcedures.vkDestroyAccelerationStructureKHR(device.device(), m_TLAS.handle, nullptr);
+	}
+
 	void RayTracingRenderSystem::createResources() {
 
 		storage_image.width = renderer.getSwapChainExtent().width;
