@@ -6,10 +6,17 @@
 namespace Aspen {
 	class RenderSystem {
 	public:
-		virtual void render(FrameInfo& frameInfo);
-		virtual void onResize();
-		virtual void createDescriptorSetLayout();
-		virtual void createDescriptorSet();
+		virtual void createResources() = 0;
+		virtual void render(FrameInfo& frameInfo) = 0;
+		virtual void onResize() = 0;
+
+		virtual void createDescriptorSetLayout() = 0;
+		virtual void createDescriptorSet() = 0;
+
+		virtual void createPipeline() = 0;
+		virtual void createPipelineLayout(std::unique_ptr<DescriptorSetLayout>& globalDescriptorSetLayout) = 0;
+
+		virtual RenderInfo prepareRenderInfo() = 0;
 	};
 
 	static const int MAX_LIGHTS = 10;

@@ -60,11 +60,12 @@ namespace Aspen {
 		stagingBuffer.writeToBuffer((void*)vertices.data());
 
 		// Create a device local vertex buffer.
+		// VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT - Allows us to pass the device address of the buffer to the acceleration structure used for ray tracing.
 		vertexBuffer = std::make_unique<Buffer>(
 		    device,
 		    vertexSize,
 		    vertexCount,
-		    VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+		    VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 		    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
 		// Copy contents of staging buffer into device local vertex buffer.
@@ -94,11 +95,12 @@ namespace Aspen {
 		stagingBuffer.writeToBuffer((void*)indices.data());
 
 		// Create a device local index buffer.
+		// VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT - Allows us to pass the device address of the buffer to the acceleration structure used for ray tracing.
 		indexBuffer = std::make_unique<Buffer>(
 		    device,
 		    indexSize,
 		    indexCount,
-		    VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+		    VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 		    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
 		// Copy contents of staging buffer into device local index buffer.
@@ -129,12 +131,13 @@ namespace Aspen {
 				MeshComponent::Vertex vertex{};
 
 				// vertex_index is the first value of the face.
-				// It tells you what position value to use. A negative index means no index was provided.
+				// It defines the index value to use. A negative index means no index was provided.
+
+				// Each vertex attribute is in groups of 3, therefore we go through the array in steps of 3.
+				// The number added at the end corresponds to the component: 0 -> x, 1 -> y, 2 -> z.
 
 				// Read vertex positions and color
 				if (index.vertex_index >= 0) {
-					// Because we are traversing the attribute.vertices array in groups of 3, we need to multiply by 3.
-					// The number added at the end corresponds to the position axis: 0 -> x, 1 -> y, 2 -> z.
 					vertex.position = {
 					    attribute.vertices[3 * index.vertex_index + 0], // x
 					    attribute.vertices[3 * index.vertex_index + 1], // y
@@ -160,7 +163,9 @@ namespace Aspen {
 				// Read vertex texture coordinates
 				if (index.texcoord_index >= 0) {
 					vertex.uv = {
-					    attribute.texcoords[2 * index.texcoord_index + 0],        // u
+					    attribute.texcoords[2 * index.texcoord_index + 0], // u
+
+					    // Flip y axis of the image as Vulkan starts in the top-left corner not bottom-left.
 					    1.0f - attribute.texcoords[2 * index.texcoord_index + 1], // v
 					};
 				}
@@ -221,7 +226,8 @@ namespace Aspen {
 		    1 -> Location: The location value for input in the vertex shader.
 		    2 -> Binding: The binding the attribute is located in.
 		    3 -> Format: The number and type of components (e.g. a float vec3 would be VK_FORMAT_R32G32B32_SFLOAT),
-		    4 -> Offset: The byte offset for the position attribute.
+		    4 -> Offset: The byte offset for the position attribute. offsetof() returns the number of bytes taken up
+		    by a particular member of a type. The starting byte of the current attribute is the ending byte of the last attribute.
 		*/
 		attributeDescriptions.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(MeshComponent::Vertex, position)});
 		attributeDescriptions.push_back({1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(MeshComponent::Vertex, color)});

@@ -44,19 +44,19 @@ namespace Aspen {
 	}
 
 	void Scene::OnUpdate() {
-		Camera* mainCamera = nullptr;
+		// Camera* mainCamera = nullptr;
 
-		// Find the main camera in the scene.
-		auto view = m_Registry.view<TransformComponent, CameraComponent>();
-		for (auto entity : view) {
-			auto [transform, camera] = view.get<TransformComponent, CameraComponent>(entity);
+		// // Find the main camera in the scene.
+		// auto view = m_Registry.view<TransformComponent, CameraComponent>();
+		// for (auto entity : view) {
+		// 	auto [transform, camera] = view.get<TransformComponent, CameraComponent>(entity);
 
-			if (camera.primary) {
-				mainCamera = &camera.camera;
-				break;
-			}
-		}
+		// 	if (camera.primary) {
+		// 		mainCamera = &camera.camera;
+		// 		break;
+		// 	}
+		// }
 
-		if (mainCamera) {}
+		// if (mainCamera) {}
 	}
 } // namespace Aspen

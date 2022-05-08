@@ -49,8 +49,9 @@ layout(push_constant) uniform Push {
 #define SHADOW_BIAS 0.0001
 #define SHADOW_OPACITY 0.5
 
-float VectorToDepthValue(vec3 Vec)
-{
+// From https://stackoverflow.com/questions/10786951/omnidirectional-shadow-mapping-with-depth-cubemap
+// Convert the light-to-fragment vector to a depth value so it can be compared with a sampled depth value.
+float VectorToDepthValue(vec3 Vec) {
     vec3 AbsVec = abs(Vec);
     float LocalZcomp = max(AbsVec.x, max(AbsVec.y, AbsVec.z));
 

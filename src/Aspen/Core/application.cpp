@@ -33,7 +33,7 @@ namespace Aspen {
 	}
 
 	void Application::setupImGui() {
-		// Initalize the core structures for ImGui.
+		// Initialize the core structures for ImGui.
 		ImGui::CreateContext();
 
 		// Enable docking.
@@ -568,6 +568,8 @@ namespace Aspen {
 
 		// Assign these textures to a render system.
 		simpleRenderSystem.assignTextures(*m_Scene);
+		rayTracingRenderSystem.assignTextures(*m_Scene);
+		rayTracingRenderSystem.createAccelerationStructures(m_Scene);
 
 		// Create point lights
 		{

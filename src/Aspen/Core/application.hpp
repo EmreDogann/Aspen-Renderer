@@ -9,6 +9,7 @@
 #include "Aspen/Renderer/System/depth_prepass_render_system.hpp"
 #include "Aspen/Renderer/System/shadow_render_system.hpp"
 #include "Aspen/Renderer/System/outline_render_system.hpp"
+#include "Aspen/Renderer/System/ray_tracing_render_system.hpp"
 #include "Aspen/Scene/entity.hpp"
 #include "Aspen/System/camera_controller_system.hpp"
 #include "Aspen/System/camera_system.hpp"
@@ -87,6 +88,11 @@ namespace Aspen {
 		    globalRenderSystem.getDescriptorSetLayout(),
 		    depthPrePassRenderSystem.getResources(),
 		    shadowRenderSystem.getResources()};
+		RayTracingRenderSystem rayTracingRenderSystem{
+		    device,
+		    renderer,
+		    globalRenderSystem.getDescriptorSetLayout(),
+		    depthPrePassRenderSystem.getResources()};
 		PointLightRenderSystem pointLightRenderSystem{
 		    device,
 		    renderer,

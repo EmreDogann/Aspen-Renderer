@@ -11,6 +11,11 @@
 
 #include "vulkan/vulkan.h"
 
+// Libs & defines
+#define GLM_FORCE_RADIANS           // Ensures that GLM will expect angles to be specified in radians, not degrees.
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE // Tells GLM to expect depth values in the range 0-1 instead of -1 to 1.
+#include <glm/glm.hpp>
+
 // Custom define for better code readability
 #define VK_FLAGS_NONE 0
 // Default fence timeout in nanoseconds
@@ -89,4 +94,6 @@ namespace Aspen::VulkanTools {
 	bool fileExists(const std::string& filename);
 
 	uint32_t alignedSize(uint32_t value, uint32_t alignment);
+
+	VkTransformMatrixKHR glmToTransformMatrixKHR(glm::mat4 transform);
 } // namespace Aspen::VulkanTools

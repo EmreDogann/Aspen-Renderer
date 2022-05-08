@@ -42,7 +42,7 @@ namespace Aspen {
 		for (int i = 0; i < depthImages.size(); i++) {
 			vkDestroyImageView(device.device(), depthImageViews[i], nullptr);
 			vkDestroyImage(device.device(), depthImages[i], nullptr);
-			vkFreeMemory(device.device(), depthImageMemorys[i], nullptr);
+			vkFreeMemory(device.device(), depthImageMemories[i], nullptr);
 		}
 
 		// Destroy all framebuffer objects.
@@ -140,7 +140,7 @@ namespace Aspen {
 
 	// Creates the swap chain.
 	void SwapChain::createSwapChain() {
-		// Get the supoprted swap chain details (format, present modes, extent).
+		// Get the supprted swap chain details (format, present modes, extent).
 		SwapChainSupportDetails swapChainSupport = device.getSwapChainSupport();
 
 		// Based on the supported swap chain details, pick the most suitable properties.
@@ -173,7 +173,8 @@ namespace Aspen {
 
 		// How will we use these images.
 		// VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT - Means they will be used to render directly to (so as a color attachment).
-		createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+		// VK_IMAGE_USAGE_TRANSFER_DST_BIT - This is needed in order to copy the ray traced output to a swap chain image.
+		createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
 		// Get supported queue families.
 		QueueFamilyIndices indices = device.findPhysicalQueueFamilies();
@@ -405,7 +406,7 @@ namespace Aspen {
 		VkExtent2D swapChainExtent = getSwapChainExtent();
 
 		depthImages.resize(imageCount());
-		depthImageMemorys.resize(imageCount());
+		depthImageMemories.resize(imageCount());
 		depthImageViews.resize(imageCount());
 
 		for (int i = 0; i < depthImages.size(); i++) {
@@ -425,7 +426,7 @@ namespace Aspen {
 			imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 			imageInfo.flags = 0;
 
-			device.createImageWithInfo(imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImages[i], depthImageMemorys[i]);
+			device.createImageWithInfo(imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImages[i], depthImageMemories[i]);
 
 			VkImageViewCreateInfo viewInfo{};
 			viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -484,7 +485,7 @@ namespace Aspen {
 	// Select a suitable present mode in order of priority in the following order:
 	// 1. VK_PRESENT_MODE_MAILBOX_KHR
 	// 2. VK_PRESENT_MODE_IMMEDIATE_KHR
-	// 3. VK_PRESENT_MODE_FIFO_KHR - This present mode is always guarenteed to be
+	// 3. VK_PRESENT_MODE_FIFO_KHR - This present mode is always guaranteed to be
 	// available so is the safe pick.
 	VkPresentModeKHR SwapChain::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes) {
 		for (const auto& availablePresentMode : availablePresentModes) {
@@ -493,6 +494,7 @@ namespace Aspen {
 				return availablePresentMode;
 			}
 
+			// Currently not used.
 			if (availablePresentMode == VK_PRESENT_MODE_IMMEDIATE_KHR && desiredPresentMode == 2) {
 				std::cout << "Present mode: Immediate" << std::endl;
 				return availablePresentMode;

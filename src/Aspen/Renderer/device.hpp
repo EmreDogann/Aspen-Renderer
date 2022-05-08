@@ -4,6 +4,7 @@
 #include "Aspen/Core/window.hpp"
 #include "Aspen/Renderer/descriptors.hpp"
 #include "Aspen/Renderer/tools.hpp"
+#include "Aspen/Renderer/device_procedures.hpp"
 
 namespace Aspen {
 
@@ -60,6 +61,13 @@ namespace Aspen {
 		VkDevice device() {
 			return device_;
 		}
+		VkDevice device() const {
+			return device_;
+		}
+
+		DeviceProcedures& deviceProcedures() {
+			return *deviceProcedures_;
+		}
 
 		VkSurfaceKHR surface() {
 			return surface_;
@@ -107,10 +115,19 @@ namespace Aspen {
 
 		void createImageWithInfo(const VkImageCreateInfo& imageInfo, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
 
+		VkDeviceAddress getBufferDeviceAddress(VkBuffer buffer);
+
 		VkPhysicalDeviceProperties properties{};
+		VkPhysicalDeviceRayTracingPipelinePropertiesKHR rtProperties{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR};
+
 		VkPhysicalDeviceFeatures enabledFeatures{};
+		VkPhysicalDeviceBufferDeviceAddressFeatures enabledBufferAddressFeatures{};
+		VkPhysicalDeviceRayTracingPipelineFeaturesKHR enabledRayTracingFeatures{};
+		VkPhysicalDeviceAccelerationStructureFeaturesKHR enabledAccelerationStructureFeatures{};
 		VkPhysicalDeviceDescriptorIndexingFeatures enabledDescriptorIndexingFeatures{};
 		VkPhysicalDeviceMultiviewFeaturesKHR enabledMultiviewFeatures{};
+
+		std::shared_ptr<DeviceProcedures> deviceProcedures_;
 
 	private:
 		void createInstance();
@@ -154,7 +171,27 @@ namespace Aspen {
 		std::unique_ptr<DescriptorPool> descriptorPoolImGui{};
 
 		const std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
-		const std::vector<const char*> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_MULTIVIEW_EXTENSION_NAME};
+		const std::vector<const char*> deviceExtensions = {
+		    VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+
+		    // For omnidirectional shadows
+		    VK_KHR_MULTIVIEW_EXTENSION_NAME,
+
+		    // Ray Tracing Extensions
+		    VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+		    VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+
+		    // Required by VK_KHR_acceleration_structure
+		    VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+		    VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+		    VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME,
+
+		    // Required for VK_KHR_ray_tracing_pipeline
+		    VK_KHR_SPIRV_1_4_EXTENSION_NAME,
+
+		    // Required by VK_KHR_spirv_1_4
+		    VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME,
+		};
 		const std::vector<const char*> instanceExtensions = {VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME};
 	};
 

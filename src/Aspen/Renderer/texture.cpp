@@ -80,7 +80,7 @@ namespace Aspen {
 		VkBool32 useStaging = !forceLinear;
 
 		if (useStaging) {
-			// Create a host-visible staging buffer that contains the raw image data
+			// Create a host-visible staging buffer that contains the raw pixel data
 			// Create staging buffer and allocate memory for it.
 			Buffer stagingBuffer{
 			    *device,
@@ -130,7 +130,7 @@ namespace Aspen {
 			imageCreateInfo.extent = {width, height, 1};
 			imageCreateInfo.usage = imageUsageFlags;
 
-			// // Ensure that the TRANSFER_DST bit is set for staging
+			// Ensure that the TRANSFER_DST bit is set for staging
 			if (!(imageCreateInfo.usage & VK_IMAGE_USAGE_TRANSFER_DST_BIT)) {
 				imageCreateInfo.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 			}

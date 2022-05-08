@@ -28,7 +28,7 @@ layout(push_constant) uniform Push {
 
 void main() {
     // Discard billboard fragments outside the radius. Will create a circle of size radius.
-    float alpha = 1.0 - sqrt(dot(fragOffset, fragOffset)); // Calculate the distance of the fragment from the center of the billboard.
+    float alpha = 1.0 - sqrt(dot(fragOffset, fragOffset)); // Calculate the distance of the fragment from the centre of the billboard.
     if (alpha <= 0.0) {
         discard; // Don't render this fragment.
     }

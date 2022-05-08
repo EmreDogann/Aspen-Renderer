@@ -18,7 +18,7 @@ namespace Aspen {
 	void Window::initWindow() {
 		glfwInit();
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); // Prevent GLFW from creating an OpenGL context.
-		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);    // Prevent GLFW from making the window resizeable.
+		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);    // Tell GLFW to make the window resizable.
 		// glfwWindowHint(GLFW_DOUBLEBUFFER, GLFW_FALSE); // Disable double buffering.
 
 		// int numVideoMode;
@@ -106,12 +106,12 @@ namespace Aspen {
 			Input::UpdateMouseScroll(xOffset, yOffset);
 		});
 
-		glfwSetCursorPosCallback(window, [](GLFWwindow* window, double xOffset, double yOffset) {
-			WindowProps& windowProps = *static_cast<WindowProps*>(glfwGetWindowUserPointer(window));
+		// glfwSetCursorPosCallback(window, [](GLFWwindow* window, double xOffset, double yOffset) {
+		// 	WindowProps& windowProps = *static_cast<WindowProps*>(glfwGetWindowUserPointer(window));
 
-			// MouseMovedEvent event(static_cast<float>(xOffset), static_cast<float>(yOffset));
-			// windowProps.eventCallback(event);
-		});
+		// 	MouseMovedEvent event(static_cast<float>(xOffset), static_cast<float>(yOffset));
+		// 	windowProps.eventCallback(event);
+		// });
 	}
 
 	void Window::createWindowSurface(VkInstance instance, VkSurfaceKHR* surface) {

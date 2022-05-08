@@ -13,8 +13,7 @@ namespace Aspen {
 	}
 
 	// Debug messenger constructor.
-	VkResult
-	CreateDebugUtilsMessengerEXT(VkInstance instance_, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
+	VkResult CreateDebugUtilsMessengerEXT(VkInstance instance_, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
 		auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance_, "vkCreateDebugUtilsMessengerEXT"));
 		if (func != nullptr) {
 			return func(instance_, pCreateInfo, pAllocator, pDebugMessenger);
@@ -50,6 +49,10 @@ namespace Aspen {
 		// Create a logical device object from the physical device that was picked.
 		// This will also create the queues from the queue families specified.
 		createLogicalDevice();
+
+		// TODO: I need to find a better way to load in extension functions. Maybe using Volk?
+		// Find function pointers to extension functions.
+		deviceProcedures_ = std::make_shared<DeviceProcedures>(*this);
 
 		// Setup command pool. Useful for command buffer allocations.
 		createCommandPool();
@@ -179,7 +182,11 @@ namespace Aspen {
 		}
 
 		// Get the properties of the selected physical device.
-		vkGetPhysicalDeviceProperties(physicalDevice_, &properties);
+		VkPhysicalDeviceProperties2 prop2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
+		prop2.pNext = &rtProperties; // Get ray tracing properties
+		vkGetPhysicalDeviceProperties2(physicalDevice_, &prop2);
+		properties = prop2.properties;
+
 		std::cout << "Physical device: " << properties.deviceName << std::endl;
 	}
 
@@ -224,13 +231,26 @@ namespace Aspen {
 		enabledMultiviewFeatures.multiview = VK_TRUE;
 		enabledMultiviewFeatures.pNext = &enabledDescriptorIndexingFeatures;
 
+		/* ---- Ray Tracing extension features ---- */
+		enabledBufferAddressFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
+		enabledBufferAddressFeatures.bufferDeviceAddress = VK_TRUE;
+		enabledBufferAddressFeatures.pNext = &enabledMultiviewFeatures;
+
+		enabledRayTracingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+		enabledRayTracingFeatures.rayTracingPipeline = VK_TRUE;
+		enabledRayTracingFeatures.pNext = &enabledBufferAddressFeatures;
+
+		enabledAccelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+		enabledAccelerationStructureFeatures.accelerationStructure = VK_TRUE;
+		enabledAccelerationStructureFeatures.pNext = &enabledRayTracingFeatures;
+
 		// Create logical device object.
 		VkDeviceCreateInfo createInfo = {};
 		createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 		createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
 		createInfo.pQueueCreateInfos = queueCreateInfos.data();
 		createInfo.pEnabledFeatures = &enabledFeatures;
-		createInfo.pNext = &enabledMultiviewFeatures;
+		createInfo.pNext = &enabledAccelerationStructureFeatures;
 
 		// Enable device specific extensions (e.g. swap chain).
 		createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
@@ -566,6 +586,15 @@ namespace Aspen {
 		allocInfo.allocationSize = memRequirements.size;
 		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties); // Get the memory type suitable for our needs.
 
+		// If the buffer was given the usage flag VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+		// assign the memory allocation the VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT flag as per the spec.
+		VkMemoryAllocateFlagsInfo allocFlagsInfo{};
+		if (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) {
+			allocFlagsInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
+			allocFlagsInfo.flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+			allocInfo.pNext = &allocFlagsInfo;
+		}
+
 		// TODO: Device allocations are limited (as low as 4096 allocations),
 		// and so a custom memory allocator is needed to split up the allocations among many different objects (e.g. VMA).
 		// Allocate the memory for the buffer and return a handle.
@@ -700,6 +729,16 @@ namespace Aspen {
 		                          .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000)
 		                          .addPoolSize(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000)
 		                          .build();
+	}
+
+	/*
+	Gets the device address from a buffer that's needed in many places during the ray tracing setup
+*/
+	VkDeviceAddress Device::getBufferDeviceAddress(VkBuffer buffer) {
+		VkBufferDeviceAddressInfoKHR buffer_device_address_info{};
+		buffer_device_address_info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+		buffer_device_address_info.buffer = buffer;
+		return deviceProcedures_->vkGetBufferDeviceAddressKHR(device_, &buffer_device_address_info);
 	}
 
 } // namespace Aspen

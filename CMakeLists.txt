@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.7)
 
 set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Toolchain_clang-mingw.cmake")
 
+# For some reason debugging only works if CMAKE_LINKER is set to "lld.exe" or "ld.exe".
+set(CMAKE_LINKER "C:/msys64/mingw64/bin/lld.exe")
+
 # Use ccahce if available
 find_program(CCACHE_PROGRAM ccache)
 if(CCACHE_PROGRAM)
@@ -22,6 +25,7 @@ if (DEFINED VULKAN_SDK_PATH)
 else()
   find_package(Vulkan REQUIRED FATAL_ERROR) # throws error if could not find Vulkan
 endif()
+message(STATUS "VULKAN LIBRARY: ${Vulkan_INCLUDE_DIR}")
 
 if (NOT Vulkan_FOUND)
 	message(FATAL_ERROR "Could not find Vulkan library!")

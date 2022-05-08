@@ -1,7 +1,7 @@
 /*
  * Encapsulates a vulkan buffer
  *
- * Initially based off VulkanBuffer by Sascha Willems -
+ * Based off VulkanBuffer by Sascha Willems -
  * https://github.com/SaschaWillems/Vulkan/blob/master/base/VulkanBuffer.h
  */
 
