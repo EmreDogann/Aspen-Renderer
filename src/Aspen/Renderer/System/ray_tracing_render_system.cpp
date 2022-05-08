@@ -450,7 +450,7 @@ namespace Aspen {
 		                                                         &countInstance,
 		                                                         &sizeInfo);
 
-		// Create a individual buffer for a BLAS.
+		// Create a individual buffer for a TLAS.
 		m_TLAS.buffer = std::make_unique<Buffer>(
 		    device,
 		    sizeInfo.accelerationStructureSize,
@@ -460,7 +460,7 @@ namespace Aspen {
 
 		// Actual allocation of buffer and acceleration structure.
 		VkAccelerationStructureCreateInfoKHR accelerationStructureCreateInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR};
-		accelerationStructureCreateInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+		accelerationStructureCreateInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
 		accelerationStructureCreateInfo.size = sizeInfo.accelerationStructureSize; // Will be used to allocate memory.
 		accelerationStructureCreateInfo.buffer = m_TLAS.buffer->getBuffer();
 		deviceProcedures.vkCreateAccelerationStructureKHR(device.device(), &accelerationStructureCreateInfo, nullptr, &m_TLAS.handle);

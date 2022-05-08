@@ -568,7 +568,7 @@ namespace Aspen {
 
 		// Assign these textures to a render system.
 		simpleRenderSystem.assignTextures(*m_Scene);
-		rayTracingRenderSystem.assignTextures(*m_Scene);
+		// rayTracingRenderSystem.assignTextures(*m_Scene);
 		rayTracingRenderSystem.createAccelerationStructures(m_Scene);
 
 		// Create point lights
