@@ -1,20 +1,9 @@
 #include "Aspen/Renderer/System/ray_tracing_render_system.hpp"
 
 namespace Aspen {
-	struct SimplePushConstantData {
-		alignas(16) int imageIndex;
-	};
-
-	RayTracingRenderSystem::RayTracingRenderSystem(Device& device, Renderer& renderer, std::vector<std::unique_ptr<DescriptorSetLayout>>& globalDescriptorSetLayout, std::shared_ptr<Framebuffer> resourcesDepthPrePass)
-	    : device(device), deviceProcedures(device.deviceProcedures()), renderer(renderer), resources(std::make_unique<Framebuffer>(device)), resourcesDepthPrePass(resourcesDepthPrePass), textureDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT) {
-
+	RayTracingRenderSystem::RayTracingRenderSystem(Device& device, Renderer& renderer, std::vector<std::unique_ptr<DescriptorSetLayout>>& globalDescriptorSetLayouts)
+	    : device(device), deviceProcedures(device.deviceProcedures()), renderer(renderer), resources(std::make_unique<Framebuffer>(device)), globalDescriptorSetLayouts(globalDescriptorSetLayouts), textureDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT) {
 		createResources();
-
-		// createDescriptorSetLayout();
-		// createDescriptorSet();
-
-		// createPipelineLayout(globalDescriptorSetLayout);
-		// createPipelines();
 	}
 
 	RayTracingRenderSystem::~RayTracingRenderSystem() {
@@ -34,7 +23,7 @@ namespace Aspen {
 
 		storage_image.width = renderer.getSwapChainExtent().width;
 		storage_image.height = renderer.getSwapChainExtent().height;
-		storage_image.format = VK_FORMAT_B8G8R8A8_UNORM;
+		storage_image.format = VK_FORMAT_B8G8R8A8_UNORM; // TODO: This Image needs to be copied to a SRGB image before displaying.
 
 		VkImageCreateInfo imageInfo{};
 		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -49,7 +38,7 @@ namespace Aspen {
 		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 		// VK_IMAGE_USAGE_TRANSFER_SRC_BIT - So image is used as a source of a copy function.
 		// VK_IMAGE_USAGE_STORAGE_BIT - So the shaders can read and write to the image.
-		imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+		imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
 		device.createImageWithInfo(imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, storage_image.image, storage_image.memory);
@@ -65,7 +54,7 @@ namespace Aspen {
 		viewCreateInfo.subresourceRange.baseArrayLayer = 0;
 		viewCreateInfo.subresourceRange.layerCount = 1;
 		viewCreateInfo.image = storage_image.image;
-		VK_CHECK_RESULT(vkCreateImageView(device.device(), &viewCreateInfo, nullptr, &storage_image.view));
+		VK_CHECK(vkCreateImageView(device.device(), &viewCreateInfo, nullptr, &storage_image.view));
 
 		VkCommandBuffer commandBuffer = device.beginSingleTimeCommandBuffers();
 
@@ -119,10 +108,91 @@ namespace Aspen {
 		// resources->createRenderPass();
 	}
 
+	void RayTracingRenderSystem::updateResources() {
+		// Recreate the storage image.
+		vkDestroyImageView(device.device(), storage_image.view, nullptr);
+		vkDestroyImage(device.device(), storage_image.image, nullptr);
+		vkFreeMemory(device.device(), storage_image.memory, nullptr);
+
+		createResources();
+
+		// Update the descriptor set binding.
+		VkDescriptorImageInfo image_descriptor{};
+		image_descriptor.imageView = storage_image.view;
+		image_descriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+		DescriptorWriter(*rtDescriptorSetLayout, device.getDescriptorPool())
+		    .writeImage(1, &image_descriptor)
+		    .overwrite(rtDescriptorSet);
+	}
+
+	/*
+	    Copy ray tracing output to swap chain image
+	*/
+	void RayTracingRenderSystem::copyToImage(VkImage dstImage, VkImageLayout initialLayout, uint32_t width, uint32_t height) {
+		VkCommandBuffer cmdBuffer = device.beginSingleTimeCommandBuffers();
+
+		// Prepare destination image as transfer destination
+		VulkanTools::setImageLayout(
+		    cmdBuffer,
+		    dstImage,
+		    initialLayout,
+		    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		    {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1});
+
+		// Prepare ray tracing output image as transfer source
+		VulkanTools::setImageLayout(
+		    cmdBuffer,
+		    storage_image.image,
+		    VK_IMAGE_LAYOUT_GENERAL,
+		    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		    {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1});
+
+		VkImageCopy copy_region{};
+		copy_region.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+		copy_region.srcOffset = {0, 0, 0};
+		copy_region.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+		copy_region.dstOffset = {0, 0, 0};
+		copy_region.extent = {width, height, 1};
+		vkCmdCopyImage(cmdBuffer,
+		               storage_image.image,
+		               VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		               dstImage,
+		               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		               1,
+		               &copy_region);
+
+		// Transition destination image back for presentation
+		VulkanTools::setImageLayout(
+		    cmdBuffer,
+		    dstImage,
+		    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		    initialLayout,
+		    {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1});
+
+		// Transition ray tracing output image back to general layout
+		VulkanTools::setImageLayout(
+		    cmdBuffer,
+		    storage_image.image,
+		    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		    VK_IMAGE_LAYOUT_GENERAL,
+		    {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1});
+
+		device.endSingleTimeCommandBuffers(cmdBuffer);
+	}
+
 	// Created the Bottom and Top Level Acceleration Structures needed for ray tracing.
 	void RayTracingRenderSystem::createAccelerationStructures(std::shared_ptr<Scene>& scene) {
 		createBLAS(scene);
 		createTLAS(scene);
+
+		createDescriptorSetLayout();
+		createDescriptorSet();
+
+		createPipelineLayout(globalDescriptorSetLayouts);
+		createPipelines();
+
+		createShaderBindingTable();
 	};
 
 	// Creates the Bottom Level Acceleration Structures.
@@ -503,6 +573,86 @@ namespace Aspen {
 		device.endSingleTimeCommandBuffers(cmdBuffer);
 	}
 
+	/*
+	    Create the Shader Binding Tables that connects the ray tracing pipelines' programs and the  top-level acceleration structure.
+	    From: https://nvpro-samples.github.io/vk_raytracing_tutorial_KHR/
+
+	    SBT Layout used in this sample:
+
+	        /-----------\
+	        | raygen    |
+	        |-----------|
+	        | raygen    |
+	        |-----------|
+	        | miss      |
+	        |-----------|
+	        | hit       |
+	        \-----------/
+	*/
+	void RayTracingRenderSystem::createShaderBindingTable() {
+		uint32_t missCount{1};
+		uint32_t hitCount{1};
+		auto handleCount = 1 + missCount + hitCount;
+		uint32_t handleSize = device.rtProperties.shaderGroupHandleSize;
+		// The SBT (buffer) need to have starting groups to be aligned and handles in the group to be aligned.
+		uint32_t handleSizeAligned = VulkanTools::alignedSize(handleSize, device.rtProperties.shaderGroupHandleAlignment);
+
+		rgenRegion.stride = VulkanTools::alignedSize(handleSizeAligned, device.rtProperties.shaderGroupBaseAlignment);
+		rgenRegion.size = rgenRegion.stride; // The size member of pRayGenShaderBindingTable must be equal to its stride member
+		missRegion.stride = handleSizeAligned;
+		missRegion.size = VulkanTools::alignedSize(missCount * handleSizeAligned, device.rtProperties.shaderGroupBaseAlignment);
+		hitRegion.stride = handleSizeAligned;
+		hitRegion.size = VulkanTools::alignedSize(hitCount * handleSizeAligned, device.rtProperties.shaderGroupBaseAlignment);
+
+		// Get the shader group handles defined in the ray tracing pipeline.
+		uint32_t dataSize = handleCount * handleSize;
+		std::vector<uint8_t> handles(dataSize);
+		VK_CHECK(deviceProcedures.vkGetRayTracingShaderGroupHandlesKHR(device.device(), pipeline.getPipeline(), 0, handleCount, dataSize, handles.data()));
+
+		// Allocate a buffer for storing the SBT.
+		VkDeviceSize sbtSize = rgenRegion.size + missRegion.size + hitRegion.size + callRegion.size;
+		rtSBTBuffer = std::make_unique<Buffer>(device,
+		                                       sbtSize,
+		                                       1,
+		                                       VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR,
+		                                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+		// Find the SBT addresses of each group
+		VkDeviceAddress sbtAddress = device.getBufferDeviceAddress(rtSBTBuffer->getBuffer());
+		rgenRegion.deviceAddress = sbtAddress;
+		missRegion.deviceAddress = sbtAddress + rgenRegion.size;
+		hitRegion.deviceAddress = sbtAddress + rgenRegion.size + missRegion.size;
+
+		// Helper to retrieve the handle data
+		auto getHandle = [&](int i) { return handles.data() + i * handleSize; };
+
+		// Map the SBT buffer and write in the handles.
+		rtSBTBuffer->map();
+		auto* pSBTBuffer = reinterpret_cast<uint8_t*>(rtSBTBuffer->getMappedMemory());
+		uint8_t* pData{nullptr};
+		uint32_t handleIdx{0};
+
+		// Raygen
+		pData = pSBTBuffer;
+		memcpy(pData, getHandle(handleIdx++), handleSize);
+
+		// Miss
+		pData = pSBTBuffer + rgenRegion.size;
+		for (uint32_t c = 0; c < missCount; c++) {
+			memcpy(pData, getHandle(handleIdx++), handleSize);
+			pData += missRegion.stride;
+		}
+
+		// Hit
+		pData = pSBTBuffer + rgenRegion.size + missRegion.size;
+		for (uint32_t c = 0; c < hitCount; c++) {
+			memcpy(pData, getHandle(handleIdx++), handleSize);
+			pData += hitRegion.stride;
+		}
+
+		rtSBTBuffer->unmap();
+	}
+
 	void RayTracingRenderSystem::assignTextures(Scene& scene) {
 		std::vector<VkDescriptorImageInfo> descriptorImageInfos(4);
 
@@ -526,77 +676,130 @@ namespace Aspen {
 
 	// Create a Descriptor Set Layout for a Uniform Buffer Object (UBO) & Textures.
 	void RayTracingRenderSystem::createDescriptorSetLayout() {
+		rtDescriptorSetLayout = DescriptorSetLayout::Builder(device)
+		                            .addBinding(0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, VK_SHADER_STAGE_RAYGEN_BIT_KHR) // Binding 0: Ray Generation shader to access the acceleration structures.
+		                            .addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)              // Binding 1: Ray Gen shader storage image for offscreen rendering.
+		                            .addBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)        // Binding 1: Ray Hit shader storage buffer for getting vertex information.
+		                            .addBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)        // Binding 1: Ray Hit shader storage buffer for getting index information.
+		                            .build();
+
 		textureDescriptorSetLayout = DescriptorSetLayout::Builder(device)
-		                                 .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT, 32) // Binding 0: Fragment shader combined image sampler for textures.
+		                                 .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT, 32) // Binding 0: Fragment shader combined image sampler for textures.
 		                                 .build();
 	}
 
 	// Create Descriptor Sets.
 	void RayTracingRenderSystem::createDescriptorSet() {
-		// std::shared_ptr<Framebuffer> tempFramebuffer = resourcesShadow.lock();
+		VkWriteDescriptorSetAccelerationStructureKHR ASInfo{};
+		ASInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+		ASInfo.accelerationStructureCount = 1;
+		ASInfo.pAccelerationStructures = &m_TLAS.handle;
+		ASInfo.pNext = VK_NULL_HANDLE;
 
-		// VkDescriptorImageInfo descriptorImageInfo{};
+		VkDescriptorImageInfo image_descriptor{};
+		image_descriptor.imageView = storage_image.view;
+		image_descriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
-		// descriptorImageInfo.imageLayout = tempFramebuffer->attachments[0].description.finalLayout;
-		// descriptorImageInfo.imageView = tempFramebuffer->attachments[0].view;
-		// descriptorImageInfo.sampler = tempFramebuffer->sampler;
-
-		// for (int i = 0; i < shadowDescriptorSets.size(); ++i) {
-		// 	DescriptorWriter(*shadowDescriptorSetLayout, device.getDescriptorPool())
-		// 	    .writeImage(0, &descriptorImageInfo, 1)
-		// 	    .build(shadowDescriptorSets[i]);
-		// }
+		DescriptorWriter(*rtDescriptorSetLayout, device.getDescriptorPool())
+		    .writeAccelerationStructure(0, &ASInfo)
+		    .writeImage(1, &image_descriptor)
+		    .build(rtDescriptorSet);
 	}
 
 	// Create a pipeline layout.
-	void RayTracingRenderSystem::createPipelineLayout(std::vector<std::unique_ptr<DescriptorSetLayout>>& globalDescriptorSetLayout) {
+	void RayTracingRenderSystem::createPipelineLayout(std::vector<std::unique_ptr<DescriptorSetLayout>>& globalDescriptorSetLayouts) {
 		VkPushConstantRange pushConstantRange{};
-		pushConstantRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT; // Which shaders will have access to this push constant range?
-		pushConstantRange.offset = 0;                                // To be used if you are using separate ranges for the vertex and fragment shaders.
-		pushConstantRange.size = sizeof(SimplePushConstantData);
+		pushConstantRange.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR; // Which shaders will have access to this push constant range?
+		pushConstantRange.offset = 0;                                                                                                       // To be used if you are using separate ranges for the vertex and fragment shaders.
+		pushConstantRange.size = sizeof(PushConstantRay);
 
-		std::vector<VkDescriptorSetLayout> descriptorSetLayouts{globalDescriptorSetLayout[0]->getDescriptorSetLayout(), globalDescriptorSetLayout[1]->getDescriptorSetLayout(), textureDescriptorSetLayout->getDescriptorSetLayout()};
+		std::vector<VkDescriptorSetLayout> descriptorSetLayouts{
+		    globalDescriptorSetLayouts[0]->getDescriptorSetLayout(),
+		    globalDescriptorSetLayouts[1]->getDescriptorSetLayout(),
+		    rtDescriptorSetLayout->getDescriptorSetLayout(),
+		    textureDescriptorSetLayout->getDescriptorSetLayout(),
+		};
 		pipeline.createPipelineLayout(descriptorSetLayouts, pushConstantRange);
 	}
 
-	// Create the graphics pipeline defined in aspen_pipeline.cpp
+	// Create the ray tracing pipeline defined in aspen_pipeline.cpp
 	void RayTracingRenderSystem::createPipelines() {
 		assert(pipeline.getPipelineLayout() != nullptr && "Cannot create pipeline before pipeline layout!");
 
-		// Each shader constant of a shader stage corresponds to one map entry
-		std::array<VkSpecializationMapEntry, 1> specializationMapEntries{};
-		// Shader bindings based on specialization constants are marked by the new "constant_id" layout qualifier:
-		//	layout (constant_id = 0) const int numLights = 10;
+		enum StageIndices {
+			eRaygen,
+			eMiss,
+			// eMiss2,
+			eClosestHit,
+			eShaderGroupCount
+		};
 
-		// Map entry for the lighting model to be used by the fragment shader
-		specializationMapEntries[0].constantID = 0;
-		specializationMapEntries[0].size = sizeof(specializationData.numLights);
-		specializationMapEntries[0].offset = 0;
+		// All stages
+		std::array<VkPipelineShaderStageCreateInfo, eShaderGroupCount> stages{};
 
-		// Prepare specialization info block for the shader stage
-		VkSpecializationInfo specializationInfo{};
-		specializationInfo.dataSize = sizeof(specializationData);
-		specializationInfo.mapEntryCount = static_cast<uint32_t>(specializationMapEntries.size());
-		specializationInfo.pMapEntries = specializationMapEntries.data();
-		specializationInfo.pData = &specializationData;
+		// Raygen
+		stages[eRaygen] = pipeline.createShaderModule("assets/shaders/raytrace.rgen.spv", VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+		// Miss
+		stages[eMiss] = pipeline.createShaderModule("assets/shaders/raytrace.rmiss.spv", VK_SHADER_STAGE_MISS_BIT_KHR);
+		// The second miss shader is invoked when a shadow ray misses the geometry. It simply indicates that no occlusion has been found
+		// stages[eMiss2] = pipeline.createShaderModule("assets/shaders/raytraceShadow.rmiss.spv", VK_SHADER_STAGE_MISS_BIT_KHR);
+		// Hit Group - Closest Hit
+		stages[eClosestHit] = pipeline.createShaderModule("assets/shaders/raytrace.rchit.spv", VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
 
-		// Set the number of max lights.
-		specializationData.numLights = MAX_LIGHTS;
+		// Shader groups
+		VkRayTracingShaderGroupCreateInfoKHR group{VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR};
+		group.anyHitShader = VK_SHADER_UNUSED_KHR;
+		group.closestHitShader = VK_SHADER_UNUSED_KHR;
+		group.generalShader = VK_SHADER_UNUSED_KHR;
+		group.intersectionShader = VK_SHADER_UNUSED_KHR;
 
-		PipelineConfigInfo pipelineConfig{};
-		Pipeline::defaultPipelineConfigInfo(pipelineConfig);
-		pipelineConfig.renderPass = resources->renderPass;
+		// Raygen
+		group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+		group.generalShader = eRaygen;
+		rtShaderGroups.push_back(group);
+
+		// Miss
+		group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+		group.generalShader = eMiss;
+		rtShaderGroups.push_back(group);
+
+		// Shadow Miss
+		// group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+		// group.generalShader = eMiss2;
+		// rtShaderGroups.push_back(group);
+
+		// closest hit shader
+		group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
+		group.generalShader = VK_SHADER_UNUSED_KHR;
+		group.closestHitShader = eClosestHit;
+		rtShaderGroups.push_back(group);
+
+		// // Each shader constant of a shader stage corresponds to one map entry
+		// std::array<VkSpecializationMapEntry, 1> specializationMapEntries{};
+		// // Shader bindings based on specialization constants are marked by the new "constant_id" layout qualifier:
+		// //	layout (constant_id = 0) const int numLights = 10;
+
+		// // Map entry for the lighting model to be used by the fragment shader
+		// specializationMapEntries[0].constantID = 0;
+		// specializationMapEntries[0].size = sizeof(specializationData.numLights);
+		// specializationMapEntries[0].offset = 0;
+
+		// // Prepare specialization info block for the shader stage
+		// VkSpecializationInfo specializationInfo{};
+		// specializationInfo.dataSize = sizeof(specializationData);
+		// specializationInfo.mapEntryCount = static_cast<uint32_t>(specializationMapEntries.size());
+		// specializationInfo.pMapEntries = specializationMapEntries.data();
+		// specializationInfo.pData = &specializationData;
+
+		// // Set the number of max lights.
+		// specializationData.numLights = MAX_LIGHTS;
+
+		RayTracingPipelineConfigInfo pipelineConfig{};
+		Pipeline::defaultRayTracingPipelineConfigInfo(pipelineConfig);
+		pipelineConfig.shaderGroups = rtShaderGroups;
 		pipelineConfig.pipelineLayout = pipeline.getPipelineLayout();
-		pipelineConfig.depthStencilInfo.depthWriteEnable = VK_FALSE;
-		pipelineConfig.depthStencilInfo.stencilTestEnable = VK_FALSE;
-		pipelineConfig.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
-		pipelineConfig.rasterizationInfo.cullMode = VK_CULL_MODE_FRONT_BIT;
-		// pipelineConfig.rasterizationInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
-		pipeline.createShaderModule("assets/shaders/simple_shader.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-		pipeline.createShaderModule("assets/shaders/simple_shader.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, &specializationInfo);
-
-		pipeline.createGraphicsPipeline(pipelineConfig, pipeline.getPipeline());
+		pipeline.createRayTracingPipeline(pipelineConfig, pipeline.getPipeline());
 	}
 
 	RenderInfo RayTracingRenderSystem::prepareRenderInfo() {
@@ -605,7 +808,7 @@ namespace Aspen {
 		renderInfo.framebuffer = resources->framebuffer;
 
 		std::vector<VkClearValue> clearValues{2};
-		clearValues[0].color = {0.01f, 0.01f, 0.01f, 1.0f};
+		clearValues[0].color = {0.5f, 0.0f, 0.0f, 1.0f};
 		clearValues[1].depthStencil = {1.0f, 0};
 		renderInfo.clearValues = clearValues;
 
@@ -632,19 +835,22 @@ namespace Aspen {
 		auto group = frameInfo.scene->getRenderComponents();
 		for (const auto& entity : group) {
 			uint32_t dynamicOffset = index * frameInfo.dynamicOffset;
-			std::vector<VkDescriptorSet> descriptorSetsCombined{frameInfo.descriptorSet[0], frameInfo.descriptorSet[1], textureDescriptorSets[frameInfo.frameIndex]};
-			vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getPipelineLayout(), 0, 4, descriptorSetsCombined.data(), 1, &dynamicOffset);
+			std::vector<VkDescriptorSet> descriptorSetsCombined{frameInfo.descriptorSet[0], frameInfo.descriptorSet[1], rtDescriptorSet, textureDescriptorSets[frameInfo.frameIndex]};
+			vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline.getPipelineLayout(), 0, 4, descriptorSetsCombined.data(), 1, &dynamicOffset);
 
 			auto [transform, mesh] = group.get<TransformComponent, MeshComponent>(entity);
 			// transform.rotation.y = glm::mod(transform.rotation.y + 0.0001f, glm::two_pi<float>());  // Slowly rotate game objects.
 			// transform.rotation.x = glm::mod(transform.rotation.x + 0.00003f, glm::two_pi<float>()); // Slowly rotate game objects.
 
-			SimplePushConstantData push{};
-			push.imageIndex = index;
+			PushConstantRay push{};
+			push.clearColor = glm::vec4{0.5f, 0.0f, 0.0f, 1.0f};
+			push.lightPosition = glm::vec3{0.0f, -1.0f, 2.5f};
+			push.lightIntensity = 0.5f;
 
-			vkCmdPushConstants(frameInfo.commandBuffer, pipeline.getPipelineLayout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);
-			Aspen::Model::bind(frameInfo.commandBuffer, mesh.vertexBuffer, mesh.indexBuffer);
-			Aspen::Model::draw(frameInfo.commandBuffer, static_cast<uint32_t>(mesh.indices.size()));
+			vkCmdPushConstants(frameInfo.commandBuffer, pipeline.getPipelineLayout(), VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR, 0, sizeof(PushConstantRay), &push);
+
+			// Trace Rays
+			deviceProcedures.vkCmdTraceRaysKHR(frameInfo.commandBuffer, &rgenRegion, &missRegion, &hitRegion, &callRegion, renderer.getSwapChainExtent().width, renderer.getSwapChainExtent().height, 1);
 
 			++index;
 		}
@@ -652,7 +858,7 @@ namespace Aspen {
 
 	void RayTracingRenderSystem::onResize() {
 		resources->clearFramebuffer();
-		createResources();
+		updateResources();
 		// for (int i = 0; i < offscreenDescriptorSets.size(); ++i) {
 		// 	auto bufferInfo = uboBuffers[i]->descriptorInfo();
 		// 	DescriptorWriter(*descriptorSetLayout, device.getDescriptorPool())

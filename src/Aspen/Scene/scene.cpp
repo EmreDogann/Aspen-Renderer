@@ -43,6 +43,30 @@ namespace Aspen {
 		return entity;
 	}
 
+	void Scene::updateSceneData() {
+		// Concatenate all the models
+		std::vector<MeshComponent::Vertex> vertices;
+		std::vector<uint32_t> indices;
+		std::vector<glm::uvec2> offsets;
+
+		auto group = getRenderComponents();
+		for (const auto& entity : group) {
+			auto [transform, mesh] = group.get<TransformComponent, MeshComponent>(entity);
+
+			// Remember the index, vertex offsets.
+			const auto indexOffset = static_cast<uint32_t>(indices.size());
+			const auto vertexOffset = static_cast<uint32_t>(vertices.size());
+
+			offsets.emplace_back(indexOffset, vertexOffset);
+
+			// Copy model data one after the other.
+			vertices.insert(vertices.end(), mesh.vertices.begin(), mesh.vertices.end());
+			indices.insert(indices.end(), mesh.indices.begin(), mesh.indices.end());
+		}
+
+		// m_sceneData.vertexBuffer = std::make_unique<Buffer>(device, );
+	}
+
 	void Scene::OnUpdate() {
 		// Camera* mainCamera = nullptr;
 

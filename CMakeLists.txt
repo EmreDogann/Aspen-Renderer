@@ -25,7 +25,6 @@ if (DEFINED VULKAN_SDK_PATH)
 else()
   find_package(Vulkan REQUIRED FATAL_ERROR) # throws error if could not find Vulkan
 endif()
-message(STATUS "VULKAN LIBRARY: ${Vulkan_INCLUDE_DIR}")
 
 if (NOT Vulkan_FOUND)
 	message(FATAL_ERROR "Could not find Vulkan library!")
@@ -138,7 +137,7 @@ endif()
 # taken from VBlancos vulkan tutorial
 # https://github.com/vblanco20-1/vulkan-guide/blob/all-chapters/CMakeLists.txt
 find_program(GLSL_VALIDATOR glslangValidator HINTS 
-  ${Vulkan_GLSLANG_VALIDATOR_EXECUTABLE} 
+  ${Vulkan_GLSLANG_VALIDATOR_EXECUTABLE}
   /usr/bin 
   /usr/local/bin 
   ${VULKAN_SDK_PATH}/Bin
@@ -165,6 +164,9 @@ add_custom_command(TARGET Make_Assets_Folder POST_BUILD
 file(GLOB_RECURSE GLSL_SOURCE_FILES
   "${PROJECT_SOURCE_DIR}/assets/shaders/*.frag"
   "${PROJECT_SOURCE_DIR}/assets/shaders/*.vert"
+  "${PROJECT_SOURCE_DIR}/assets/shaders/*.rchit"
+  "${PROJECT_SOURCE_DIR}/assets/shaders/*.rgen"
+  "${PROJECT_SOURCE_DIR}/assets/shaders/*.rmiss"
 )
 
 # Add this target to the ALL target which will make sure that it is executed when build the ALL target.
@@ -180,7 +182,7 @@ foreach(GLSL ${GLSL_SOURCE_FILES})
   set(SPIRV "${PROJECT_SOURCE_DIR}/build/assets/shaders/${FILE_NAME}.spv")
   add_custom_command(
     TARGET "Compile_Shaders" POST_BUILD
-    COMMAND ${GLSL_VALIDATOR} -V ${GLSL} -o ${SPIRV}
+    COMMAND ${GLSL_VALIDATOR} --target-env vulkan1.2 -V ${GLSL} -o ${SPIRV}
     DEPENDS ${GLSL})
   list(APPEND SPIRV_BINARY_FILES ${SPIRV})
 endforeach(GLSL)

@@ -221,12 +221,12 @@ namespace Aspen {
 			VkMemoryRequirements memReqs{};
 
 			// Create image for this attachment
-			VK_CHECK_RESULT(vkCreateImage(device.device(), &image, nullptr, &attachment.image));
+			VK_CHECK(vkCreateImage(device.device(), &image, nullptr, &attachment.image));
 			vkGetImageMemoryRequirements(device.device(), attachment.image, &memReqs);
 			memAlloc.allocationSize = memReqs.size;
 			memAlloc.memoryTypeIndex = device.findMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-			VK_CHECK_RESULT(vkAllocateMemory(device.device(), &memAlloc, nullptr, &attachment.memory));
-			VK_CHECK_RESULT(vkBindImageMemory(device.device(), attachment.image, attachment.memory, 0));
+			VK_CHECK(vkAllocateMemory(device.device(), &memAlloc, nullptr, &attachment.memory));
+			VK_CHECK(vkBindImageMemory(device.device(), attachment.image, attachment.memory, 0));
 
 			attachment.subresourceRange = {};
 			attachment.subresourceRange.aspectMask = aspectMask;
@@ -240,7 +240,7 @@ namespace Aspen {
 			imageView.format = createinfo.format;
 			imageView.subresourceRange = attachment.subresourceRange;
 			imageView.image = attachment.image;
-			VK_CHECK_RESULT(vkCreateImageView(device.device(), &imageView, nullptr, &attachment.view));
+			VK_CHECK(vkCreateImageView(device.device(), &imageView, nullptr, &attachment.view));
 
 			// Fill attachment description
 			attachment.description = {};
@@ -434,7 +434,7 @@ namespace Aspen {
 			renderPassInfo.pSubpasses = &subpass;
 			renderPassInfo.dependencyCount = 2;
 			renderPassInfo.pDependencies = dependencies.data();
-			VK_CHECK_RESULT(vkCreateRenderPass(device.device(), &renderPassInfo, nullptr, &renderPass));
+			VK_CHECK(vkCreateRenderPass(device.device(), &renderPassInfo, nullptr, &renderPass));
 
 			std::vector<VkImageView> attachmentViews;
 			for (auto attachment : attachments) {
@@ -457,7 +457,7 @@ namespace Aspen {
 			framebufferInfo.width = width;
 			framebufferInfo.height = height;
 			framebufferInfo.layers = maxLayers;
-			VK_CHECK_RESULT(vkCreateFramebuffer(device.device(), &framebufferInfo, nullptr, &framebuffer));
+			VK_CHECK(vkCreateFramebuffer(device.device(), &framebufferInfo, nullptr, &framebuffer));
 
 			return VK_SUCCESS;
 		}
@@ -559,7 +559,7 @@ namespace Aspen {
 			// renderPassMultiviewCreateInfo.pCorrelationMasks = &correlationMask;
 
 			renderPassInfo.pNext = &renderPassMultiviewCreateInfo;
-			VK_CHECK_RESULT(vkCreateRenderPass(device.device(), &renderPassInfo, nullptr, &renderPass));
+			VK_CHECK(vkCreateRenderPass(device.device(), &renderPassInfo, nullptr, &renderPass));
 
 			std::vector<VkImageView> attachmentViews;
 			for (auto attachment : attachments) {
@@ -582,7 +582,7 @@ namespace Aspen {
 			framebufferInfo.width = width;
 			framebufferInfo.height = height;
 			framebufferInfo.layers = 1;
-			VK_CHECK_RESULT(vkCreateFramebuffer(device.device(), &framebufferInfo, nullptr, &framebuffer));
+			VK_CHECK(vkCreateFramebuffer(device.device(), &framebufferInfo, nullptr, &framebuffer));
 
 			return VK_SUCCESS;
 		}

@@ -20,6 +20,8 @@ namespace Aspen {
 		projectionMatrix[3][0] = -(right + left) / (right - left);
 		projectionMatrix[3][1] = -(bottom + top) / (bottom - top);
 		projectionMatrix[3][2] = -near / (far - near);
+
+		inverseProjectionMatrix = glm::inverse(projectionMatrix);
 	}
 
 	// Set projection matrix to be the perspective projection matrix.
@@ -43,6 +45,8 @@ namespace Aspen {
 		projectionMatrix[2][2] = far / (far - near);
 		projectionMatrix[2][3] = 1.0f;
 		projectionMatrix[3][2] = -(far * near) / (far - near);
+
+		inverseProjectionMatrix = glm::inverse(projectionMatrix);
 	}
 
 	// The camera view matrix is essentially the inverse of the model transformation matrix used for game objects. view matrix == inverse model matrix.

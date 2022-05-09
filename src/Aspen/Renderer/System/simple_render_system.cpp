@@ -26,7 +26,8 @@ namespace Aspen {
 			attachmentCreateInfo.height = renderer.getSwapChainExtent().height;
 			attachmentCreateInfo.imageSampleCount = VK_SAMPLE_COUNT_1_BIT;
 			attachmentCreateInfo.layerCount = 1;
-			attachmentCreateInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+			// VK_IMAGE_USAGE_TRANSFER_DST_BIT is used here because the ray tracing storage image is being copied to this offscreen image.
+			attachmentCreateInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 			attachmentCreateInfo.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 			attachmentCreateInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 			attachmentCreateInfo.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;

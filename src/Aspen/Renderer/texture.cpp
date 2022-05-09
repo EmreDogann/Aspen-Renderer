@@ -200,7 +200,7 @@ namespace Aspen {
 			// imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
 			// // Load mip map level 0 to linear tiling image
-			// VK_CHECK_RESULT(vkCreateImage(device->device(), &imageCreateInfo, nullptr, &mappableImage));
+			// VK_CHECK(vkCreateImage(device->device(), &imageCreateInfo, nullptr, &mappableImage));
 
 			// // Get memory requirements for this image
 			// // like size and alignment
@@ -212,10 +212,10 @@ namespace Aspen {
 			// memAllocInfo.memoryTypeIndex = device->getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
 			// // Allocate host memory
-			// VK_CHECK_RESULT(vkAllocateMemory(device->device(), &memAllocInfo, nullptr, &mappableMemory));
+			// VK_CHECK(vkAllocateMemory(device->device(), &memAllocInfo, nullptr, &mappableMemory));
 
 			// // Bind allocated image for use
-			// VK_CHECK_RESULT(vkBindImageMemory(device->device(), mappableImage, mappableMemory, 0));
+			// VK_CHECK(vkBindImageMemory(device->device(), mappableImage, mappableMemory, 0));
 
 			// // Get sub resource layout
 			// // Mip map count, array layer, etc.
@@ -231,7 +231,7 @@ namespace Aspen {
 			// vkGetImageSubresourceLayout(device->device(), mappableImage, &subRes, &subResLayout);
 
 			// // Map image memory
-			// VK_CHECK_RESULT(vkMapMemory(device->device(), mappableMemory, 0, memReqs.size, 0, &data));
+			// VK_CHECK(vkMapMemory(device->device(), mappableMemory, 0, memReqs.size, 0, &data));
 
 			// // Copy image data into memory
 			// memcpy(data, ktxTextureData, memReqs.size);
@@ -265,7 +265,7 @@ namespace Aspen {
 		// Only set mip map count if optimal tiling is used
 		viewCreateInfo.subresourceRange.levelCount = (useStaging) ? mipLevels : 1;
 		viewCreateInfo.image = image;
-		VK_CHECK_RESULT(vkCreateImageView(device->device(), &viewCreateInfo, nullptr, &view));
+		VK_CHECK(vkCreateImageView(device->device(), &viewCreateInfo, nullptr, &view));
 
 		// Create a default sampler
 		VkSamplerCreateInfo samplerCreateInfo = {};
@@ -287,7 +287,7 @@ namespace Aspen {
 		samplerCreateInfo.maxAnisotropy = device->enabledFeatures.samplerAnisotropy ? device->properties.limits.maxSamplerAnisotropy : 1.0f;
 		samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
 		samplerCreateInfo.unnormalizedCoordinates = VK_FALSE; // texture coordinates need to be between 0-1.
-		VK_CHECK_RESULT(vkCreateSampler(device->device(), &samplerCreateInfo, nullptr, &sampler));
+		VK_CHECK(vkCreateSampler(device->device(), &samplerCreateInfo, nullptr, &sampler));
 
 		// Update descriptor image info member that can be used for setting up descriptor sets
 		updateDescriptor();
@@ -331,7 +331,7 @@ namespace Aspen {
 		// bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 		// bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-		// VK_CHECK_RESULT(vkCreateBuffer(device->device(), &bufferCreateInfo, nullptr, &stagingBuffer));
+		// VK_CHECK(vkCreateBuffer(device->device(), &bufferCreateInfo, nullptr, &stagingBuffer));
 
 		// // Get memory requirements for the staging buffer (alignment, memory type bits)
 		// vkGetBufferMemoryRequirements(device->device(), stagingBuffer, &memReqs);
@@ -340,12 +340,12 @@ namespace Aspen {
 		// // Get memory type index for a host visible buffer
 		// memAllocInfo.memoryTypeIndex = device->getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-		// VK_CHECK_RESULT(vkAllocateMemory(device->device(), &memAllocInfo, nullptr, &stagingMemory));
-		// VK_CHECK_RESULT(vkBindBufferMemory(device->device(), stagingBuffer, stagingMemory, 0));
+		// VK_CHECK(vkAllocateMemory(device->device(), &memAllocInfo, nullptr, &stagingMemory));
+		// VK_CHECK(vkBindBufferMemory(device->device(), stagingBuffer, stagingMemory, 0));
 
 		// // Copy texture data into staging buffer
 		// uint8_t* data;
-		// VK_CHECK_RESULT(vkMapMemory(device->device(), stagingMemory, 0, memReqs.size, 0, (void**)&data));
+		// VK_CHECK(vkMapMemory(device->device(), stagingMemory, 0, memReqs.size, 0, (void**)&data));
 		// memcpy(data, buffer, bufferSize);
 		// vkUnmapMemory(device->device(), stagingMemory);
 
@@ -375,15 +375,15 @@ namespace Aspen {
 		// if (!(imageCreateInfo.usage & VK_IMAGE_USAGE_TRANSFER_DST_BIT)) {
 		// 	imageCreateInfo.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 		// }
-		// VK_CHECK_RESULT(vkCreateImage(device->device(), &imageCreateInfo, nullptr, &image));
+		// VK_CHECK(vkCreateImage(device->device(), &imageCreateInfo, nullptr, &image));
 
 		// vkGetImageMemoryRequirements(device->device(), image, &memReqs);
 
 		// memAllocInfo.allocationSize = memReqs.size;
 
 		// memAllocInfo.memoryTypeIndex = device->getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		// VK_CHECK_RESULT(vkAllocateMemory(device->device(), &memAllocInfo, nullptr, &deviceMemory));
-		// VK_CHECK_RESULT(vkBindImageMemory(device->device(), image, deviceMemory, 0));
+		// VK_CHECK(vkAllocateMemory(device->device(), &memAllocInfo, nullptr, &deviceMemory));
+		// VK_CHECK(vkBindImageMemory(device->device(), image, deviceMemory, 0));
 
 		// VkImageSubresourceRange subresourceRange = {};
 		// subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -438,7 +438,7 @@ namespace Aspen {
 		// samplerCreateInfo.minLod = 0.0f;
 		// samplerCreateInfo.maxLod = 0.0f;
 		// samplerCreateInfo.maxAnisotropy = 1.0f;
-		// VK_CHECK_RESULT(vkCreateSampler(device->device(), &samplerCreateInfo, nullptr, &sampler));
+		// VK_CHECK(vkCreateSampler(device->device(), &samplerCreateInfo, nullptr, &sampler));
 
 		// // Create image view
 		// VkImageViewCreateInfo viewCreateInfo = {};
@@ -450,7 +450,7 @@ namespace Aspen {
 		// viewCreateInfo.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 		// viewCreateInfo.subresourceRange.levelCount = 1;
 		// viewCreateInfo.image = image;
-		// VK_CHECK_RESULT(vkCreateImageView(device->device(), &viewCreateInfo, nullptr, &view));
+		// VK_CHECK(vkCreateImageView(device->device(), &viewCreateInfo, nullptr, &view));
 
 		// // Update descriptor image info member that can be used for setting up descriptor sets
 		// updateDescriptor();
@@ -494,7 +494,7 @@ namespace Aspen {
 		// bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 		// bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-		// VK_CHECK_RESULT(vkCreateBuffer(device->device(), &bufferCreateInfo, nullptr, &stagingBuffer));
+		// VK_CHECK(vkCreateBuffer(device->device(), &bufferCreateInfo, nullptr, &stagingBuffer));
 
 		// // Get memory requirements for the staging buffer (alignment, memory type bits)
 		// vkGetBufferMemoryRequirements(device->device(), stagingBuffer, &memReqs);
@@ -503,12 +503,12 @@ namespace Aspen {
 		// // Get memory type index for a host visible buffer
 		// memAllocInfo.memoryTypeIndex = device->getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-		// VK_CHECK_RESULT(vkAllocateMemory(device->device(), &memAllocInfo, nullptr, &stagingMemory));
-		// VK_CHECK_RESULT(vkBindBufferMemory(device->device(), stagingBuffer, stagingMemory, 0));
+		// VK_CHECK(vkAllocateMemory(device->device(), &memAllocInfo, nullptr, &stagingMemory));
+		// VK_CHECK(vkBindBufferMemory(device->device(), stagingBuffer, stagingMemory, 0));
 
 		// // Copy texture data into staging buffer
 		// uint8_t* data;
-		// VK_CHECK_RESULT(vkMapMemory(device->device(), stagingMemory, 0, memReqs.size, 0, (void**)&data));
+		// VK_CHECK(vkMapMemory(device->device(), stagingMemory, 0, memReqs.size, 0, (void**)&data));
 		// memcpy(data, ktxTextureData, ktxTextureSize);
 		// vkUnmapMemory(device->device(), stagingMemory);
 
@@ -552,15 +552,15 @@ namespace Aspen {
 		// imageCreateInfo.arrayLayers = layerCount;
 		// imageCreateInfo.mipLevels = mipLevels;
 
-		// VK_CHECK_RESULT(vkCreateImage(device->device(), &imageCreateInfo, nullptr, &image));
+		// VK_CHECK(vkCreateImage(device->device(), &imageCreateInfo, nullptr, &image));
 
 		// vkGetImageMemoryRequirements(device->device(), image, &memReqs);
 
 		// memAllocInfo.allocationSize = memReqs.size;
 		// memAllocInfo.memoryTypeIndex = device->getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-		// VK_CHECK_RESULT(vkAllocateMemory(device->device(), &memAllocInfo, nullptr, &deviceMemory));
-		// VK_CHECK_RESULT(vkBindImageMemory(device->device(), image, deviceMemory, 0));
+		// VK_CHECK(vkAllocateMemory(device->device(), &memAllocInfo, nullptr, &deviceMemory));
+		// VK_CHECK(vkBindImageMemory(device->device(), image, deviceMemory, 0));
 
 		// // Use a separate command buffer for texture loading
 		// VkCommandBuffer copyCmd = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
@@ -615,7 +615,7 @@ namespace Aspen {
 		// samplerCreateInfo.minLod = 0.0f;
 		// samplerCreateInfo.maxLod = (float)mipLevels;
 		// samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-		// VK_CHECK_RESULT(vkCreateSampler(device->device(), &samplerCreateInfo, nullptr, &sampler));
+		// VK_CHECK(vkCreateSampler(device->device(), &samplerCreateInfo, nullptr, &sampler));
 
 		// // Create image view
 		// VkImageViewCreateInfo viewCreateInfo = vks::initializers::imageViewCreateInfo();
@@ -626,7 +626,7 @@ namespace Aspen {
 		// viewCreateInfo.subresourceRange.layerCount = layerCount;
 		// viewCreateInfo.subresourceRange.levelCount = mipLevels;
 		// viewCreateInfo.image = image;
-		// VK_CHECK_RESULT(vkCreateImageView(device->device(), &viewCreateInfo, nullptr, &view));
+		// VK_CHECK(vkCreateImageView(device->device(), &viewCreateInfo, nullptr, &view));
 
 		// // Clean up staging resources
 		// ktxTexture_Destroy(ktxTexture);
@@ -674,7 +674,7 @@ namespace Aspen {
 		// bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 		// bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-		// VK_CHECK_RESULT(vkCreateBuffer(device->device(), &bufferCreateInfo, nullptr, &stagingBuffer));
+		// VK_CHECK(vkCreateBuffer(device->device(), &bufferCreateInfo, nullptr, &stagingBuffer));
 
 		// // Get memory requirements for the staging buffer (alignment, memory type bits)
 		// vkGetBufferMemoryRequirements(device->device(), stagingBuffer, &memReqs);
@@ -683,12 +683,12 @@ namespace Aspen {
 		// // Get memory type index for a host visible buffer
 		// memAllocInfo.memoryTypeIndex = device->getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-		// VK_CHECK_RESULT(vkAllocateMemory(device->device(), &memAllocInfo, nullptr, &stagingMemory));
-		// VK_CHECK_RESULT(vkBindBufferMemory(device->device(), stagingBuffer, stagingMemory, 0));
+		// VK_CHECK(vkAllocateMemory(device->device(), &memAllocInfo, nullptr, &stagingMemory));
+		// VK_CHECK(vkBindBufferMemory(device->device(), stagingBuffer, stagingMemory, 0));
 
 		// // Copy texture data into staging buffer
 		// uint8_t* data;
-		// VK_CHECK_RESULT(vkMapMemory(device->device(), stagingMemory, 0, memReqs.size, 0, (void**)&data));
+		// VK_CHECK(vkMapMemory(device->device(), stagingMemory, 0, memReqs.size, 0, (void**)&data));
 		// memcpy(data, ktxTextureData, ktxTextureSize);
 		// vkUnmapMemory(device->device(), stagingMemory);
 
@@ -735,15 +735,15 @@ namespace Aspen {
 		// // This flag is required for cube map images
 		// imageCreateInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
 
-		// VK_CHECK_RESULT(vkCreateImage(device->device(), &imageCreateInfo, nullptr, &image));
+		// VK_CHECK(vkCreateImage(device->device(), &imageCreateInfo, nullptr, &image));
 
 		// vkGetImageMemoryRequirements(device->device(), image, &memReqs);
 
 		// memAllocInfo.allocationSize = memReqs.size;
 		// memAllocInfo.memoryTypeIndex = device->getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-		// VK_CHECK_RESULT(vkAllocateMemory(device->device(), &memAllocInfo, nullptr, &deviceMemory));
-		// VK_CHECK_RESULT(vkBindImageMemory(device->device(), image, deviceMemory, 0));
+		// VK_CHECK(vkAllocateMemory(device->device(), &memAllocInfo, nullptr, &deviceMemory));
+		// VK_CHECK(vkBindImageMemory(device->device(), image, deviceMemory, 0));
 
 		// // Use a separate command buffer for texture loading
 		// VkCommandBuffer copyCmd = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
@@ -798,7 +798,7 @@ namespace Aspen {
 		// samplerCreateInfo.minLod = 0.0f;
 		// samplerCreateInfo.maxLod = (float)mipLevels;
 		// samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-		// VK_CHECK_RESULT(vkCreateSampler(device->device(), &samplerCreateInfo, nullptr, &sampler));
+		// VK_CHECK(vkCreateSampler(device->device(), &samplerCreateInfo, nullptr, &sampler));
 
 		// // Create image view
 		// VkImageViewCreateInfo viewCreateInfo = vks::initializers::imageViewCreateInfo();
@@ -809,7 +809,7 @@ namespace Aspen {
 		// viewCreateInfo.subresourceRange.layerCount = 6;
 		// viewCreateInfo.subresourceRange.levelCount = mipLevels;
 		// viewCreateInfo.image = image;
-		// VK_CHECK_RESULT(vkCreateImageView(device->device(), &viewCreateInfo, nullptr, &view));
+		// VK_CHECK(vkCreateImageView(device->device(), &viewCreateInfo, nullptr, &view));
 
 		// // Clean up staging resources
 		// ktxTexture_Destroy(ktxTexture);

@@ -2,6 +2,15 @@
 #include "Aspen/Renderer/System/global_render_system.hpp"
 
 namespace Aspen {
+	struct StorageImage {
+		VkDeviceMemory memory;
+		VkImage image = VK_NULL_HANDLE;
+		VkImageView view;
+		VkFormat format;
+		uint32_t width;
+		uint32_t height;
+	};
+
 	struct BLASInput {
 		std::vector<VkAccelerationStructureGeometryKHR> ASGeometry;
 		std::vector<VkAccelerationStructureBuildRangeInfoKHR> ASBuildOffsetInfo;
@@ -23,9 +32,16 @@ namespace Aspen {
 		AccelerationStructure oldAccelerationStructure{};
 	};
 
+	// Push constant structure for the ray tracer
+	struct PushConstantRay {
+		glm::vec4 clearColor{};
+		glm::vec3 lightPosition{};
+		float lightIntensity;
+	};
+
 	class RayTracingRenderSystem {
 	public:
-		RayTracingRenderSystem(Device& device, Renderer& renderer, std::vector<std::unique_ptr<DescriptorSetLayout>>& globalDescriptorSetLayout, std::shared_ptr<Framebuffer> resourcesDepthPrePass);
+		RayTracingRenderSystem(Device& device, Renderer& renderer, std::vector<std::unique_ptr<DescriptorSetLayout>>& globalDescriptorSetLayouts);
 		~RayTracingRenderSystem();
 
 		RayTracingRenderSystem(const RayTracingRenderSystem&) = delete;
@@ -36,17 +52,19 @@ namespace Aspen {
 
 		void render(FrameInfo& frameInfo);
 		void createResources();
+		void updateResources();
 		void createAccelerationStructures(std::shared_ptr<Scene>& scene);
+		void copyToImage(VkImage dstImage, VkImageLayout initialLayout, uint32_t width, uint32_t height);
 		void assignTextures(Scene& scene);
 		RenderInfo prepareRenderInfo();
 		void onResize();
 
-		VkDescriptorSet getCurrentDescriptorSet(int frameIndex) {
-			return textureDescriptorSets[frameIndex];
+		VkDescriptorSet getCurrentDescriptorSet() {
+			return rtDescriptorSet;
 		}
 
-		std::shared_ptr<Framebuffer> getResources() {
-			return resources;
+		StorageImage& getResources() {
+			return storage_image;
 		}
 
 	private:
@@ -63,12 +81,26 @@ namespace Aspen {
 		void createTLAS(std::shared_ptr<Scene>& scene);
 		void buildTLAS(const std::vector<VkAccelerationStructureInstanceKHR>& instances, VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR, bool update = false);
 
+		void createShaderBindingTable();
+
 		Device& device;
+		// Used for calling extension functions that were manually leaded in DeviceProcedures.
 		DeviceProcedures& deviceProcedures;
 		Renderer& renderer;
 		std::shared_ptr<Framebuffer> resources;
-		std::weak_ptr<Framebuffer> resourcesDepthPrePass;
+
+		// Ray Tracing Pipeline
 		Pipeline pipeline{device};
+
+		// Shader binding Table
+		std::vector<VkRayTracingShaderGroupCreateInfoKHR> rtShaderGroups;
+		std::unique_ptr<Buffer> rtSBTBuffer;
+		VkStridedDeviceAddressRegionKHR rgenRegion{};
+		VkStridedDeviceAddressRegionKHR missRegion{};
+		VkStridedDeviceAddressRegionKHR hitRegion{};
+		VkStridedDeviceAddressRegionKHR callRegion{};
+
+		PushConstantRay pushConstantRay{};
 
 		// Host data to take specialization constants from
 		struct SpecializationData {
@@ -76,21 +108,21 @@ namespace Aspen {
 			int numLights;
 		} specializationData;
 
-		struct StorageImage {
-			VkDeviceMemory memory;
-			VkImage image = VK_NULL_HANDLE;
-			VkImageView view;
-			VkFormat format;
-			uint32_t width;
-			uint32_t height;
-		} storage_image;
+		StorageImage storage_image;
 
 		// Acceleration Structures
 		std::vector<AccelerationStructure> m_BLAS;
 		AccelerationStructure m_TLAS;
 
+		// Ray Tracing Descriptors
+		std::unique_ptr<DescriptorSetLayout> rtDescriptorSetLayout{};
+		VkDescriptorSet rtDescriptorSet;
+
+		std::vector<std::unique_ptr<DescriptorSetLayout>>& globalDescriptorSetLayouts;
+
 		// Textures
-		std::unique_ptr<DescriptorSetLayout> textureDescriptorSetLayout{};
+		std::unique_ptr<DescriptorSetLayout>
+		    textureDescriptorSetLayout{};
 		std::vector<VkDescriptorSet> textureDescriptorSets;
 
 		std::unique_ptr<Buffer> uboBuffer;

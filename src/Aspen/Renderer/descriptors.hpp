@@ -100,6 +100,7 @@ namespace Aspen {
 
 		DescriptorWriter& writeBuffer(uint32_t binding, VkDescriptorBufferInfo* bufferInfo);
 		DescriptorWriter& writeImage(uint32_t binding, VkDescriptorImageInfo* imageInfo, uint32_t descriptorCount = 1);
+		DescriptorWriter& writeAccelerationStructure(uint32_t binding, VkWriteDescriptorSetAccelerationStructureKHR* ASInfo);
 
 		bool build(VkDescriptorSet& set);
 		void overwrite(VkDescriptorSet& set);

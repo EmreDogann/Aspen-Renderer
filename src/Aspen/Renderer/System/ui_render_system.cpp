@@ -309,13 +309,12 @@ namespace Aspen {
 			ImGui::SetNextItemOpen(true, ImGuiCond_Once);
 			if (ImGui::TreeNode("Rendering")) {
 				{
-					static int rendering_mode = 0;
-					ImGui::RadioButton("Rasterization", &rendering_mode, 0);
+					changed |= ImGui::RadioButton("Rasterization", &appState.useRayTracer, 0);
 					ImGui::SameLine();
-					ImGui::RadioButton("Ray Tracing", &rendering_mode, 1);
+					changed |= ImGui::RadioButton("Ray Tracing", &appState.useRayTracer, 1);
 
 					static bool shadow_mapping = false;
-					ImGui::Checkbox("Shadow Mapping", &shadow_mapping);
+					changed |= ImGui::Checkbox("Shadow Mapping", &shadow_mapping);
 					{
 						if (!shadow_mapping) {
 							ImGui::BeginDisabled();
@@ -329,7 +328,7 @@ namespace Aspen {
 					}
 
 					static bool texture_mapping = false;
-					ImGui::Checkbox("Texture Mapping", &texture_mapping);
+					changed |= ImGui::Checkbox("Texture Mapping", &texture_mapping);
 					{
 						if (!texture_mapping) {
 							ImGui::BeginDisabled();

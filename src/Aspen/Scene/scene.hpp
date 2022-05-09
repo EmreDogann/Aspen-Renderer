@@ -4,11 +4,19 @@
 #include <entt/entt.hpp>
 
 namespace Aspen {
+	struct SceneData {
+		std::unique_ptr<Buffer> vertexBuffer;
+		std::unique_ptr<Buffer> indexBuffer;
+		std::unique_ptr<Buffer> offsetBuffer;
+	};
+
 	class Entity;
 	class Scene {
 	public:
 		Scene(Device& device);
 		~Scene();
+
+		void updateSceneData();
 
 		Entity createEntity(const std::string& name = std::string());
 		void OnUpdate();
@@ -25,6 +33,10 @@ namespace Aspen {
 			return m_Registry.group<PointLightComponent>(entt::get<TransformComponent>);
 		};
 
+		const SceneData& getSceneData() const {
+			return m_sceneData;
+		}
+
 		// Partial-owning group
 		template <typename T, typename... Ts>
 		decltype(auto) getComponents() {
@@ -35,6 +47,8 @@ namespace Aspen {
 	private:
 		entt::registry m_Registry;
 		Device& device;
+
+		SceneData m_sceneData{};
 
 		friend class Entity;
 	};

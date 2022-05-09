@@ -31,6 +31,7 @@ namespace Aspen {
 		struct GlobalUbo {
 			glm::mat4 projectionMatrix{1.0f};
 			glm::mat4 viewMatrix{1.0f};
+			glm::mat4 inverseProjectionMatrix{1.0f};
 			glm::mat4 inverseViewMatrix{1.0f};
 			PointLight lights[MAX_LIGHTS];
 			alignas(16) glm::vec3 ambientLightColor{0.02f};

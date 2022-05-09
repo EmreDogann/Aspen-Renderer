@@ -200,6 +200,26 @@ namespace Aspen {
 		return *this;
 	}
 
+	DescriptorWriter& DescriptorWriter::writeAccelerationStructure(
+	    uint32_t binding,
+	    VkWriteDescriptorSetAccelerationStructureKHR* ASInfo) {
+		assert(setLayout.bindings.count(binding) == 1 && "Layout does not contain specified binding");
+
+		auto& bindingDescription = get<0>(setLayout.bindings[binding]);
+
+		// assert(bindingDescription.descriptorCount == 1 && "Binding single descriptor info, but binding expects multiple");
+
+		VkWriteDescriptorSet write{};
+		write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		write.descriptorType = bindingDescription.descriptorType;
+		write.dstBinding = binding;
+		write.descriptorCount = 1;
+		write.pNext = ASInfo;
+
+		writes.push_back(write);
+		return *this;
+	}
+
 	bool DescriptorWriter::build(VkDescriptorSet& set) {
 		VkDescriptorBindingFlags bindingFlags = get<1>(setLayout.bindings[setLayout.bindings.size() - 1]);
 		bool success = false;

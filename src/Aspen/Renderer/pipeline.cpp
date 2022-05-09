@@ -1,7 +1,7 @@
 #include "Aspen/Renderer/pipeline.hpp"
 
 namespace Aspen {
-	void Pipeline::createShaderModule(const std::string& shaderFilepath, VkShaderStageFlagBits stageType, VkSpecializationInfo* specializationInfo) {
+	VkPipelineShaderStageCreateInfo Pipeline::createShaderModule(const std::string& shaderFilepath, VkShaderStageFlagBits stageType, VkSpecializationInfo* specializationInfo) {
 		auto shaderCode = readFile(shaderFilepath);
 
 		VkShaderModule shaderModule{};
@@ -31,6 +31,8 @@ namespace Aspen {
 
 		shaderModules.push_back(shaderModule);
 		shaderStages.push_back(shaderStage);
+
+		return shaderStage;
 	}
 
 	std::vector<char> Pipeline::readFile(const std::string& filepath) {
@@ -70,9 +72,10 @@ namespace Aspen {
 	}
 
 	void Pipeline::createGraphicsPipeline(const PipelineConfigInfo& configInfo, VkPipeline& pipeline) {
-
 		assert(configInfo.pipelineLayout != VK_NULL_HANDLE && "Cannot create graphics pipeline:: No pipelineLayout provided in configInfo");
 		assert(configInfo.renderPass != VK_NULL_HANDLE && "Cannot create graphics pipeline:: No renderPass provided in configInfo");
+
+		pipelineType = PipelineType::Graphics;
 
 		// Specify the binding & attribute information for the vertex shader.
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
@@ -110,12 +113,44 @@ namespace Aspen {
 		}
 	}
 
+	void Pipeline::createRayTracingPipeline(const RayTracingPipelineConfigInfo& configInfo, VkPipeline& pipeline) {
+		assert(configInfo.pipelineLayout != VK_NULL_HANDLE && "Cannot create ray-tracing pipeline:: No pipelineLayout provided in configInfo");
+
+		pipelineType = PipelineType::RayTracing;
+
+		// Finally, setup the complete ray-tracing pipeline struct.
+		VkRayTracingPipelineCreateInfoKHR pipelineInfo{};
+		pipelineInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR;
+		pipelineInfo.stageCount = shaderStages.size(); // all ray tracing stages (shaders).
+		pipelineInfo.pStages = shaderStages.data();
+		pipelineInfo.groupCount = configInfo.shaderGroups.size();
+		pipelineInfo.pGroups = configInfo.shaderGroups.data();
+		pipelineInfo.maxPipelineRayRecursionDepth = configInfo.maxRecursionDepth;
+		pipelineInfo.layout = configInfo.pipelineLayout;
+
+		// Optional - Can be used for optimization.
+		// Can be less expensive for a GPU to create a new graphics pipeline by deriving from an existing one.
+		pipelineInfo.basePipelineIndex = -1;
+		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+
+		// Create graphics pipeline.
+		if (deviceProcedures.vkCreateRayTracingPipelinesKHR(device.device(), VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create graphics pipeline");
+		}
+	}
+
 	// Bind a command buffer to a graphics pipeline.
 	void Pipeline::bind(VkCommandBuffer commandBuffer, VkPipeline& pipeline) {
 		// VK_PIPELINE_BIND_POINT_GRAPHICS signals that this is a graphics pipeline we are binding this command buffer to.
 		// VK_PIPELINE_BIND_POINT_COMPUTE signals that this is a compute pipeline.
 		// VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR signals that this is a ray tracing pipeline.
-		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+		if (pipelineType == PipelineType::Graphics) {
+			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+		} else if (pipelineType == PipelineType::RayTracing) {
+			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline);
+		} else if (pipelineType == PipelineType::Compute) {
+			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+		}
 	}
 
 	void Pipeline::defaultPipelineConfigInfo(PipelineConfigInfo& configInfo) {
@@ -212,5 +247,10 @@ namespace Aspen {
 		// Attribute Descriptions - Type of the attributes passed to the vertex shader, which binding to load them from and at which offset.
 		configInfo.bindingDescriptions = Aspen::Model::getBindingDescriptions();
 		configInfo.attributeDescriptions = Aspen::Model::getAttributeDescriptions();
+	}
+
+	void Pipeline::defaultRayTracingPipelineConfigInfo(RayTracingPipelineConfigInfo& configInfo) {
+		configInfo.maxRecursionDepth = 1;
+		// Can be expanded in the future...
 	}
 } // namespace Aspen

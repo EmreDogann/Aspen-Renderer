@@ -91,8 +91,7 @@ namespace Aspen {
 		RayTracingRenderSystem rayTracingRenderSystem{
 		    device,
 		    renderer,
-		    globalRenderSystem.getDescriptorSetLayout(),
-		    depthPrePassRenderSystem.getResources()};
+		    globalRenderSystem.getDescriptorSetLayout()};
 		PointLightRenderSystem pointLightRenderSystem{
 		    device,
 		    renderer,

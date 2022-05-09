@@ -145,9 +145,13 @@ namespace Aspen {
 					renderer.setDesiredPresentMode(!appState.enable_vsync); // 0/False is V-sync, 1/True is Mailbox
 					renderer.recreateSwapChain();
 					mousePickingRenderSystem.onResize();
+				}
 
-					std::shared_ptr<Framebuffer> offscreenPass = simpleRenderSystem.getResources();
+				std::shared_ptr<Framebuffer> offscreenPass = simpleRenderSystem.getResources();
+				if (!appState.useRayTracer) {
 					uiState.viewportTexture = ImGui_ImplVulkan_UpdateTexture(uiState.viewportTexture, offscreenPass->sampler, offscreenPass->attachments[0].view, offscreenPass->attachments[0].description.finalLayout);
+				} else {
+					uiState.viewportTexture = ImGui_ImplVulkan_UpdateTexture(uiState.viewportTexture, offscreenPass->sampler, rayTracingRenderSystem.getResources().view, VK_IMAGE_LAYOUT_GENERAL);
 				}
 
 				appState.resync = false;
@@ -263,7 +267,7 @@ namespace Aspen {
 			/*
 			    Render Scene to texture - Offscreen rendering
 			*/
-			{
+			if (!appState.useRayTracer) {
 				renderer.beginRenderPass(commandBuffer, simpleRenderSystem.prepareRenderInfo());
 				simpleRenderSystem.render(frameInfo);
 				pointLightRenderSystem.render(frameInfo);
@@ -272,6 +276,11 @@ namespace Aspen {
 					outlineRenderSystem.render(frameInfo, uiState.selectedEntity.getEntity());
 				}
 				renderer.endRenderPass(commandBuffer);
+			} else {
+				rayTracingRenderSystem.render(frameInfo);
+
+				// std::shared_ptr<Framebuffer> offscreenPass = simpleRenderSystem.getResources();
+				// rayTracingRenderSystem.copyToImage(offscreenPass->attachments[0].image, offscreenPass->attachments[0].description.finalLayout, offscreenPass->width, offscreenPass->height);
 			}
 
 			/*
@@ -412,12 +421,17 @@ namespace Aspen {
 		renderer.recreateSwapChain();
 		depthPrePassRenderSystem.onResize();
 		simpleRenderSystem.onResize();
+		rayTracingRenderSystem.onResize();
 		mousePickingRenderSystem.onResize();
 
 		uiState.viewportSize = glm::vec2(renderer.getSwapChainExtent().width, renderer.getSwapChainExtent().height);
 
 		std::shared_ptr<Framebuffer> offscreenPass = simpleRenderSystem.getResources();
-		uiState.viewportTexture = ImGui_ImplVulkan_UpdateTexture(uiState.viewportTexture, offscreenPass->sampler, offscreenPass->attachments[0].view, offscreenPass->attachments[0].description.finalLayout);
+		if (!appState.useRayTracer) {
+			uiState.viewportTexture = ImGui_ImplVulkan_UpdateTexture(uiState.viewportTexture, offscreenPass->sampler, offscreenPass->attachments[0].view, offscreenPass->attachments[0].description.finalLayout);
+		} else {
+			uiState.viewportTexture = ImGui_ImplVulkan_UpdateTexture(uiState.viewportTexture, offscreenPass->sampler, rayTracingRenderSystem.getResources().view, VK_IMAGE_LAYOUT_GENERAL);
+		}
 
 		// createPipeline(); // Right now this is not required as the new render pass will be compatible with the old one but is put here for future proofing.
 
@@ -568,8 +582,8 @@ namespace Aspen {
 
 		// Assign these textures to a render system.
 		simpleRenderSystem.assignTextures(*m_Scene);
-		// rayTracingRenderSystem.assignTextures(*m_Scene);
 		rayTracingRenderSystem.createAccelerationStructures(m_Scene);
+		rayTracingRenderSystem.assignTextures(*m_Scene);
 
 		// Create point lights
 		{

@@ -1,0 +1,65 @@
+#version 460
+#extension GL_EXT_ray_tracing : require
+
+struct PointLight {
+  vec4 position;
+  vec4 color;  // w is intensity
+};
+
+// Uniform Buffer Object (UBO)
+layout(set = 0, binding = 0) uniform GlobalUbo {
+    mat4 projectionMatrix;
+    mat4 viewMatrix;
+    mat4 inverseProjectionMatrix;
+    mat4 inverseViewMatrix;
+    PointLight lights[10];
+    vec3 ambientLightColor;
+} ubo;
+
+// Dynamic Uniform Buffer Object
+layout(set = 1, binding = 0) uniform DynamicUbo {
+    mat4 modelMatrix; // projection * view * matrix
+    mat4 normalMatrix;
+} dynamicUbo;
+
+layout(binding = 0, set = 2) uniform accelerationStructureEXT topLevelAS;
+layout(binding = 1, set = 2, rgba32f) uniform image2D image;
+
+// Ray Payload
+struct HitPayload {
+  vec3 hitValue;
+};
+layout(location = 0) rayPayloadEXT HitPayload rPayload;
+
+void main() {
+    // Compute the pixel coordinates of the ray.
+    // gl_LaunchIDEXT - Integer coordinates of the pixel being rendered.
+    // gl_LaunchSizeEXT - Image Size passed from vkCmdTraceRaysKHR().
+    const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
+    const vec2 inUV = pixelCenter/vec2(gl_LaunchSizeEXT.xy);
+    vec2 d = inUV * 2.0 - 1.0;
+
+    vec4 origin    = ubo.inverseViewMatrix * vec4(0, 0, 0, 1);
+    vec4 target    = ubo.inverseProjectionMatrix * vec4(d.x, d.y, 1, 1);
+    vec4 direction = ubo.inverseViewMatrix * vec4(normalize(target.xyz), 0);
+
+    uint  rayFlags = gl_RayFlagsOpaqueEXT;
+    float tMin     = 0.001;
+    float tMax     = 10000.0;
+
+    traceRayEXT(topLevelAS, // acceleration structure
+          rayFlags,       // rayFlags
+          0xFF,           // cullMask
+          0,              // sbtRecordOffset
+          0,              // sbtRecordStride
+          0,              // missIndex
+          origin.xyz,     // ray origin
+          tMin,           // ray min range
+          direction.xyz,  // ray direction
+          tMax,           // ray max range
+          0               // payload (location = 0)
+    );
+
+    imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(rPayload.hitValue, 1.0));
+    // imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(0.01, 0.01, 0.01, 1.0));
+}

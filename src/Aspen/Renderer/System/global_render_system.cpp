@@ -37,13 +37,13 @@ namespace Aspen {
 	void GlobalRenderSystem::createDescriptorSetLayout() {
 		// Standard UBO
 		descriptorSetLayouts.push_back(DescriptorSetLayout::Builder(device)
-		                                   .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT) // Binding 0: Vertex shader uniform buffer
-		                                                                                                                                                //   .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)                      // Binding 2: Fragment shader image sampler
+		                                   .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR) // Binding 0: Vertex shader uniform buffer
+		                                                                                                                                                                                 //   .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)                      // Binding 2: Fragment shader image sampler
 		                                   .build());
 
 		// Dynamic UBO
 		descriptorSetLayouts.push_back(DescriptorSetLayout::Builder(device)
-		                                   .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT) // Binding 0: Vertex shader dynamic uniform buffer
+		                                   .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR) // Binding 0: Vertex shader dynamic uniform buffer
 		                                   .build());
 	}
 
@@ -74,6 +74,7 @@ namespace Aspen {
 			GlobalUbo globalUbo{};
 			globalUbo.projectionMatrix = frameInfo.camera.getProjection();
 			globalUbo.viewMatrix = frameInfo.camera.getView();
+			globalUbo.inverseProjectionMatrix = frameInfo.camera.getInverseProjection();
 			globalUbo.inverseViewMatrix = frameInfo.camera.getInverseView();
 
 			int lightIndex = 0;

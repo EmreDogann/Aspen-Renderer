@@ -7,8 +7,65 @@ namespace Aspen {
 	                                                    VkDebugUtilsMessageTypeFlagsEXT messageType,
 	                                                    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 	                                                    void* pUserData) {
-		std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
 
+		// Select prefix depending on flags passed to the callback
+		std::string prefix;
+
+		if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT) {
+			prefix = "VERBOSE: ";
+		} else if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT) {
+			prefix = "INFO: ";
+		} else if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
+			prefix = "WARNING: ";
+		} else if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
+			prefix = "ERROR: ";
+		}
+
+		if (messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT) {
+			prefix += "GENERAL";
+		} else {
+			if (messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT) {
+				prefix += "SPEC";
+			}
+			if (messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT) {
+				if (messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT) {
+					prefix += "|";
+				}
+
+				prefix += "PERF";
+			}
+		}
+
+		// Format the message to remove unnecessary data.
+		std::string formattedMessage = pCallbackData->pMessage;
+		std::string delimiter = " | ";
+
+		size_t pos_start = 0, pos_end, delim_len = delimiter.length();
+		std::string token;
+		std::vector<std::string> res;
+
+		while ((pos_end = formattedMessage.find(delimiter, pos_start)) != std::string::npos) {
+			token = formattedMessage.substr(pos_start, pos_end - pos_start);
+			pos_start = pos_end + delim_len;
+			res.push_back(token);
+		}
+
+		res.push_back(formattedMessage.substr(pos_start));
+
+		// Display message to default output (console)
+		std::stringstream debugMessage;
+		debugMessage << prefix << " - Message ID: " << pCallbackData->pMessageIdName << " [" << pCallbackData->messageIdNumber << ']' << ", Message: \n\t" << res[2] << std::endl;
+
+		if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
+			std::cerr << debugMessage.str() << "\n";
+		} else {
+			std::cout << debugMessage.str() << "\n";
+		}
+		fflush(stdout);
+
+		// The return value of this callback controls whether the Vulkan call that caused the validation message will be aborted or not
+		// We return VK_FALSE as we DON'T want Vulkan calls that cause a validation message to abort
+		// If you instead want to have calls abort, pass in VK_TRUE and the function will return VK_ERROR_VALIDATION_FAILED_EXT
 		return VK_FALSE;
 	}
 
@@ -319,6 +376,8 @@ namespace Aspen {
 		                     .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 10)
 		                     .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10)
 		                     .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10)
+		                     .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1)
+		                     .addPoolSize(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1)
 		                     .build();
 	}
 

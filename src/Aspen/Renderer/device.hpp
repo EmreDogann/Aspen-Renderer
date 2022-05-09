@@ -183,7 +183,6 @@ namespace Aspen {
 		    // Required by VK_KHR_acceleration_structure
 		    VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
 		    VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
-		    VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME,
 
 		    // Required for VK_KHR_ray_tracing_pipeline
 		    VK_KHR_SPIRV_1_4_EXTENSION_NAME,

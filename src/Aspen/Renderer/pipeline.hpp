@@ -30,10 +30,25 @@ namespace Aspen {
 		~PipelineConfigInfo() = default;
 	};
 
+	// Data specifying how we want to configure our ray-tracing pipeline.
+	struct RayTracingPipelineConfigInfo {
+		std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups;
+		uint32_t maxRecursionDepth;
+		VkPipelineLayout pipelineLayout = nullptr;
+
+		RayTracingPipelineConfigInfo(const RayTracingPipelineConfigInfo&) = delete;
+		RayTracingPipelineConfigInfo& operator=(const RayTracingPipelineConfigInfo&) = delete;
+		RayTracingPipelineConfigInfo(RayTracingPipelineConfigInfo&&) = delete;            // Move Constructor
+		RayTracingPipelineConfigInfo& operator=(RayTracingPipelineConfigInfo&&) = delete; // Move Assignment Operator
+
+		RayTracingPipelineConfigInfo() = default;
+		~RayTracingPipelineConfigInfo() = default;
+	};
+
 	class Pipeline {
 	public:
 		Pipeline(Device& device)
-		    : device(device) {}
+		    : device(device), deviceProcedures(device.deviceProcedures()) {}
 		~Pipeline() {
 			for (auto& module : shaderModules) {
 				vkDestroyShaderModule(device.device(), module, nullptr);
@@ -49,10 +64,12 @@ namespace Aspen {
 		Pipeline& operator=(Pipeline&&) = delete; // Move Assignment Operator
 
 		void bind(VkCommandBuffer commandBuffer, VkPipeline& pipeline);
-		void createShaderModule(const std::string& shaderFilepath, VkShaderStageFlagBits stageType, VkSpecializationInfo* specializationInfo = nullptr);
+		VkPipelineShaderStageCreateInfo createShaderModule(const std::string& shaderFilepath, VkShaderStageFlagBits stageType, VkSpecializationInfo* specializationInfo = nullptr);
 		void createPipelineLayout(std::vector<VkDescriptorSetLayout>& descriptorSetLayouts, VkPushConstantRange& pushConstantRange);
 		static void defaultPipelineConfigInfo(PipelineConfigInfo& configInfo);
 		void createGraphicsPipeline(const PipelineConfigInfo& configInfo, VkPipeline& pipeline);
+		void createRayTracingPipeline(const RayTracingPipelineConfigInfo& configInfo, VkPipeline& pipeline);
+		static void defaultRayTracingPipelineConfigInfo(RayTracingPipelineConfigInfo& configInfo);
 
 		VkPipeline& getPipeline() {
 			return pipeline;
@@ -70,6 +87,14 @@ namespace Aspen {
 		std::vector<char> readFile(const std::string& filepath);
 
 		Device& device;
+		// Used for calling extension functions that were manually leaded in DeviceProcedures.
+		DeviceProcedures& deviceProcedures;
+
+		enum PipelineType {
+			Graphics,
+			RayTracing,
+			Compute
+		} pipelineType;
 
 		VkPipeline pipeline{};
 		VkPipelineLayout pipelineLayout{};

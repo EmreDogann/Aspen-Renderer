@@ -315,7 +315,7 @@ namespace Aspen::VulkanTools {
 			moduleCreateInfo.codeSize = size;
 			moduleCreateInfo.pCode = reinterpret_cast<uint32_t*>(shaderCode);
 
-			VK_CHECK_RESULT(vkCreateShaderModule(device, &moduleCreateInfo, nullptr, &shaderModule));
+			VK_CHECK(vkCreateShaderModule(device, &moduleCreateInfo, nullptr, &shaderModule));
 
 			delete[] shaderCode;
 
