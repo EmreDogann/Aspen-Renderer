@@ -283,7 +283,7 @@ namespace Aspen {
 				rayTracingRenderSystem.render(frameInfo);
 
 				// std::shared_ptr<Framebuffer> offscreenPass = rayTracingRenderSystem.getResources();
-				// rayTracingRenderSystem.copyToImage(offscreenPass->attachments[0].image, offscreenPass->attachments[0].description.finalLayout, offscreenPass->width, offscreenPass->height);
+				// rayTracingRenderSystem.copyToImage(commandBuffer, offscreenPass->attachments[0].image, offscreenPass->attachments[0].description.finalLayout, offscreenPass->width, offscreenPass->height);
 
 				renderer.beginRenderPass(commandBuffer, rayTracingRenderSystem.prepareRenderInfo());
 				pointLightRenderSystem.render(frameInfo);
@@ -645,9 +645,9 @@ namespace Aspen {
 				pointLightEntity.addComponent<PointLightComponent>();
 
 				auto [pointLightTransform, pointLightComponent] = pointLightEntity.getComponent<TransformComponent, PointLightComponent>();
-				pointLightTransform.translation = glm::vec3{0.0f, -4.0f, 3.0f};
+				pointLightTransform.translation = glm::vec3{0.0f, -4.4f, 3.0f};
 				pointLightComponent.color = colors[i];
-				pointLightComponent.lightIntensity = 1.0f;
+				pointLightComponent.lightIntensity = 3.0f;
 
 				// auto rotateLight = glm::rotate(pointLightTransform.transform(), (i * glm::two_pi<float>()) / colors.size(), {0.0f, -1.0f, 0.0f});
 				// pointLightTransform.translation = glm::vec3(rotateLight * glm::vec4{pointLightTransform.translation, 1.0f});

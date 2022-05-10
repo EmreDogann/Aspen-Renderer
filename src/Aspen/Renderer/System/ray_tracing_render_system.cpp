@@ -23,11 +23,12 @@ namespace Aspen {
 
 		storage_image.width = renderer.getSwapChainExtent().width;
 		storage_image.height = renderer.getSwapChainExtent().height;
-		storage_image.format = VK_FORMAT_B8G8R8A8_UNORM; // TODO: This Image needs to be copied to a SRGB image before displaying.
+		storage_image.format = renderer.getSwapChainImageFormat(); // TODO: This Image needs to be copied to a SRGB image before displaying.
 
 		VkImageCreateInfo imageInfo{};
 		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 		imageInfo.imageType = VK_IMAGE_TYPE_2D;
+		imageInfo.flags = VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT | VK_IMAGE_CREATE_EXTENDED_USAGE_BIT;
 		imageInfo.format = storage_image.format;
 		imageInfo.extent.width = storage_image.width;
 		imageInfo.extent.height = storage_image.height;
@@ -38,7 +39,7 @@ namespace Aspen {
 		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 		// VK_IMAGE_USAGE_TRANSFER_SRC_BIT - So image is used as a source of a copy function.
 		// VK_IMAGE_USAGE_STORAGE_BIT - So the shaders can read and write to the image.
-		imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
 		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
 		device.createImageWithInfo(imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, storage_image.image, storage_image.memory);
@@ -46,7 +47,7 @@ namespace Aspen {
 		VkImageViewCreateInfo viewCreateInfo{};
 		viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		viewCreateInfo.format = storage_image.format;
+		viewCreateInfo.format = VK_FORMAT_B8G8R8A8_UNORM;
 		viewCreateInfo.subresourceRange = {};
 		viewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		viewCreateInfo.subresourceRange.baseMipLevel = 0;
@@ -626,15 +627,17 @@ namespace Aspen {
 	        /-----------\
 	        | raygen    |
 	        |-----------|
-	        | raygen    |
+	        | ------    |
 	        |-----------|
 	        | miss      |
+	        |-----------|
+	        | ----      |
 	        |-----------|
 	        | hit       |
 	        \-----------/
 	*/
 	void RayTracingRenderSystem::createShaderBindingTable() {
-		uint32_t missCount{1};
+		uint32_t missCount{2};
 		uint32_t hitCount{1};
 		auto handleCount = 1 + missCount + hitCount;
 		uint32_t handleSize = device.rtProperties.shaderGroupHandleSize;
@@ -727,12 +730,12 @@ namespace Aspen {
 	// Create a Descriptor Set Layout for a Uniform Buffer Object (UBO) & Textures.
 	void RayTracingRenderSystem::createDescriptorSetLayout() {
 		rtDescriptorSetLayout = DescriptorSetLayout::Builder(device)
-		                            .addBinding(0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, VK_SHADER_STAGE_RAYGEN_BIT_KHR) // Binding 0: Ray Generation shader to access the acceleration structures.
-		                            .addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)              // Binding 1: Ray Gen shader storage image for offscreen rendering.
-		                            .addBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)        // Binding 1: Ray Hit shader storage buffer for getting vertex information.
-		                            .addBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)        // Binding 1: Ray Hit shader storage buffer for getting index information.
-		                            .addBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)        // Binding 1: Ray Hit shader storage buffer for getting offset information.
-		                            .addBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)        // Binding 1: Ray Hit shader storage buffer for getting texture id information.
+		                            .addBinding(0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR) // Binding 0: Ray Generation shader to access the acceleration structures.
+		                            .addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)                                                    // Binding 1: Ray Gen shader storage image for offscreen rendering.
+		                            .addBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)                                              // Binding 1: Ray Hit shader storage buffer for getting vertex information.
+		                            .addBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)                                              // Binding 1: Ray Hit shader storage buffer for getting index information.
+		                            .addBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)                                              // Binding 1: Ray Hit shader storage buffer for getting offset information.
+		                            .addBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)                                              // Binding 1: Ray Hit shader storage buffer for getting texture id information.
 		                            .build();
 
 		textureDescriptorSetLayout = DescriptorSetLayout::Builder(device)
@@ -789,7 +792,7 @@ namespace Aspen {
 		enum StageIndices {
 			eRaygen,
 			eMiss,
-			// eMiss2,
+			eMiss2,
 			eClosestHit,
 			eShaderGroupCount
 		};
@@ -802,7 +805,7 @@ namespace Aspen {
 		// Miss
 		stages[eMiss] = pipeline.createShaderModule("assets/shaders/raytrace.rmiss.spv", VK_SHADER_STAGE_MISS_BIT_KHR);
 		// The second miss shader is invoked when a shadow ray misses the geometry. It simply indicates that no occlusion has been found
-		// stages[eMiss2] = pipeline.createShaderModule("assets/shaders/raytraceShadow.rmiss.spv", VK_SHADER_STAGE_MISS_BIT_KHR);
+		stages[eMiss2] = pipeline.createShaderModule("assets/shaders/raytraceShadow.rmiss.spv", VK_SHADER_STAGE_MISS_BIT_KHR);
 		// Hit Group - Closest Hit
 		stages[eClosestHit] = pipeline.createShaderModule("assets/shaders/raytrace.rchit.spv", VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
 
@@ -824,9 +827,9 @@ namespace Aspen {
 		rtShaderGroups.push_back(group);
 
 		// Shadow Miss
-		// group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-		// group.generalShader = eMiss2;
-		// rtShaderGroups.push_back(group);
+		group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+		group.generalShader = eMiss2;
+		rtShaderGroups.push_back(group);
 
 		// closest hit shader
 		group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
@@ -834,30 +837,20 @@ namespace Aspen {
 		group.closestHitShader = eClosestHit;
 		rtShaderGroups.push_back(group);
 
-		// // Each shader constant of a shader stage corresponds to one map entry
-		// std::array<VkSpecializationMapEntry, 1> specializationMapEntries{};
-		// // Shader bindings based on specialization constants are marked by the new "constant_id" layout qualifier:
-		// //	layout (constant_id = 0) const int numLights = 10;
-
-		// // Map entry for the lighting model to be used by the fragment shader
-		// specializationMapEntries[0].constantID = 0;
-		// specializationMapEntries[0].size = sizeof(specializationData.numLights);
-		// specializationMapEntries[0].offset = 0;
-
-		// // Prepare specialization info block for the shader stage
-		// VkSpecializationInfo specializationInfo{};
-		// specializationInfo.dataSize = sizeof(specializationData);
-		// specializationInfo.mapEntryCount = static_cast<uint32_t>(specializationMapEntries.size());
-		// specializationInfo.pMapEntries = specializationMapEntries.data();
-		// specializationInfo.pData = &specializationData;
-
-		// // Set the number of max lights.
-		// specializationData.numLights = MAX_LIGHTS;
-
 		RayTracingPipelineConfigInfo pipelineConfig{};
 		Pipeline::defaultRayTracingPipelineConfigInfo(pipelineConfig);
 		pipelineConfig.shaderGroups = rtShaderGroups;
 		pipelineConfig.pipelineLayout = pipeline.getPipelineLayout();
+		// The ray tracing process can shoot rays from the camera, and a shadow ray can be shot from the
+		// hit points of the camera rays, hence a recursion level of 2. This number should be kept as low
+		// as possible for performance reasons. Even recursive ray tracing should be flattened into a loop
+		// in the ray generation to avoid deep recursion.
+		pipelineConfig.maxRecursionDepth = 2;
+
+		// Spec only guarantees 1 level of "recursion". Check for that sad possibility here.
+		if (device.rtProperties.maxRayRecursionDepth <= 1) {
+			throw std::runtime_error("Device fails to support ray recursion (rtProperties.maxRayRecursionDepth <= 1)");
+		}
 
 		pipeline.createRayTracingPipeline(pipelineConfig, pipeline.getPipeline());
 	}
@@ -898,7 +891,7 @@ namespace Aspen {
 		auto pointLightGroup = frameInfo.scene->getPointLights();
 		auto [pointLightProps, pointLightTransform] = pointLightGroup.get<PointLightComponent, TransformComponent>(pointLightGroup[0]);
 
-		push.clearColor = glm::vec4{0.2f, 0.5f, 0.0f, 1.0f};
+		push.clearColor = glm::vec4{0.1f, 0.3f, 0.3f, 1.0f};
 		push.lightPosition = pointLightTransform.translation;
 		push.lightIntensity = pointLightProps.lightIntensity;
 

@@ -2,12 +2,17 @@
 #extension GL_EXT_ray_tracing : require
 #extension GL_EXT_nonuniform_qualifier : enable
 
-// Ray Payload
+// Incoming Ray Payload
 struct HitPayload {
   vec3 hitValue;
 };
 layout(location = 0) rayPayloadInEXT HitPayload rPayload;
+
+// Ray Hit attributes
 hitAttributeEXT vec2 attribs;
+
+// Outgoing Ray Payload
+layout(location = 1) rayPayloadEXT bool isShadowed;
 
 struct Vertex {
   vec3 Position;
@@ -16,7 +21,7 @@ struct Vertex {
   vec2 TexCoord;
   int TextureIndex;
 };
-
+layout(binding = 0, set = 1) uniform accelerationStructureEXT topLevelAS;
 layout(binding = 2, set = 1) readonly buffer VertexArray { float Vertices[]; };
 layout(binding = 3, set = 1) readonly buffer IndexArray { uint Indices[]; };
 layout(binding = 4, set = 1) readonly buffer OffsetArray { uvec2[] Offsets; };
@@ -62,8 +67,8 @@ Vertex UnpackVertex(uint index) {
 vec3 computeDiffuse(vec3 lightDir, vec3 normal) {
   // Lambertian
   float dotNL = max(dot(normal, lightDir), 0.0);
-  vec3  c     = vec3(0.8, 0.8, 0.8) * dotNL;
-  vec3 ambient = vec3(0.2);
+  vec3  c     = vec3(1.0) * dotNL;
+  vec3 ambient = vec3(0.02);
 //   if(mat.illum >= 1) {
 //     c += mat.ambient;
 //   }
@@ -117,13 +122,54 @@ void main() {
 	L              = normalize(lDir);
 
 	vec3 diffuse = computeDiffuse(L, worldNormal);
-	vec3 specular = computeSpecular(gl_WorldRayDirectionEXT, L, worldNormal);
+
+	vec3  specular    = vec3(0);
+  	float attenuation = 1;
+
+	// Tracing shadow ray only if the light is visible from the surface
+	if(dot(worldNormal, L) > 0) {
+		float tMin   = 0.1;
+		float tMax   = lightDistance;
+		vec3  origin = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
+		vec3  rayDir = L;
+		// gl_RayFlagsSkipClosestHitShaderEXT: Will not invoke the hit shader, only the miss shader
+		// gl_RayFlagsOpaqueEXT : Will not call the any hit shader, so all objects will be opaque
+		// gl_RayFlagsTerminateOnFirstHitEXT : The first hit is always good.
+		uint  flags = gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT;
+
+		isShadowed = true;
+
+		traceRayEXT(topLevelAS,  // acceleration structure
+				flags,       // rayFlags
+				0xFF,        // cullMask
+				0,           // sbtRecordOffset
+				0,           // sbtRecordStride
+				1,           // missIndex
+				origin,      // ray origin
+				tMin,        // ray min range
+				rayDir,      // ray direction
+				tMax,        // ray max range
+				1            // payload (location = 1)
+		);
+
+		if(isShadowed) {
+			attenuation = 0.3;
+		} else {
+			// Specular
+			specular = computeSpecular(gl_WorldRayDirectionEXT, L, worldNormal);
+		}
+	}
 
 	if (textureID >= 0) {
-		rPayload.hitValue = (diffuse + specular) * texture(samplerTextures[textureID], texCoord).rgb;
+		rPayload.hitValue = lightIntensity * attenuation * (diffuse + specular) * texture(samplerTextures[textureID], texCoord).rgb;
 	} else {
-		rPayload.hitValue = color * (diffuse + specular);
+		rPayload.hitValue = color * lightIntensity * attenuation * (diffuse + specular);
 	}
+
+	// Gamma correction
+    float gamma = 2.2;
+	rPayload.hitValue = pow(rPayload.hitValue, vec3(1.0/gamma));
+
 	// rPayload.hitValue = (diffuse + specular);
 
 	// rPayload.hitValue = texture(samplerTextures[nonuniformEXT(int(offsets.z))], texCoord).xyz;
