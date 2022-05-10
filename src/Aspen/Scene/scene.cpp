@@ -1,5 +1,6 @@
 #include "Aspen/Scene/scene.hpp"
 #include "entity.hpp"
+#include "Aspen/Core/model.hpp"
 
 namespace Aspen {
 	Scene::Scene(Device& device)
@@ -30,6 +31,9 @@ namespace Aspen {
 		// 	vkDestroyBuffer(device.device(), mesh.meshMemory.indexBuffer, nullptr);
 		// 	vkFreeMemory(device.device(), mesh.meshMemory.indexBufferMemory, nullptr);
 		// }
+		m_sceneData.vertexBuffer.reset();
+		m_sceneData.indexBuffer.reset();
+		m_sceneData.offsetBuffer.reset();
 	}
 
 	Entity Scene::createEntity(const std::string& name) {
@@ -51,7 +55,7 @@ namespace Aspen {
 
 		auto group = getRenderComponents();
 		for (const auto& entity : group) {
-			auto [transform, mesh] = group.get<TransformComponent, MeshComponent>(entity);
+			auto& mesh = group.get<MeshComponent>(entity);
 
 			// Remember the index, vertex offsets.
 			const auto indexOffset = static_cast<uint32_t>(indices.size());
@@ -64,7 +68,46 @@ namespace Aspen {
 			indices.insert(indices.end(), mesh.indices.begin(), mesh.indices.end());
 		}
 
-		// m_sceneData.vertexBuffer = std::make_unique<Buffer>(device, );
+		Model::createVertexBuffers(device, vertices, m_sceneData.vertexBuffer);
+		Model::createIndexBuffers(device, indices, m_sceneData.indexBuffer);
+
+		// Create staging buffer and allocate memory for it.
+		Buffer stagingBuffer{
+		    device,
+		    sizeof(glm::uvec2),
+		    static_cast<uint32_t>(offsets.size()),
+		    VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		};
+
+		// TODO: Keep the staging buffer mapped and re-use the staging buffers.
+		// Copy the vertices data into the staging buffer.
+		stagingBuffer.map();
+		stagingBuffer.writeToBuffer((void*)offsets.data());
+		stagingBuffer.unmap();
+
+		// Create a device local buffer.
+		// VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT - Allows us to pass the device address of the buffer to the acceleration structure used for ray tracing.
+		m_sceneData.offsetBuffer = std::make_unique<Buffer>(
+		    device,
+		    sizeof(glm::uvec2),
+		    static_cast<uint32_t>(offsets.size()),
+		    VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+		// Copy contents of staging buffer into device local buffer.
+		device.copyBuffer(stagingBuffer.getBuffer(), m_sceneData.offsetBuffer->getBuffer(), sizeof(glm::uvec2) * static_cast<uint32_t>(offsets.size()));
+	}
+
+	void Scene::updateTextures() {
+		auto group = getRenderComponents();
+		for (const auto& entity : group) {
+			auto& mesh = group.get<MeshComponent>(entity);
+
+			if (mesh.texture.isTextureLoaded) {
+				m_sceneData.textureCount++;
+			}
+		}
 	}
 
 	void Scene::OnUpdate() {

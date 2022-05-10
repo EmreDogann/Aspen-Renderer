@@ -41,7 +41,7 @@ namespace Aspen {
 
 	class RayTracingRenderSystem {
 	public:
-		RayTracingRenderSystem(Device& device, Renderer& renderer, std::vector<std::unique_ptr<DescriptorSetLayout>>& globalDescriptorSetLayouts);
+		RayTracingRenderSystem(Device& device, Renderer& renderer, std::vector<std::unique_ptr<DescriptorSetLayout>>& globalDescriptorSetLayouts, std::shared_ptr<Framebuffer> resourcesDepthPrePass);
 		~RayTracingRenderSystem();
 
 		RayTracingRenderSystem(const RayTracingRenderSystem&) = delete;
@@ -54,7 +54,7 @@ namespace Aspen {
 		void createResources();
 		void updateResources();
 		void createAccelerationStructures(std::shared_ptr<Scene>& scene);
-		void copyToImage(VkImage dstImage, VkImageLayout initialLayout, uint32_t width, uint32_t height);
+		void copyToImage(VkCommandBuffer cmdBuffer, VkImage dstImage, VkImageLayout initialLayout, uint32_t width, uint32_t height);
 		void assignTextures(Scene& scene);
 		RenderInfo prepareRenderInfo();
 		void onResize();
@@ -63,18 +63,18 @@ namespace Aspen {
 			return rtDescriptorSet;
 		}
 
-		StorageImage& getResources() {
-			return storage_image;
+		std::shared_ptr<Framebuffer> getResources() {
+			return resources;
 		}
 
 	private:
 		void createDescriptorSetLayout();
-		void createDescriptorSet();
+		void createDescriptorSet(std::shared_ptr<Scene>& scene);
 		void createPipelines();
 		void createPipelineLayout(std::vector<std::unique_ptr<DescriptorSetLayout>>& globalDescriptorSetLayout);
 
 		void createBLAS(std::shared_ptr<Scene>& scene);
-		BLASInput objectToGeometry(MeshComponent& model);
+		BLASInput objectToGeometry(std::shared_ptr<Scene>& scene, uint32_t vertexOffset, uint32_t indexOffset, MeshComponent& model);
 		void cmdCreateBLAS(VkCommandBuffer cmdBuffer, std::vector<uint32_t> indices, std::vector<BuildAccelerationStructure>& buildAS, VkDeviceAddress scratchAddress, VkQueryPool queryPool);
 		void cmdCompactBLAS(VkCommandBuffer cmdBuffer, std::vector<uint32_t> indices, std::vector<BuildAccelerationStructure>& buildAS, VkQueryPool queryPool);
 
@@ -88,6 +88,7 @@ namespace Aspen {
 		DeviceProcedures& deviceProcedures;
 		Renderer& renderer;
 		std::shared_ptr<Framebuffer> resources;
+		std::weak_ptr<Framebuffer> resourcesDepthPrePass;
 
 		// Ray Tracing Pipeline
 		Pipeline pipeline{device};

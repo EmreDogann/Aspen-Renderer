@@ -21,6 +21,8 @@ namespace Aspen {
 		Model& operator=(const Model&&) = delete;
 
 		static void makeBuffer(Device& device, MeshComponent& mesh);
+		static void createVertexBuffers(Device& device, const std::vector<MeshComponent::Vertex>& vertices, std::unique_ptr<Buffer>& vertexBuffer);
+		static void createIndexBuffers(Device& device, const std::vector<uint32_t>& indices, std::unique_ptr<Buffer>& indexBuffer);
 		static void createModelFromFile(Device& device, MeshComponent& mesh, const std::string& filePath);
 
 		static void bind(VkCommandBuffer commandBuffer, std::unique_ptr<Buffer>& vertexBuffer, std::unique_ptr<Buffer>& indexBuffer);
@@ -28,9 +30,5 @@ namespace Aspen {
 
 		static std::vector<VkVertexInputBindingDescription> getBindingDescriptions();
 		static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions();
-
-	private:
-		static void createVertexBuffers(Device& device, const std::vector<MeshComponent::Vertex>& vertices, std::unique_ptr<Buffer>& vertexBuffer);
-		static void createIndexBuffers(Device& device, const std::vector<uint32_t>& indices, std::unique_ptr<Buffer>& indexBuffer);
 	};
 } // namespace Aspen

@@ -5,7 +5,7 @@
 struct HitPayload {
   vec3 hitValue;
 };
-layout(location = 0) rayPayloadEXT HitPayload rPayload;
+layout(location = 0) rayPayloadInEXT HitPayload rPayload;
 
 // Push constant structure for the ray tracer
 struct PushConstantRay {

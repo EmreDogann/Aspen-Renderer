@@ -77,6 +77,7 @@ namespace Aspen {
 		VkAttachmentStoreOp storeOp{};
 		VkAttachmentLoadOp stencilLoadOp{};
 		VkAttachmentStoreOp stencilStoreOp{};
+		VkImageLayout initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		VkSampleCountFlagBits imageSampleCount = VK_SAMPLE_COUNT_1_BIT;
 		VkImageCreateFlags flags{};
 	};
@@ -251,7 +252,7 @@ namespace Aspen {
 			attachment.description.stencilLoadOp = createinfo.stencilLoadOp;
 			attachment.description.stencilStoreOp = createinfo.stencilStoreOp;
 			attachment.description.format = createinfo.format;
-			attachment.description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+			attachment.description.initialLayout = createinfo.initialLayout;
 			// Final layout
 			// If not, final layout depends on attachment type
 			if (attachment.hasDepth() || attachment.hasStencil()) {

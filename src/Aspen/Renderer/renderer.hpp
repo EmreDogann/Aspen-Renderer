@@ -4,7 +4,6 @@
 #include "Aspen/Renderer/frame_info.hpp"
 
 namespace Aspen {
-
 	class Renderer {
 	public:
 		Renderer(Window& window, Device& device, const int desiredPresentMode);

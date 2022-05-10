@@ -8,6 +8,8 @@ namespace Aspen {
 		std::unique_ptr<Buffer> vertexBuffer;
 		std::unique_ptr<Buffer> indexBuffer;
 		std::unique_ptr<Buffer> offsetBuffer;
+		// std::unique_ptr<Buffer> textureBuffer;
+		uint32_t textureCount = 0;
 	};
 
 	class Entity;
@@ -17,6 +19,7 @@ namespace Aspen {
 		~Scene();
 
 		void updateSceneData();
+		void updateTextures();
 
 		Entity createEntity(const std::string& name = std::string());
 		void OnUpdate();

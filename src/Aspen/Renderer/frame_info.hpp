@@ -38,7 +38,7 @@ namespace Aspen {
 		int TIME_HISTORY_COUNT = 4;
 		int UPDATE_MULTIPLICITY = 1;
 
-		int useRayTracer = 0;
+		int useRayTracer = 1;
 
 		bool enable_vsync = true;
 		int fps_cap = 60;

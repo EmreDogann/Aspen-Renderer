@@ -219,7 +219,7 @@ namespace Aspen {
 				ImGuizmo::Manipulate(glm::value_ptr(cameraView),
 				                     glm::value_ptr(cameraProjection),
 				                     static_cast<ImGuizmo::OPERATION>(uiState.gizmoType),
-				                     ImGuizmo::LOCAL,
+				                     ImGuizmo::WORLD,
 				                     glm::value_ptr(objectTranform),
 				                     nullptr,
 				                     uiState.snapping ? snapValues : nullptr);

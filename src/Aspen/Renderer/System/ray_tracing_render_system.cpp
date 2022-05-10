@@ -1,8 +1,8 @@
 #include "Aspen/Renderer/System/ray_tracing_render_system.hpp"
 
 namespace Aspen {
-	RayTracingRenderSystem::RayTracingRenderSystem(Device& device, Renderer& renderer, std::vector<std::unique_ptr<DescriptorSetLayout>>& globalDescriptorSetLayouts)
-	    : device(device), deviceProcedures(device.deviceProcedures()), renderer(renderer), resources(std::make_unique<Framebuffer>(device)), globalDescriptorSetLayouts(globalDescriptorSetLayouts), textureDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT) {
+	RayTracingRenderSystem::RayTracingRenderSystem(Device& device, Renderer& renderer, std::vector<std::unique_ptr<DescriptorSetLayout>>& globalDescriptorSetLayouts, std::shared_ptr<Framebuffer> resourcesDepthPrePass)
+	    : device(device), deviceProcedures(device.deviceProcedures()), renderer(renderer), resources(std::make_unique<Framebuffer>(device)), resourcesDepthPrePass(resourcesDepthPrePass), globalDescriptorSetLayouts(globalDescriptorSetLayouts), textureDescriptorSets(SwapChain::MAX_FRAMES_IN_FLIGHT) {
 		createResources();
 	}
 
@@ -67,45 +67,46 @@ namespace Aspen {
 
 		device.endSingleTimeCommandBuffers(commandBuffer);
 
-		// // Color Attachment
-		// {
-		// 	AttachmentCreateInfo attachmentCreateInfo{};
-		// 	attachmentCreateInfo.format = renderer.getSwapChainImageFormat();
-		// 	attachmentCreateInfo.width = renderer.getSwapChainExtent().width;
-		// 	attachmentCreateInfo.height = renderer.getSwapChainExtent().height;
-		// 	attachmentCreateInfo.imageSampleCount = VK_SAMPLE_COUNT_1_BIT;
-		// 	attachmentCreateInfo.layerCount = 1;
-		// 	attachmentCreateInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		// 	attachmentCreateInfo.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		// 	attachmentCreateInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		// 	attachmentCreateInfo.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		// 	attachmentCreateInfo.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		// 	resources->createAttachment(attachmentCreateInfo);
-		// }
+		// Color Attachment
+		{
+			AttachmentCreateInfo attachmentCreateInfo{};
+			attachmentCreateInfo.format = renderer.getSwapChainImageFormat();
+			attachmentCreateInfo.width = renderer.getSwapChainExtent().width;
+			attachmentCreateInfo.height = renderer.getSwapChainExtent().height;
+			attachmentCreateInfo.imageSampleCount = VK_SAMPLE_COUNT_1_BIT;
+			attachmentCreateInfo.layerCount = 1;
+			attachmentCreateInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+			attachmentCreateInfo.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+			attachmentCreateInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+			attachmentCreateInfo.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+			attachmentCreateInfo.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+			attachmentCreateInfo.initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			resources->createAttachment(attachmentCreateInfo);
+		}
 
-		// // Depth Attachment
-		// {
-		// 	std::shared_ptr<Framebuffer> tempFramebuffer = resourcesDepthPrePass.lock();
+		// Depth Attachment
+		{
+			std::shared_ptr<Framebuffer> tempFramebuffer = resourcesDepthPrePass.lock();
 
-		// 	AttachmentAddInfo attachmentAddInfo{};
-		// 	VulkanTools::getSupportedDepthFormat(device.physicalDevice(), &attachmentAddInfo.format);
-		// 	attachmentAddInfo.imageSampleCount = VK_SAMPLE_COUNT_1_BIT;
-		// 	attachmentAddInfo.view = tempFramebuffer->attachments[0].view;
-		// 	attachmentAddInfo.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-		// 	attachmentAddInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-		// 	attachmentAddInfo.layerCount = 1;
-		// 	attachmentAddInfo.width = renderer.getSwapChainExtent().width;
-		// 	attachmentAddInfo.height = renderer.getSwapChainExtent().height;
-		// 	attachmentAddInfo.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-		// 	attachmentAddInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		// 	attachmentAddInfo.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-		// 	attachmentAddInfo.stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
+			AttachmentAddInfo attachmentAddInfo{};
+			VulkanTools::getSupportedDepthFormat(device.physicalDevice(), &attachmentAddInfo.format);
+			attachmentAddInfo.imageSampleCount = VK_SAMPLE_COUNT_1_BIT;
+			attachmentAddInfo.view = tempFramebuffer->attachments[0].view;
+			attachmentAddInfo.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+			attachmentAddInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+			attachmentAddInfo.layerCount = 1;
+			attachmentAddInfo.width = renderer.getSwapChainExtent().width;
+			attachmentAddInfo.height = renderer.getSwapChainExtent().height;
+			attachmentAddInfo.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+			attachmentAddInfo.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+			attachmentAddInfo.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+			attachmentAddInfo.stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
 
-		// 	resources->addLoadAttachment(attachmentAddInfo);
-		// }
+			resources->addLoadAttachment(attachmentAddInfo);
+		}
 
-		// resources->createSampler(VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
-		// resources->createRenderPass();
+		resources->createSampler(VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+		resources->createRenderPass();
 	}
 
 	void RayTracingRenderSystem::updateResources() {
@@ -127,10 +128,16 @@ namespace Aspen {
 	}
 
 	/*
-	    Copy ray tracing output to swap chain image
+	    Copy ray tracing output to offscreen image
 	*/
-	void RayTracingRenderSystem::copyToImage(VkImage dstImage, VkImageLayout initialLayout, uint32_t width, uint32_t height) {
-		VkCommandBuffer cmdBuffer = device.beginSingleTimeCommandBuffers();
+	void RayTracingRenderSystem::copyToImage(VkCommandBuffer cmdBuffer, VkImage dstImage, VkImageLayout initialLayout, uint32_t width, uint32_t height) {
+		// Wait for destination image to finish transitioning.
+		VulkanTools::setImageLayout(
+		    cmdBuffer,
+		    dstImage,
+		    VK_IMAGE_LAYOUT_UNDEFINED,
+		    initialLayout,
+		    {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1});
 
 		// Prepare destination image as transfer destination
 		VulkanTools::setImageLayout(
@@ -162,7 +169,7 @@ namespace Aspen {
 		               1,
 		               &copy_region);
 
-		// Transition destination image back for presentation
+		// Transition destination image back to original layout
 		VulkanTools::setImageLayout(
 		    cmdBuffer,
 		    dstImage,
@@ -177,8 +184,6 @@ namespace Aspen {
 		    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 		    VK_IMAGE_LAYOUT_GENERAL,
 		    {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1});
-
-		device.endSingleTimeCommandBuffers(cmdBuffer);
 	}
 
 	// Created the Bottom and Top Level Acceleration Structures needed for ray tracing.
@@ -187,7 +192,7 @@ namespace Aspen {
 		createTLAS(scene);
 
 		createDescriptorSetLayout();
-		createDescriptorSet();
+		createDescriptorSet(scene);
 
 		createPipelineLayout(globalDescriptorSetLayouts);
 		createPipelines();
@@ -201,10 +206,16 @@ namespace Aspen {
 		// BLAS - Storing each primitive in a geometry
 		std::vector<BLASInput> BLASinputs;
 
+		uint32_t vertexOffset = 0;
+		uint32_t indexOffset = 0;
+
 		auto group = scene->getRenderComponents();
 		for (const auto& entity : group) {
 			auto& mesh = group.get<MeshComponent>(entity);
-			BLASinputs.push_back(objectToGeometry(mesh));
+			BLASinputs.push_back(objectToGeometry(scene, vertexOffset, indexOffset, mesh));
+
+			vertexOffset += static_cast<uint32_t>(mesh.vertices.size()) * sizeof(MeshComponent::Vertex);
+			indexOffset += static_cast<uint32_t>(mesh.indices.size()) * sizeof(uint32_t);
 		}
 
 		uint32_t nbBlas = static_cast<uint32_t>(BLASinputs.size());
@@ -253,14 +264,12 @@ namespace Aspen {
 		    VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 		    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		};
-		VkBufferDeviceAddressInfo bufferInfo{VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, nullptr, scratchBuffer.getBuffer()};
-		VkDeviceAddress scratchAddress = device.getBufferDeviceAddress(bufferInfo.buffer);
+		VkDeviceAddress scratchAddress = device.getBufferDeviceAddress(scratchBuffer.getBuffer());
 
 		// Allocate a query pool for storing the needed size for every BLAS compaction.
 		// vkGetAccelerationStructureBuildSizesKHR returns the worst case size. Query Pool is used to find actual size in order to perform compaction.
 		VkQueryPool queryPool{VK_NULL_HANDLE};
-		if (nbCompactions > 0) // Is compaction requested?
-		{
+		if (nbCompactions > 0) {             // Is compaction requested?
 			assert(nbCompactions == nbBlas); // Don't allow mix of on/off compaction
 			VkQueryPoolCreateInfo qpci{VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO};
 			qpci.queryCount = nbBlas;
@@ -310,27 +319,25 @@ namespace Aspen {
 	}
 
 	// Adapted From: https://nvpro-samples.github.io/vk_raytracing_tutorial_KHR/
-	BLASInput RayTracingRenderSystem::objectToGeometry(MeshComponent& model) {
+	BLASInput RayTracingRenderSystem::objectToGeometry(std::shared_ptr<Scene>& scene, uint32_t vertexOffset, uint32_t indexOffset, MeshComponent& model) {
 		// BLAS builder requires raw device addresses.
 		VkDeviceOrHostAddressConstKHR vertexAddress;
 		VkDeviceOrHostAddressConstKHR indexAddress;
 
-		vertexAddress.deviceAddress = device.getBufferDeviceAddress(model.vertexBuffer->getBuffer());
-		indexAddress.deviceAddress = device.getBufferDeviceAddress(model.indexBuffer->getBuffer());
-
-		uint32_t maxPrimitiveCount = model.indices.size() / 3;
+		vertexAddress.deviceAddress = device.getBufferDeviceAddress(scene->getSceneData().vertexBuffer->getBuffer());
+		indexAddress.deviceAddress = device.getBufferDeviceAddress(scene->getSceneData().indexBuffer->getBuffer());
 
 		// Describe buffer as array of VertexObj.
 		VkAccelerationStructureGeometryTrianglesDataKHR triangles{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR};
 		triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT; // vec3 vertex position data.
 		triangles.vertexData.deviceAddress = vertexAddress.deviceAddress;
 		triangles.vertexStride = sizeof(MeshComponent::Vertex);
+		triangles.maxVertex = static_cast<uint32_t>(model.vertices.size());
 		// Describe index data (32-bit unsigned int)
 		triangles.indexType = VK_INDEX_TYPE_UINT32;
 		triangles.indexData.deviceAddress = indexAddress.deviceAddress;
 		// Indicate identity transform by setting transformData to null device pointer.
 		// triangles.transformData = {};
-		triangles.maxVertex = model.vertices.size();
 
 		// Identify the above data as containing opaque triangles.
 		VkAccelerationStructureGeometryKHR asGeom{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR};
@@ -340,16 +347,16 @@ namespace Aspen {
 
 		// The entire array will be used to build the BLAS.
 		VkAccelerationStructureBuildRangeInfoKHR offset;
-		offset.firstVertex = 0;
-		offset.primitiveCount = maxPrimitiveCount;
-		offset.primitiveOffset = 0;
+		offset.firstVertex = vertexOffset / sizeof(MeshComponent::Vertex);
+		offset.primitiveCount = static_cast<uint32_t>(model.indices.size()) / 3;
+		offset.primitiveOffset = indexOffset;
 		offset.transformOffset = 0;
 
 		// Our blas is made from only one geometry, but could be made of many geometries
 		BLASInput input;
 		input.ASGeometry.emplace_back(asGeom);
 		input.ASBuildOffsetInfo.emplace_back(offset);
-		input.ASFlags |= VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
+		// input.ASFlags |= VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
 
 		return input;
 	}
@@ -405,6 +412,11 @@ namespace Aspen {
 			    0,
 			    nullptr);
 
+			// Save the device address of the BLAS for use in the TLAS.
+			VkAccelerationStructureDeviceAddressInfoKHR addressInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR};
+			addressInfo.accelerationStructure = buildAS[idx].accelerationStructure.handle;
+			buildAS[idx].accelerationStructure.device_address = deviceProcedures.vkGetAccelerationStructureDeviceAddressKHR(device.device(), &addressInfo);
+
 			if (queryPool) {
 				// Add a query to find the 'real' amount of memory needed, use for compaction
 				deviceProcedures.vkCmdWriteAccelerationStructuresPropertiesKHR(cmdBuffer, 1, &buildAS[idx].buildGeomInfo.dstAccelerationStructure, VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR, queryPool, queryCnt++);
@@ -449,6 +461,11 @@ namespace Aspen {
 			copyInfo.dst = buildAS[idx].accelerationStructure.handle;
 			copyInfo.mode = VK_COPY_ACCELERATION_STRUCTURE_MODE_COMPACT_KHR;
 			deviceProcedures.vkCmdCopyAccelerationStructureKHR(cmdBuffer, &copyInfo);
+
+			// Save the device address of the BLAS for use in the TLAS.
+			VkAccelerationStructureDeviceAddressInfoKHR addressInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR};
+			addressInfo.accelerationStructure = buildAS[idx].accelerationStructure.handle;
+			buildAS[idx].accelerationStructure.device_address = deviceProcedures.vkGetAccelerationStructureDeviceAddressKHR(device.device(), &addressInfo);
 		}
 	}
 
@@ -464,7 +481,7 @@ namespace Aspen {
 
 			VkAccelerationStructureInstanceKHR rayInst{};
 			rayInst.transform = VulkanTools::glmToTransformMatrixKHR(transform.transform()); // Position of the instance
-			rayInst.instanceCustomIndex = 0;                                                 // gl_InstanceCustomIndexEXT. Used for instancing (not currently employed in the engine).
+			rayInst.instanceCustomIndex = index;                                             // gl_InstanceCustomIndexEXT. Used for instancing.
 			rayInst.accelerationStructureReference = m_BLAS[index++].device_address;
 			rayInst.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
 			rayInst.mask = 0xFF;                                //  Only be hit if rayMask & instance.mask != 0
@@ -492,6 +509,7 @@ namespace Aspen {
 
 		instancesBuffer->map();
 		instancesBuffer->writeToBuffer((void*)instances.data());
+		instancesBuffer->unmap();
 		VkDeviceAddress instanceBufferAddress = device.getBufferDeviceAddress(instancesBuffer->getBuffer());
 
 		// Make sure the copy of the instances buffer are copied before triggering the acceleration structure build
@@ -654,12 +672,18 @@ namespace Aspen {
 	}
 
 	void RayTracingRenderSystem::assignTextures(Scene& scene) {
-		std::vector<VkDescriptorImageInfo> descriptorImageInfos(4);
+		assert(scene.getSceneData().textureCount > 0 && "There must be at least one texture loaded.");
+
+		std::vector<VkDescriptorImageInfo> descriptorImageInfos(scene.getSceneData().textureCount);
 
 		int index = 0;
 		auto group = scene.getRenderComponents();
 		for (const auto& entity : group) {
 			auto& mesh = group.get<MeshComponent>(entity);
+
+			if (!mesh.texture.isTextureLoaded) {
+				continue;
+			}
 
 			descriptorImageInfos[index].imageLayout = mesh.texture.imageLayout;
 			descriptorImageInfos[index].imageView = mesh.texture.view;
@@ -669,7 +693,7 @@ namespace Aspen {
 
 		for (int i = 0; i < textureDescriptorSets.size(); ++i) {
 			DescriptorWriter(*textureDescriptorSetLayout, device.getDescriptorPool())
-			    .writeImage(0, descriptorImageInfos.data(), 4)
+			    .writeImage(0, descriptorImageInfos.data(), scene.getSceneData().textureCount)
 			    .build(textureDescriptorSets[i]);
 		}
 	}
@@ -681,15 +705,16 @@ namespace Aspen {
 		                            .addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR)              // Binding 1: Ray Gen shader storage image for offscreen rendering.
 		                            .addBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)        // Binding 1: Ray Hit shader storage buffer for getting vertex information.
 		                            .addBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)        // Binding 1: Ray Hit shader storage buffer for getting index information.
+		                            .addBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)        // Binding 1: Ray Hit shader storage buffer for getting offset information.
 		                            .build();
 
 		textureDescriptorSetLayout = DescriptorSetLayout::Builder(device)
-		                                 .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT, 32) // Binding 0: Fragment shader combined image sampler for textures.
+		                                 .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT, 32) // Binding 0: Fragment shader combined image sampler for textures.
 		                                 .build();
 	}
 
 	// Create Descriptor Sets.
-	void RayTracingRenderSystem::createDescriptorSet() {
+	void RayTracingRenderSystem::createDescriptorSet(std::shared_ptr<Scene>& scene) {
 		VkWriteDescriptorSetAccelerationStructureKHR ASInfo{};
 		ASInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
 		ASInfo.accelerationStructureCount = 1;
@@ -700,9 +725,16 @@ namespace Aspen {
 		image_descriptor.imageView = storage_image.view;
 		image_descriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
+		auto vertexBufferInfo = scene->getSceneData().vertexBuffer->descriptorInfo();
+		auto indexBufferInfo = scene->getSceneData().indexBuffer->descriptorInfo();
+		auto offsetBufferInfo = scene->getSceneData().offsetBuffer->descriptorInfo();
+
 		DescriptorWriter(*rtDescriptorSetLayout, device.getDescriptorPool())
 		    .writeAccelerationStructure(0, &ASInfo)
 		    .writeImage(1, &image_descriptor)
+		    .writeBuffer(2, &vertexBufferInfo)
+		    .writeBuffer(3, &indexBufferInfo)
+		    .writeBuffer(4, &offsetBufferInfo)
 		    .build(rtDescriptorSet);
 	}
 
@@ -715,7 +747,6 @@ namespace Aspen {
 
 		std::vector<VkDescriptorSetLayout> descriptorSetLayouts{
 		    globalDescriptorSetLayouts[0]->getDescriptorSetLayout(),
-		    globalDescriptorSetLayouts[1]->getDescriptorSetLayout(),
 		    rtDescriptorSetLayout->getDescriptorSetLayout(),
 		    textureDescriptorSetLayout->getDescriptorSetLayout(),
 		};
@@ -830,57 +861,29 @@ namespace Aspen {
 		// Bind the graphics pipieline.
 		pipeline.bind(frameInfo.commandBuffer, pipeline.getPipeline());
 
-		int index = 0;
+		std::vector<VkDescriptorSet> descriptorSetsCombined{frameInfo.descriptorSet[0], rtDescriptorSet, textureDescriptorSets[frameInfo.frameIndex]};
+		vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline.getPipelineLayout(), 0, 3, descriptorSetsCombined.data(), 0, nullptr);
 
-		auto group = frameInfo.scene->getRenderComponents();
-		for (const auto& entity : group) {
-			uint32_t dynamicOffset = index * frameInfo.dynamicOffset;
-			std::vector<VkDescriptorSet> descriptorSetsCombined{frameInfo.descriptorSet[0], frameInfo.descriptorSet[1], rtDescriptorSet, textureDescriptorSets[frameInfo.frameIndex]};
-			vkCmdBindDescriptorSets(frameInfo.commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline.getPipelineLayout(), 0, 4, descriptorSetsCombined.data(), 1, &dynamicOffset);
+		PushConstantRay push{};
 
-			auto [transform, mesh] = group.get<TransformComponent, MeshComponent>(entity);
-			// transform.rotation.y = glm::mod(transform.rotation.y + 0.0001f, glm::two_pi<float>());  // Slowly rotate game objects.
-			// transform.rotation.x = glm::mod(transform.rotation.x + 0.00003f, glm::two_pi<float>()); // Slowly rotate game objects.
+		auto pointLightGroup = frameInfo.scene->getPointLights();
+		auto [pointLightProps, pointLightTransform] = pointLightGroup.get<PointLightComponent, TransformComponent>(pointLightGroup[0]);
 
-			PushConstantRay push{};
-			push.clearColor = glm::vec4{0.5f, 0.0f, 0.0f, 1.0f};
-			push.lightPosition = glm::vec3{0.0f, -1.0f, 2.5f};
-			push.lightIntensity = 0.5f;
+		push.clearColor = glm::vec4{0.2f, 0.5f, 0.0f, 1.0f};
+		push.lightPosition = pointLightTransform.translation;
+		push.lightIntensity = pointLightProps.lightIntensity;
 
-			vkCmdPushConstants(frameInfo.commandBuffer, pipeline.getPipelineLayout(), VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR, 0, sizeof(PushConstantRay), &push);
+		vkCmdPushConstants(frameInfo.commandBuffer, pipeline.getPipelineLayout(), VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR, 0, sizeof(PushConstantRay), &push);
 
-			// Trace Rays
-			deviceProcedures.vkCmdTraceRaysKHR(frameInfo.commandBuffer, &rgenRegion, &missRegion, &hitRegion, &callRegion, renderer.getSwapChainExtent().width, renderer.getSwapChainExtent().height, 1);
+		// Trace Rays
+		deviceProcedures.vkCmdTraceRaysKHR(frameInfo.commandBuffer, &rgenRegion, &missRegion, &hitRegion, &callRegion, renderer.getSwapChainExtent().width, renderer.getSwapChainExtent().height, 1);
 
-			++index;
-		}
+		// Copy ray traced output to render pass's attachment.
+		copyToImage(frameInfo.commandBuffer, resources->attachments[0].image, resources->attachments[0].description.finalLayout, resources->width, resources->height);
 	}
 
 	void RayTracingRenderSystem::onResize() {
 		resources->clearFramebuffer();
 		updateResources();
-		// for (int i = 0; i < offscreenDescriptorSets.size(); ++i) {
-		// 	auto bufferInfo = uboBuffers[i]->descriptorInfo();
-		// 	DescriptorWriter(*descriptorSetLayout, device.getDescriptorPool())
-		// 	    .writeBuffer(0, &bufferInfo)
-		// 	    .writeImage(1, &renderer.getOffscreenDescriptorInfo())
-		// 	    .overwrite(offscreenDescriptorSets[i]);
-		// }
-
-		// VkWriteDescriptorSet offScreenWriteDescriptorSets{};
-		// offScreenWriteDescriptorSets.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		// offScreenWriteDescriptorSets.dstSet = offscreenDescriptorSets[0];
-		// offScreenWriteDescriptorSets.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		// offScreenWriteDescriptorSets.dstBinding = 1;
-		// offScreenWriteDescriptorSets.descriptorCount = 1;
-		// offScreenWriteDescriptorSets.pImageInfo = &renderer.getOffscreenDescriptorInfo();
-
-		// vkUpdateDescriptorSets(device.device(), 1, &offScreenWriteDescriptorSets, 0, nullptr);
 	}
-
-	// void RayTracingRenderSystem::renderUI(VkCommandBuffer commandBuffer) {
-	// 	// Bind the graphics pipieline.
-	// 	// vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &offscreenDescriptorSets[0], 0, nullptr);
-	// 	pipeline->bind(commandBuffer, pipeline->getPresentPipeline());
-	// }
 } // namespace Aspen

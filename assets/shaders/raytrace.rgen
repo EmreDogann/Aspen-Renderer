@@ -16,14 +16,8 @@ layout(set = 0, binding = 0) uniform GlobalUbo {
     vec3 ambientLightColor;
 } ubo;
 
-// Dynamic Uniform Buffer Object
-layout(set = 1, binding = 0) uniform DynamicUbo {
-    mat4 modelMatrix; // projection * view * matrix
-    mat4 normalMatrix;
-} dynamicUbo;
-
-layout(binding = 0, set = 2) uniform accelerationStructureEXT topLevelAS;
-layout(binding = 1, set = 2, rgba32f) uniform image2D image;
+layout(binding = 0, set = 1) uniform accelerationStructureEXT topLevelAS;
+layout(binding = 1, set = 1, rgba32f) uniform image2D image;
 
 // Ray Payload
 struct HitPayload {

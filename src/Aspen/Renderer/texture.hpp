@@ -28,6 +28,7 @@ namespace Aspen {
 		uint32_t layerCount;
 		VkDescriptorImageInfo descriptor;
 		VkSampler sampler;
+		bool isTextureLoaded = false;
 
 		~Texture();
 		void updateDescriptor();

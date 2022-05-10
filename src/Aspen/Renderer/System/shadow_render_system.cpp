@@ -138,7 +138,11 @@ namespace Aspen {
 		for (int i = 0; i < 6; ++i) {
 			glm::mat4 viewMatrix = glm::mat4(1.0f);
 			// glm::mat4 viewMatrix = glm::translate(glm::mat4(1.0f), glm::vec3{0.0f, -1.0f, 2.5f});
-			glm::vec3 lightPos = glm::vec3{0.0f, -1.0f, 2.5f};
+			// glm::vec3 lightPos = glm::vec3{0.0f, -1.0f, 2.5f};
+			auto pointLightGroup = frameInfo.scene->getPointLights();
+			auto& pointLightTransform = pointLightGroup.get<TransformComponent>(pointLightGroup[0]);
+			glm::vec3 lightPos = pointLightTransform.translation;
+
 			switch (i) {
 				case 0: // POSITIVE_X
 					viewMatrix = glm::lookAt(lightPos, lightPos + glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));

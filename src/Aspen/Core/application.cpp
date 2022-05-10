@@ -145,13 +145,17 @@ namespace Aspen {
 					renderer.setDesiredPresentMode(!appState.enable_vsync); // 0/False is V-sync, 1/True is Mailbox
 					renderer.recreateSwapChain();
 					mousePickingRenderSystem.onResize();
+
+					// std::shared_ptr<Framebuffer> offscreenPass = simpleRenderSystem.getResources();
+					// uiState.viewportTexture = ImGui_ImplVulkan_UpdateTexture(uiState.viewportTexture, offscreenPass->sampler, offscreenPass->attachments[0].view, offscreenPass->attachments[0].description.finalLayout);
 				}
 
-				std::shared_ptr<Framebuffer> offscreenPass = simpleRenderSystem.getResources();
 				if (!appState.useRayTracer) {
+					std::shared_ptr<Framebuffer> offscreenPass = simpleRenderSystem.getResources();
 					uiState.viewportTexture = ImGui_ImplVulkan_UpdateTexture(uiState.viewportTexture, offscreenPass->sampler, offscreenPass->attachments[0].view, offscreenPass->attachments[0].description.finalLayout);
 				} else {
-					uiState.viewportTexture = ImGui_ImplVulkan_UpdateTexture(uiState.viewportTexture, offscreenPass->sampler, rayTracingRenderSystem.getResources().view, VK_IMAGE_LAYOUT_GENERAL);
+					std::shared_ptr<Framebuffer> offscreenRayTracingPass = rayTracingRenderSystem.getResources();
+					uiState.viewportTexture = ImGui_ImplVulkan_UpdateTexture(uiState.viewportTexture, offscreenRayTracingPass->sampler, offscreenRayTracingPass->attachments[0].view, offscreenRayTracingPass->attachments[0].description.finalLayout);
 				}
 
 				appState.resync = false;
@@ -279,8 +283,16 @@ namespace Aspen {
 			} else {
 				rayTracingRenderSystem.render(frameInfo);
 
-				// std::shared_ptr<Framebuffer> offscreenPass = simpleRenderSystem.getResources();
+				// std::shared_ptr<Framebuffer> offscreenPass = rayTracingRenderSystem.getResources();
 				// rayTracingRenderSystem.copyToImage(offscreenPass->attachments[0].image, offscreenPass->attachments[0].description.finalLayout, offscreenPass->width, offscreenPass->height);
+
+				renderer.beginRenderPass(commandBuffer, rayTracingRenderSystem.prepareRenderInfo());
+				pointLightRenderSystem.render(frameInfo);
+				// Only render an outline if an entity has been selected.
+				if (uiState.selectedEntity) {
+					outlineRenderSystem.render(frameInfo, uiState.selectedEntity.getEntity());
+				}
+				renderer.endRenderPass(commandBuffer);
 			}
 
 			/*
@@ -426,11 +438,12 @@ namespace Aspen {
 
 		uiState.viewportSize = glm::vec2(renderer.getSwapChainExtent().width, renderer.getSwapChainExtent().height);
 
-		std::shared_ptr<Framebuffer> offscreenPass = simpleRenderSystem.getResources();
 		if (!appState.useRayTracer) {
+			std::shared_ptr<Framebuffer> offscreenPass = simpleRenderSystem.getResources();
 			uiState.viewportTexture = ImGui_ImplVulkan_UpdateTexture(uiState.viewportTexture, offscreenPass->sampler, offscreenPass->attachments[0].view, offscreenPass->attachments[0].description.finalLayout);
 		} else {
-			uiState.viewportTexture = ImGui_ImplVulkan_UpdateTexture(uiState.viewportTexture, offscreenPass->sampler, rayTracingRenderSystem.getResources().view, VK_IMAGE_LAYOUT_GENERAL);
+			std::shared_ptr<Framebuffer> offscreenRayTracingPass = rayTracingRenderSystem.getResources();
+			uiState.viewportTexture = ImGui_ImplVulkan_UpdateTexture(uiState.viewportTexture, offscreenRayTracingPass->sampler, offscreenRayTracingPass->attachments[0].view, offscreenRayTracingPass->attachments[0].description.finalLayout);
 		}
 
 		// createPipeline(); // Right now this is not required as the new render pass will be compatible with the old one but is put here for future proofing.
@@ -459,45 +472,58 @@ namespace Aspen {
 	void createCubeModel(Device& device, glm::vec3 offset, MeshComponent& meshComponent) {
 		meshComponent.vertices = {
 
-		    // Left face (white)
-		    {{-.5f, -.5f, -.5f}, {.9f, .9f, .9f}},
-		    {{-.5f, .5f, .5f}, {.9f, .9f, .9f}},
-		    {{-.5f, -.5f, .5f}, {.9f, .9f, .9f}},
-		    {{-.5f, .5f, -.5f}, {.9f, .9f, .9f}},
+		    // Left face (orange)
+		    {{-.5f, -.5f, -.5f}, {0.953f, 0.357f, 0.212f}, {1.0f, 0.0f, 0.0f}},
+		    {{-.5f, .5f, .5f}, {0.953f, 0.357f, 0.212f}, {1.0f, 0.0f, 0.0f}},
+		    {{-.5f, -.5f, .5f}, {0.953f, 0.357f, 0.212f}, {1.0f, 0.0f, 0.0f}},
+		    {{-.5f, .5f, -.5f}, {0.953f, 0.357f, 0.212f}, {1.0f, 0.0f, 0.0f}},
 
-		    // Right face (yellow)
-		    {{.5f, -.5f, -.5f}, {.8f, .8f, .1f}},
-		    {{.5f, .5f, .5f}, {.8f, .8f, .1f}},
-		    {{.5f, -.5f, .5f}, {.8f, .8f, .1f}},
-		    {{.5f, .5f, -.5f}, {.8f, .8f, .1f}},
+		    // Right face (cyan)
+		    {{.5f, -.5f, -.5f}, {0.486f, 0.631f, 0.663f}, {-1.0f, 0.0f, 0.0f}},
+		    {{.5f, .5f, .5f}, {0.486f, 0.631f, 0.663f}, {-1.0f, 0.0f, 0.0f}},
+		    {{.5f, -.5f, .5f}, {0.486f, 0.631f, 0.663f}, {-1.0f, 0.0f, 0.0f}},
+		    {{.5f, .5f, -.5f}, {0.486f, 0.631f, 0.663f}, {-1.0f, 0.0f, 0.0f}},
 
-		    // Top face (orange, remember y axis points down)
-		    {{-.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
-		    {{.5f, -.5f, .5f}, {.9f, .6f, .1f}},
-		    {{-.5f, -.5f, .5f}, {.9f, .6f, .1f}},
-		    {{.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
+		    // Top face (grey) (orange, remember y axis points down)
+		    {{-.5f, -.5f, -.5f}, {0.725f, 0.71f, 0.68f}, {0.0f, 1.0f, 0.0f}},
+		    {{.5f, -.5f, .5f}, {0.725f, 0.71f, 0.68f}, {0.0f, 1.0f, 0.0f}},
+		    {{-.5f, -.5f, .5f}, {0.725f, 0.71f, 0.68f}, {0.0f, 1.0f, 0.0f}},
+		    {{.5f, -.5f, -.5f}, {0.725f, 0.71f, 0.68f}, {0.0f, 1.0f, 0.0f}},
 
-		    // Bottom face (red)
-		    {{-.5f, .5f, -.5f}, {.8f, .1f, .1f}},
-		    {{.5f, .5f, .5f}, {.8f, .1f, .1f}},
-		    {{-.5f, .5f, .5f}, {.8f, .1f, .1f}},
-		    {{.5f, .5f, -.5f}, {.8f, .1f, .1f}},
+		    // Bottom face (grey)
+		    {{-.5f, .5f, -.5f}, {0.725f, 0.71f, 0.68f}, {0.0f, -1.0f, 0.0f}},
+		    {{.5f, .5f, .5f}, {0.725f, 0.71f, 0.68f}, {0.0f, -1.0f, 0.0f}},
+		    {{-.5f, .5f, .5f}, {0.725f, 0.71f, 0.68f}, {0.0f, -1.0f, 0.0f}},
+		    {{.5f, .5f, -.5f}, {0.725f, 0.71f, 0.68f}, {0.0f, -1.0f, 0.0f}},
 
-		    // Nose face (blue)
-		    {{-.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
-		    {{.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
-		    {{-.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
-		    {{.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
+		    // Front face (blue)
+		    // {{-.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
+		    // {{.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
+		    // {{-.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
+		    // {{.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
 
-		    // Tail face (green)
-		    {{-.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
-		    {{.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
-		    {{-.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
-		    {{.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
+		    // Back face (grey)
+		    {{-.5f, -.5f, -0.5f}, {0.725f, 0.71f, 0.68f}, {0.0f, 0.0f, 1.0f}},
+		    {{.5f, .5f, -0.5f}, {0.725f, 0.71f, 0.68f}, {0.0f, 0.0f, 1.0f}},
+		    {{-.5f, .5f, -0.5f}, {0.725f, 0.71f, 0.68f}, {0.0f, 0.0f, 1.0f}},
+		    {{.5f, -.5f, -0.5f}, {0.725f, 0.71f, 0.68f}, {0.0f, 0.0f, 1.0f}},
 
 		};
 
-		meshComponent.indices = {0, 1, 2, 0, 3, 1, 4, 5, 6, 4, 7, 5, 8, 9, 10, 8, 11, 9, 12, 13, 14, 12, 15, 13, 16, 17, 18, 16, 19, 17, 20, 21, 22, 20, 23, 21};
+		meshComponent.indices = {0, 1, 2, // Left
+		                         0, 3, 1,
+
+		                         6, 5, 4, // Right
+		                         5, 7, 4,
+
+		                         10, 9, 8, // Bottom
+		                         9, 11, 8,
+
+		                         12, 13, 14, // Top
+		                         12, 15, 13,
+
+		                         16, 17, 18, // Back
+		                         16, 19, 17};
 
 		for (auto& v : meshComponent.vertices) {
 			v.position += offset;
@@ -529,21 +555,21 @@ namespace Aspen {
 	}
 
 	void Application::loadEntities() {
-		// Create Floor
-		{
-			floor = m_Scene->createEntity("Floor");
-			auto& floorTransform = floor.getComponent<TransformComponent>();
-			floorTransform.translation = {0.0f, 0.0f, 2.5f};
-			floorTransform.scale = {15.0f, 15.0f, 15.0f};
+		// // Create Floor
+		// {
+		// 	floor = m_Scene->createEntity("Floor");
+		// 	auto& floorTransform = floor.getComponent<TransformComponent>();
+		// 	floorTransform.translation = {0.0f, 0.0f, 2.5f};
+		// 	floorTransform.scale = {15.0f, 15.0f, 15.0f};
 
-			auto& floorMesh = floor.addComponent<MeshComponent>();
-			createFloorModel(device,
-			                 {0.0f, 0.0f, 0.0f},
-			                 floorMesh); // Converts the unique pointer returned from the function to a shared pointer.
-			floorMesh.texture.loadFromFile(&device, "assets/textures/FloorHerringbone.png", VK_FORMAT_R8G8B8A8_SRGB, device.graphicsQueue());
-		}
+		// 	auto& floorMesh = floor.addComponent<MeshComponent>();
+		// 	createFloorModel(device,
+		// 	                 {0.0f, 0.0f, 0.0f},
+		// 	                 floorMesh); // Converts the unique pointer returned from the function to a shared pointer.
+		// 	floorMesh.texture.loadFromFile(&device, "assets/textures/FloorHerringbone.png", VK_FORMAT_R8G8B8A8_SRGB, device.graphicsQueue());
+		// }
 
-		// Create Vases
+		// // Create Vases
 		{
 			object = m_Scene->createEntity("Vase");
 			auto& objectTransform = object.getComponent<TransformComponent>();
@@ -580,7 +606,25 @@ namespace Aspen {
 			std::cout << "Cube Vertex Count: " << objectMesh.vertices.size() << std::endl;
 		}
 
-		// Assign these textures to a render system.
+		// Create Cornell Box
+		{
+			object = m_Scene->createEntity("CornellBox");
+			auto& objectTransform = object.getComponent<TransformComponent>();
+			objectTransform.translation = {0.0f, -2.25f, 3.0f};
+			objectTransform.rotation *= glm::angleAxis(glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+			objectTransform.scale = glm::vec3(4.5f);
+
+			auto& objectMesh = object.addComponent<MeshComponent>();
+			createCubeModel(device,
+			                {0.0f, 0.0f, 0.0f},
+			                objectMesh);
+			std::cout << "Cornell Box Vertex Count: " << objectMesh.vertices.size() << std::endl;
+		}
+
+		m_Scene->updateTextures();
+		m_Scene->updateSceneData();
+
+		// Assign these textures to render systems.
 		simpleRenderSystem.assignTextures(*m_Scene);
 		rayTracingRenderSystem.createAccelerationStructures(m_Scene);
 		rayTracingRenderSystem.assignTextures(*m_Scene);
@@ -602,9 +646,9 @@ namespace Aspen {
 				pointLightEntity.addComponent<PointLightComponent>();
 
 				auto [pointLightTransform, pointLightComponent] = pointLightEntity.getComponent<TransformComponent, PointLightComponent>();
-				pointLightTransform.translation = glm::vec3{0.0f, -1.0f, 2.5f};
+				pointLightTransform.translation = glm::vec3{0.0f, -4.0f, 3.0f};
 				pointLightComponent.color = colors[i];
-				pointLightComponent.lightIntensity = 0.5f;
+				pointLightComponent.lightIntensity = 1.0f;
 
 				// auto rotateLight = glm::rotate(pointLightTransform.transform(), (i * glm::two_pi<float>()) / colors.size(), {0.0f, -1.0f, 0.0f});
 				// pointLightTransform.translation = glm::vec3(rotateLight * glm::vec4{pointLightTransform.translation, 1.0f});

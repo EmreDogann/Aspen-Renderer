@@ -113,6 +113,10 @@ void main() {
     float bias = max(0.0001 * (1.0 - clamp(dot(surfaceNormal, (inLightPos - inWorldPosition)), 0, 1)), 0.0001);
     float shadow = (sampledDist + bias > dist) ? 1.0 : 0.1;
 
-    outColor = vec4(texture(samplerTextures[push.imageIndex], inUV).xyz * (specularLighting + diffuseLighting) * shadow, 1.0); // RGBA
+    if (push.imageIndex == -1) {
+        outColor = vec4(inColor * (specularLighting + diffuseLighting) * shadow, 1.0); // RGBA
+    } else {
+        outColor = vec4(texture(samplerTextures[push.imageIndex], inUV).xyz * (specularLighting + diffuseLighting) * shadow, 1.0); // RGBA
+    }
     // outColor = vec4((specularLighting + diffuseLighting) * inColor * shadow, 1.0); // RGBA
 }

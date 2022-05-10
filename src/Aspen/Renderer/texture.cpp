@@ -291,6 +291,8 @@ namespace Aspen {
 
 		// Update descriptor image info member that can be used for setting up descriptor sets
 		updateDescriptor();
+
+		isTextureLoaded = true;
 	}
 
 	/**
