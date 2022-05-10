@@ -472,8 +472,6 @@ namespace Aspen {
 	// Creates the Top Level Acceleration Structure.
 	// Adapted From: https://nvpro-samples.github.io/vk_raytracing_tutorial_KHR/
 	void RayTracingRenderSystem::createTLAS(std::shared_ptr<Scene>& scene) {
-		std::vector<VkAccelerationStructureInstanceKHR> tlasInstances;
-
 		int index = 0;
 		auto group = scene->getRenderComponents();
 		for (const auto& entity : group) {
@@ -486,9 +484,32 @@ namespace Aspen {
 			rayInst.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
 			rayInst.mask = 0xFF;                                //  Only be hit if rayMask & instance.mask != 0
 			rayInst.instanceShaderBindingTableRecordOffset = 0; // We will use the same hit group for all objects
-			tlasInstances.emplace_back(rayInst);
+			m_TLASInstances.emplace_back(rayInst);
 		}
-		buildTLAS(tlasInstances, VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR, false);
+		buildTLAS(m_TLASInstances, VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR, false);
+	}
+
+	// Updates the Top Level Acceleration Structure.
+	void RayTracingRenderSystem::updateTLAS(std::shared_ptr<Scene>& scene) {
+		bool updateRequired = false;
+		int index = 0;
+		auto group = scene->getRenderComponents();
+		for (const auto& entity : group) {
+			auto& transform = group.get<TransformComponent>(entity);
+
+			if (!transform.isTransformUpdated) {
+				index++;
+				continue;
+			}
+			updateRequired = true;
+
+			m_TLASInstances[index].transform = VulkanTools::glmToTransformMatrixKHR(transform.transform()); // Position of the instance
+			transform.isTransformUpdated = false;
+		}
+
+		if (updateRequired) {
+			buildTLAS(m_TLASInstances, VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR, true);
+		}
 	}
 
 	void RayTracingRenderSystem::buildTLAS(const std::vector<VkAccelerationStructureInstanceKHR>& instances, VkBuildAccelerationStructureFlagsKHR flags, bool update) {
@@ -501,11 +522,14 @@ namespace Aspen {
 
 		// Create a buffer holding the actual instance data (matrices++) for use by the AS builder
 		// Buffer of instances containing the matrices and BLAS ids
-		std::unique_ptr<Buffer> instancesBuffer = std::make_unique<Buffer>(device,
-		                                                                   sizeof(VkAccelerationStructureInstanceKHR),
-		                                                                   instances.size(),
-		                                                                   VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
-		                                                                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		if (update) {
+			instancesBuffer.reset();
+		}
+		instancesBuffer = std::make_unique<Buffer>(device,
+		                                           sizeof(VkAccelerationStructureInstanceKHR),
+		                                           instances.size(),
+		                                           VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
+		                                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
 		instancesBuffer->map();
 		instancesBuffer->writeToBuffer((void*)instances.data());
@@ -551,20 +575,22 @@ namespace Aspen {
 		                                                         &countInstance,
 		                                                         &sizeInfo);
 
-		// Create a individual buffer for a TLAS.
-		m_TLAS.buffer = std::make_unique<Buffer>(
-		    device,
-		    sizeInfo.accelerationStructureSize,
-		    1,
-		    VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR,
-		    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		if (!update) {
+			// Create a individual buffer for a TLAS.
+			m_TLAS.buffer = std::make_unique<Buffer>(
+			    device,
+			    sizeInfo.accelerationStructureSize,
+			    1,
+			    VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR,
+			    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-		// Actual allocation of buffer and acceleration structure.
-		VkAccelerationStructureCreateInfoKHR accelerationStructureCreateInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR};
-		accelerationStructureCreateInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
-		accelerationStructureCreateInfo.size = sizeInfo.accelerationStructureSize; // Will be used to allocate memory.
-		accelerationStructureCreateInfo.buffer = m_TLAS.buffer->getBuffer();
-		deviceProcedures.vkCreateAccelerationStructureKHR(device.device(), &accelerationStructureCreateInfo, nullptr, &m_TLAS.handle);
+			// Actual allocation of buffer and acceleration structure.
+			VkAccelerationStructureCreateInfoKHR accelerationStructureCreateInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR};
+			accelerationStructureCreateInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+			accelerationStructureCreateInfo.size = sizeInfo.accelerationStructureSize; // Will be used to allocate memory.
+			accelerationStructureCreateInfo.buffer = m_TLAS.buffer->getBuffer();
+			deviceProcedures.vkCreateAccelerationStructureKHR(device.device(), &accelerationStructureCreateInfo, nullptr, &m_TLAS.handle);
+		}
 
 		// Allocate the scratch buffers holding the temporary data of the acceleration structure builder
 		Buffer scratchBuffer{
@@ -577,7 +603,7 @@ namespace Aspen {
 		VkDeviceAddress scratchAddress = device.getBufferDeviceAddress(scratchBuffer.getBuffer());
 
 		// Update build information
-		buildInfo.srcAccelerationStructure = VK_NULL_HANDLE;
+		buildInfo.srcAccelerationStructure = update ? m_TLAS.handle : VK_NULL_HANDLE;
 		buildInfo.dstAccelerationStructure = m_TLAS.handle;
 		buildInfo.scratchData.deviceAddress = scratchAddress;
 

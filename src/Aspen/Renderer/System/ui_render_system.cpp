@@ -235,6 +235,7 @@ namespace Aspen {
 					objectComponent.translation = translation;
 					objectComponent.rotation = glm::normalize(glm::quat(rotation));
 					objectComponent.scale = scale;
+					objectComponent.isTransformUpdated = true;
 				}
 			}
 			ImGui::End();

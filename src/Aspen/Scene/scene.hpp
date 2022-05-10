@@ -8,7 +8,7 @@ namespace Aspen {
 		std::unique_ptr<Buffer> vertexBuffer;
 		std::unique_ptr<Buffer> indexBuffer;
 		std::unique_ptr<Buffer> offsetBuffer;
-		// std::unique_ptr<Buffer> textureBuffer;
+		std::vector<uint32_t> textures;
 		uint32_t textureCount = 0;
 	};
 

@@ -238,28 +238,5 @@ namespace Aspen {
 	void SimpleRenderSystem::onResize() {
 		resources->clearFramebuffer();
 		createResources();
-		// for (int i = 0; i < offscreenDescriptorSets.size(); ++i) {
-		// 	auto bufferInfo = uboBuffers[i]->descriptorInfo();
-		// 	DescriptorWriter(*descriptorSetLayout, device.getDescriptorPool())
-		// 	    .writeBuffer(0, &bufferInfo)
-		// 	    .writeImage(1, &renderer.getOffscreenDescriptorInfo())
-		// 	    .overwrite(offscreenDescriptorSets[i]);
-		// }
-
-		// VkWriteDescriptorSet offScreenWriteDescriptorSets{};
-		// offScreenWriteDescriptorSets.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		// offScreenWriteDescriptorSets.dstSet = offscreenDescriptorSets[0];
-		// offScreenWriteDescriptorSets.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		// offScreenWriteDescriptorSets.dstBinding = 1;
-		// offScreenWriteDescriptorSets.descriptorCount = 1;
-		// offScreenWriteDescriptorSets.pImageInfo = &renderer.getOffscreenDescriptorInfo();
-
-		// vkUpdateDescriptorSets(device.device(), 1, &offScreenWriteDescriptorSets, 0, nullptr);
 	}
-
-	// void SimpleRenderSystem::renderUI(VkCommandBuffer commandBuffer) {
-	// 	// Bind the graphics pipieline.
-	// 	// vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &offscreenDescriptorSets[0], 0, nullptr);
-	// 	pipeline->bind(commandBuffer, pipeline->getPresentPipeline());
-	// }
 } // namespace Aspen

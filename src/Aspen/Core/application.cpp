@@ -145,9 +145,6 @@ namespace Aspen {
 					renderer.setDesiredPresentMode(!appState.enable_vsync); // 0/False is V-sync, 1/True is Mailbox
 					renderer.recreateSwapChain();
 					mousePickingRenderSystem.onResize();
-
-					// std::shared_ptr<Framebuffer> offscreenPass = simpleRenderSystem.getResources();
-					// uiState.viewportTexture = ImGui_ImplVulkan_UpdateTexture(uiState.viewportTexture, offscreenPass->sampler, offscreenPass->attachments[0].view, offscreenPass->attachments[0].description.finalLayout);
 				}
 
 				if (!appState.useRayTracer) {
@@ -221,6 +218,8 @@ namespace Aspen {
 		// camera.setOrthographicProjection(-1, 1, -1, 1, -1, 1, aspect);
 		cameraComponent.camera.setPerspectiveProjection(glm::radians(65.0f), aspect, 0.1f, 100.0f);
 		cameraComponent.camera.setView(cameraTransform.translation, cameraTransform.rotation);
+
+		rayTracingRenderSystem.updateTLAS(m_Scene);
 
 		// auto group = m_Scene->getPointLights();
 		// for (auto& entity : group) {

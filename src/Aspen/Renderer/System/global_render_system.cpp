@@ -130,24 +130,4 @@ namespace Aspen {
 			dynamicUboBuffers[frameInfo.frameIndex]->flush();
 		}
 	}
-
-	// void GlobalRenderSystem::onResize() {
-	// for (int i = 0; i < offscreenDescriptorSets.size(); ++i) {
-	// 	auto bufferInfo = uboBuffers[i]->descriptorInfo();
-	// 	DescriptorWriter(*descriptorSetLayout, device.getDescriptorPool())
-	// 	    .writeBuffer(0, &bufferInfo)
-	// 	    .writeImage(1, &renderer.getOffscreenDescriptorInfo())
-	// 	    .overwrite(offscreenDescriptorSets[i]);
-	// }
-
-	// VkWriteDescriptorSet offScreenWriteDescriptorSets{};
-	// offScreenWriteDescriptorSets.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	// offScreenWriteDescriptorSets.dstSet = offscreenDescriptorSets[0];
-	// offScreenWriteDescriptorSets.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	// offScreenWriteDescriptorSets.dstBinding = 1;
-	// offScreenWriteDescriptorSets.descriptorCount = 1;
-	// offScreenWriteDescriptorSets.pImageInfo = &renderer.getOffscreenDescriptorInfo();
-
-	// vkUpdateDescriptorSets(device.device(), 1, &offScreenWriteDescriptorSets, 0, nullptr);
-	// }
 } // namespace Aspen

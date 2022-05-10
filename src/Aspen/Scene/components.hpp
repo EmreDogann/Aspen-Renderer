@@ -29,6 +29,7 @@ namespace Aspen {
 		glm::vec3 translation{0.0f}; // Position offset.
 		glm::vec3 scale{1.0f, 1.0f, 1.0f};
 		glm::quat rotation{glm::vec3(0.0, 0.0, 0.0)};
+		bool isTransformUpdated = false;
 
 		TransformComponent() = default;
 		TransformComponent(const TransformComponent&) = default;

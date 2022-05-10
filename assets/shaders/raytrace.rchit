@@ -60,10 +60,11 @@ vec3 computeDiffuse(vec3 lightDir, vec3 normal) {
   // Lambertian
   float dotNL = max(dot(normal, lightDir), 0.0);
   vec3  c     = vec3(0.8, 0.8, 0.8) * dotNL;
+  vec3 ambient = vec3(0.2);
 //   if(mat.illum >= 1) {
 //     c += mat.ambient;
 //   }
-  return c;
+  return c + ambient;
 }
 
 vec3 computeSpecular(vec3 viewDir, vec3 lightDir, vec3 normal) {

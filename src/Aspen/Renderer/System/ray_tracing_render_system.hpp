@@ -59,6 +59,8 @@ namespace Aspen {
 		RenderInfo prepareRenderInfo();
 		void onResize();
 
+		void updateTLAS(std::shared_ptr<Scene>& scene);
+
 		VkDescriptorSet getCurrentDescriptorSet() {
 			return rtDescriptorSet;
 		}
@@ -114,6 +116,8 @@ namespace Aspen {
 		// Acceleration Structures
 		std::vector<AccelerationStructure> m_BLAS;
 		AccelerationStructure m_TLAS;
+		std::vector<VkAccelerationStructureInstanceKHR> m_TLASInstances;
+		std::unique_ptr<Buffer> instancesBuffer;
 
 		// Ray Tracing Descriptors
 		std::unique_ptr<DescriptorSetLayout> rtDescriptorSetLayout{};
