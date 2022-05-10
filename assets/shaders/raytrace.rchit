@@ -14,11 +14,13 @@ struct Vertex {
   vec3 Color;
   vec3 Normal;
   vec2 TexCoord;
+  int TextureIndex;
 };
 
 layout(binding = 2, set = 1) readonly buffer VertexArray { float Vertices[]; };
 layout(binding = 3, set = 1) readonly buffer IndexArray { uint Indices[]; };
 layout(binding = 4, set = 1) readonly buffer OffsetArray { uvec2[] Offsets; };
+layout(binding = 5, set = 1) readonly buffer TextureIDArray { int[] TextureIDs; };
 
 // Textures
 layout(set = 2, binding = 0) uniform sampler2D samplerTextures[];
@@ -43,7 +45,7 @@ layout(push_constant) uniform _PushConstantRay {
 };
 
 Vertex UnpackVertex(uint index) {
-	const uint vertexSize = 11;
+	const uint vertexSize = 12;
 	const uint offset = index * vertexSize;
 	
 	Vertex v;
@@ -52,6 +54,7 @@ Vertex UnpackVertex(uint index) {
   	v.Color = vec3(Vertices[offset + 3], Vertices[offset + 4], Vertices[offset + 5]);
 	v.Normal = vec3(Vertices[offset + 6], Vertices[offset + 7], Vertices[offset + 8]);
 	v.TexCoord = vec2(Vertices[offset + 9], Vertices[offset + 10]);
+	v.TextureIndex = floatBitsToInt(Vertices[offset + 11]);
 
 	return v;
 };
@@ -89,6 +92,7 @@ void main() {
 	const Vertex v0 = UnpackVertex(vertexOffset + Indices[indexOffset + gl_PrimitiveID * 3 + 0]);
 	const Vertex v1 = UnpackVertex(vertexOffset + Indices[indexOffset + gl_PrimitiveID * 3 + 1]);
 	const Vertex v2 = UnpackVertex(vertexOffset + Indices[indexOffset + gl_PrimitiveID * 3 + 2]);
+	const int textureID = TextureIDs[v0.TextureIndex];
 
 	// Compute the ray hit point properties.
 	const vec3 barycentrics = vec3(1.0 - attribs.x - attribs.y, attribs.x, attribs.y);
@@ -115,7 +119,11 @@ void main() {
 	vec3 diffuse = computeDiffuse(L, worldNormal);
 	vec3 specular = computeSpecular(gl_WorldRayDirectionEXT, L, worldNormal);
 
-	rPayload.hitValue = color * (diffuse + specular);
+	if (textureID >= 0) {
+		rPayload.hitValue = (diffuse + specular) * texture(samplerTextures[textureID], texCoord).rgb;
+	} else {
+		rPayload.hitValue = color * (diffuse + specular);
+	}
 	// rPayload.hitValue = (diffuse + specular);
 
 	// rPayload.hitValue = texture(samplerTextures[nonuniformEXT(int(offsets.z))], texCoord).xyz;

@@ -732,6 +732,7 @@ namespace Aspen {
 		                            .addBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)        // Binding 1: Ray Hit shader storage buffer for getting vertex information.
 		                            .addBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)        // Binding 1: Ray Hit shader storage buffer for getting index information.
 		                            .addBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)        // Binding 1: Ray Hit shader storage buffer for getting offset information.
+		                            .addBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)        // Binding 1: Ray Hit shader storage buffer for getting texture id information.
 		                            .build();
 
 		textureDescriptorSetLayout = DescriptorSetLayout::Builder(device)
@@ -754,6 +755,7 @@ namespace Aspen {
 		auto vertexBufferInfo = scene->getSceneData().vertexBuffer->descriptorInfo();
 		auto indexBufferInfo = scene->getSceneData().indexBuffer->descriptorInfo();
 		auto offsetBufferInfo = scene->getSceneData().offsetBuffer->descriptorInfo();
+		auto textureIDBufferInfo = scene->getSceneData().textureIDBuffer->descriptorInfo();
 
 		DescriptorWriter(*rtDescriptorSetLayout, device.getDescriptorPool())
 		    .writeAccelerationStructure(0, &ASInfo)
@@ -761,6 +763,7 @@ namespace Aspen {
 		    .writeBuffer(2, &vertexBufferInfo)
 		    .writeBuffer(3, &indexBufferInfo)
 		    .writeBuffer(4, &offsetBufferInfo)
+		    .writeBuffer(5, &textureIDBufferInfo)
 		    .build(rtDescriptorSet);
 	}
 

@@ -112,6 +112,7 @@ namespace Aspen {
 			glm::vec3 color{};
 			glm::vec3 normal{};
 			glm::vec2 uv{};
+			int32_t textureIndex;
 
 			bool operator==(const Vertex& other) const {
 				return position == other.position && color == other.color && normal == other.normal && uv == other.uv;
