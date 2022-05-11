@@ -20,7 +20,7 @@ namespace Aspen {
 			dynamicUboBuffers[i] = std::make_unique<Buffer>(
 			    device,
 			    sizeof(ModelUboDynamic),
-			    4,
+			    10,
 			    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 			    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, // We could make it device local but the performance gains could be cancelled out from writing to the UBO every frame.
 			    device.properties.limits.minUniformBufferOffsetAlignment);
@@ -43,7 +43,7 @@ namespace Aspen {
 
 		// Dynamic UBO
 		descriptorSetLayouts.push_back(DescriptorSetLayout::Builder(device)
-		                                   .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR) // Binding 0: Vertex shader dynamic uniform buffer
+		                                   .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT) // Binding 0: Vertex shader dynamic uniform buffer
 		                                   .build());
 	}
 
@@ -54,7 +54,6 @@ namespace Aspen {
 			auto bufferInfo = uboBuffers[i]->descriptorInfo();
 			DescriptorWriter(*descriptorSetLayouts[0], device.getDescriptorPool())
 			    .writeBuffer(0, &bufferInfo)
-			    // .writeImage(1, &offscreenPass.descriptor)
 			    .build(uboDescriptorSets[i]);
 		}
 

@@ -8,7 +8,7 @@ namespace Aspen {
 		std::unique_ptr<Buffer> vertexBuffer;
 		std::unique_ptr<Buffer> indexBuffer;
 		std::unique_ptr<Buffer> offsetBuffer;
-		std::unique_ptr<Buffer> textureIDBuffer;
+		std::unique_ptr<Buffer> materialBuffer;
 		uint32_t textureCount = 0;
 	};
 
@@ -19,13 +19,13 @@ namespace Aspen {
 		~Scene();
 
 		void updateSceneData();
-		void updateTextures();
+		int32_t addTexture(Texture2D& textureHandle, std::string relativeFilepath, VkFormat format, VkQueue copyQueue);
 
 		Entity createEntity(const std::string& name = std::string());
 		void OnUpdate();
 
 		auto getRenderComponents() {
-			return m_Registry.group<TransformComponent>(entt::get<MeshComponent>);
+			return m_Registry.group<TransformComponent>(entt::get<MeshComponent, MaterialComponent>);
 		};
 
 		auto getMetaDataComponents() {

@@ -112,7 +112,7 @@ namespace Aspen {
 			glm::vec3 color{};
 			glm::vec3 normal{};
 			glm::vec2 uv{};
-			int32_t textureIndex;
+			uint32_t materialIndex;
 
 			bool operator==(const Vertex& other) const {
 				return position == other.position && color == other.color && normal == other.normal && uv == other.uv;
@@ -126,6 +126,31 @@ namespace Aspen {
 		Texture2D texture; // TODO: I need to design a better way to associate textures with objects.
 
 		MeshComponent() = default;
+	};
+
+	struct MaterialComponent {
+		enum MaterialType {
+			Lambertian = 0,
+			Metallic = 1,
+			Dielectric = 2,
+			Isotropic = 3,
+			DiffuseLight = 4
+		};
+
+		// Note: vec3 and vec4 gets aligned on 16 bytes in Vulkan shaders.
+
+		// Base material.
+		glm::vec4 diffuse = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+		int32_t diffuseTextureId = -1; // -1 means no texture.
+
+		// Metal fuzziness.
+		float fuzziness = 1.0f;
+
+		// Dielectric refraction index.
+		float refractionIndex = 1.0f;
+
+		// Which material are we dealing with?
+		MaterialType materialModel;
 	};
 
 	struct CameraComponent {

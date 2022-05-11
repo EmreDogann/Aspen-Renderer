@@ -64,8 +64,6 @@ namespace Aspen {
 		float fpsUpdateCooldown = 1.0f;
 
 		Entity cameraEntity{}; // Empty entity to store the transformation of the camera.
-		Entity object{};
-		Entity floor{};
 
 		bool m_Running = true;
 

@@ -708,16 +708,15 @@ namespace Aspen {
 		int index = 0;
 		auto group = scene.getRenderComponents();
 		for (const auto& entity : group) {
-			auto& mesh = group.get<MeshComponent>(entity);
+			auto [mesh, meshMaterial] = group.get<MeshComponent, MaterialComponent>(entity);
 
 			if (!mesh.texture.isTextureLoaded) {
 				continue;
 			}
 
-			descriptorImageInfos[index].imageLayout = mesh.texture.imageLayout;
-			descriptorImageInfos[index].imageView = mesh.texture.view;
-			descriptorImageInfos[index].sampler = mesh.texture.sampler;
-			++index;
+			descriptorImageInfos[meshMaterial.diffuseTextureId].imageLayout = mesh.texture.imageLayout;
+			descriptorImageInfos[meshMaterial.diffuseTextureId].imageView = mesh.texture.view;
+			descriptorImageInfos[meshMaterial.diffuseTextureId].sampler = mesh.texture.sampler;
 		}
 
 		for (int i = 0; i < textureDescriptorSets.size(); ++i) {
@@ -758,7 +757,7 @@ namespace Aspen {
 		auto vertexBufferInfo = scene->getSceneData().vertexBuffer->descriptorInfo();
 		auto indexBufferInfo = scene->getSceneData().indexBuffer->descriptorInfo();
 		auto offsetBufferInfo = scene->getSceneData().offsetBuffer->descriptorInfo();
-		auto textureIDBufferInfo = scene->getSceneData().textureIDBuffer->descriptorInfo();
+		auto materialBufferInfo = scene->getSceneData().materialBuffer->descriptorInfo();
 
 		DescriptorWriter(*rtDescriptorSetLayout, device.getDescriptorPool())
 		    .writeAccelerationStructure(0, &ASInfo)
@@ -766,7 +765,7 @@ namespace Aspen {
 		    .writeBuffer(2, &vertexBufferInfo)
 		    .writeBuffer(3, &indexBufferInfo)
 		    .writeBuffer(4, &offsetBufferInfo)
-		    .writeBuffer(5, &textureIDBufferInfo)
+		    .writeBuffer(5, &materialBufferInfo)
 		    .build(rtDescriptorSet);
 	}
 

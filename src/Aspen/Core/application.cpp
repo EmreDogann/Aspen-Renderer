@@ -20,7 +20,7 @@ namespace Aspen {
 		cameraEntity.addComponent<CameraControllerArcball>();
 
 		auto& camController = cameraEntity.getComponent<CameraControllerArcball>();
-		camController.offset = glm::vec3{0.0f, -1.5f, 0.0f};
+		camController.offset = glm::vec3{0.0f, -1.5f, -3.0f};
 
 		loadEntities();
 	}
@@ -568,59 +568,115 @@ namespace Aspen {
 		// 	floorMesh.texture.loadFromFile(&device, "assets/textures/FloorHerringbone.png", VK_FORMAT_R8G8B8A8_SRGB, device.graphicsQueue());
 		// }
 
-		// // Create Vases
+		// Create Vases
 		{
-			object = m_Scene->createEntity("Vase");
+			// Vase 1
+			{
+				Entity object = m_Scene->createEntity("Vase");
+				auto& objectTransform = object.getComponent<TransformComponent>();
+				objectTransform.translation = {1.5f, -1.0f, 1.25f};
+				objectTransform.scale = {2.0f, 2.0f, 2.0f};
+
+				auto& objectMesh = object.addComponent<MeshComponent>();
+				Model::createModelFromFile(device, objectMesh, "assets/models/flat_vase.obj");
+				auto texID = m_Scene->addTexture(objectMesh.texture, "assets/textures/RustedPlates.png", VK_FORMAT_R8G8B8A8_SRGB, device.graphicsQueue());
+				std::cout << "Flat Vase Vertex Count: " << objectMesh.vertices.size() << std::endl;
+
+				auto& objectMaterial = object.addComponent<MaterialComponent>();
+				objectMaterial.materialModel = MaterialComponent::MaterialType::Lambertian;
+				objectMaterial.diffuse = glm::vec4(1.0f);
+				objectMaterial.diffuseTextureId = texID;
+			}
+
+			// Vase 2
+			Entity object = m_Scene->createEntity("Vase2");
 			auto& objectTransform = object.getComponent<TransformComponent>();
-			objectTransform.translation = {-1.0f, 0.0f, 2.5f};
-			objectTransform.scale = {3.0f, 3.0f, 3.0f};
+			objectTransform.translation = {-1.5f, -2.0f, 4.25f};
+			objectTransform.scale = {2.0f, 2.0f, 2.0f};
 
 			auto& objectMesh = object.addComponent<MeshComponent>();
-			Model::createModelFromFile(device, objectMesh, "assets/models/flat_vase.obj");
-			objectMesh.texture.loadFromFile(&device, "assets/textures/RustedPlates.png", VK_FORMAT_R8G8B8A8_SRGB, device.graphicsQueue());
-			std::cout << "Flat Vase Vertex Count: " << objectMesh.vertices.size() << std::endl;
+			Model::createModelFromFile(device, objectMesh, "assets/models/smooth_vase.obj");
+			auto texID = m_Scene->addTexture(objectMesh.texture, "assets/textures/LaticeWall.png", VK_FORMAT_R8G8B8A8_SRGB, device.graphicsQueue());
+			std::cout << "Smooth Vase Vertex Count: " << objectMesh.vertices.size() << std::endl;
 
-			Entity object2 = m_Scene->createEntity("Vase2");
-			auto& object2Transform = object2.getComponent<TransformComponent>();
-			object2Transform.translation = {1.0f, 0.0f, 3.0f};
-			object2Transform.scale = {3.0f, 3.0f, 3.0f};
-
-			auto& object2Mesh = object2.addComponent<MeshComponent>();
-			Model::createModelFromFile(device, object2Mesh, "assets/models/smooth_vase.obj");
-			object2Mesh.texture.loadFromFile(&device, "assets/textures/LaticeWall.png", VK_FORMAT_R8G8B8A8_SRGB, device.graphicsQueue());
-			std::cout << "Smooth Vase Vertex Count: " << object2Mesh.vertices.size() << std::endl;
+			auto& objectMaterial = object.addComponent<MaterialComponent>();
+			objectMaterial.materialModel = MaterialComponent::MaterialType::Lambertian;
+			objectMaterial.diffuse = glm::vec4(1.0f);
+			objectMaterial.diffuseTextureId = texID;
 		}
 
 		// Create cube
 		{
-			object = m_Scene->createEntity("Cube");
+			// Cube 1
+			{
+				Entity object = m_Scene->createEntity("Cube");
+				auto& objectTransform = object.getComponent<TransformComponent>();
+				objectTransform.translation = {1.5f, -0.5f, 1.25f};
+				objectTransform.rotation = glm::angleAxis(glm::radians(45.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+				objectTransform.scale = glm::vec3(0.5f);
+
+				auto& objectMesh = object.addComponent<MeshComponent>();
+				Model::createModelFromFile(device, objectMesh, "assets/models/cube.obj");
+				auto texID = m_Scene->addTexture(objectMesh.texture, "assets/textures/Wool.jpg", VK_FORMAT_R8G8B8A8_SRGB, device.graphicsQueue());
+				std::cout << "Cube 1 Vertex Count: " << objectMesh.vertices.size() << std::endl;
+
+				auto& objectMaterial = object.addComponent<MaterialComponent>();
+				objectMaterial.materialModel = MaterialComponent::MaterialType::Lambertian;
+				objectMaterial.diffuse = glm::vec4(1.0f);
+				objectMaterial.diffuseTextureId = texID;
+			}
+
+			// Cube 2
+			Entity object = m_Scene->createEntity("Cube2");
 			auto& objectTransform = object.getComponent<TransformComponent>();
-			objectTransform.translation = {0.0f, -2.0f, 3.25f};
-			objectTransform.rotation = glm::quat(glm::vec3(1.0f, 2.0f, 1.5f));
-			objectTransform.scale = glm::vec3(0.5f);
+			objectTransform.translation = {-1.5f, -1.0f, 4.25f};
+			objectTransform.rotation = glm::angleAxis(glm::radians(-45.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+			objectTransform.scale = glm::vec3(0.5f, 1.0f, 0.5f);
 
 			auto& objectMesh = object.addComponent<MeshComponent>();
 			Model::createModelFromFile(device, objectMesh, "assets/models/cube.obj");
-			objectMesh.texture.loadFromFile(&device, "assets/textures/Wool.jpg", VK_FORMAT_R8G8B8A8_SRGB, device.graphicsQueue());
-			std::cout << "Cube Vertex Count: " << objectMesh.vertices.size() << std::endl;
+			std::cout << "Cube 2 Vertex Count: " << objectMesh.vertices.size() << std::endl;
+
+			auto& objectMaterial = object.addComponent<MaterialComponent>();
+			objectMaterial.materialModel = MaterialComponent::MaterialType::Metallic;
+			objectMaterial.diffuse = glm::vec4(1.0f);
 		}
 
 		// Create Cornell Box
 		{
-			object = m_Scene->createEntity("CornellBox");
+			Entity object = m_Scene->createEntity("CornellBox");
 			auto& objectTransform = object.getComponent<TransformComponent>();
-			objectTransform.translation = {0.0f, -2.25f, 3.0f};
-			objectTransform.rotation *= glm::angleAxis(glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-			objectTransform.scale = glm::vec3(4.5f);
+			objectTransform.translation = {0.0f, -2.75f, 3.0f};
+			objectTransform.rotation = glm::angleAxis(glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+			objectTransform.scale = glm::vec3(5.5f);
 
 			auto& objectMesh = object.addComponent<MeshComponent>();
-			createCubeModel(device,
-			                {0.0f, 0.0f, 0.0f},
-			                objectMesh);
+			createCubeModel(device, {0.0f, 0.0f, 0.0f}, objectMesh);
 			std::cout << "Cornell Box Vertex Count: " << objectMesh.vertices.size() << std::endl;
+
+			auto& objectMaterial = object.addComponent<MaterialComponent>();
+			objectMaterial.materialModel = MaterialComponent::MaterialType::Lambertian;
+			objectMaterial.diffuse = glm::vec4(1.0f);
 		}
 
-		m_Scene->updateTextures();
+		// Create Chinese Dragon
+		{
+			Entity object = m_Scene->createEntity("ChineseDragon");
+			auto& objectTransform = object.getComponent<TransformComponent>();
+			objectTransform.translation = {0.0f, -2.25f, 3.0f};
+			objectTransform.rotation = glm::angleAxis(glm::radians(90.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+			objectTransform.scale = glm::vec3(3.5f);
+
+			auto& objectMesh = object.addComponent<MeshComponent>();
+			Model::createModelFromFile(device, objectMesh, "assets/models/dragon-lowres.obj");
+			std::cout << "Chinese Dragon Vertex Count: " << objectMesh.vertices.size() << std::endl;
+
+			auto& objectMaterial = object.addComponent<MaterialComponent>();
+			objectMaterial.materialModel = MaterialComponent::MaterialType::Metallic;
+			objectMaterial.fuzziness = 0.0f;
+			objectMaterial.diffuse = glm::vec4(1.0f);
+		}
+
 		m_Scene->updateSceneData();
 
 		// Assign these textures to render systems.

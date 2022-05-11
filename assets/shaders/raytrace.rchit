@@ -1,11 +1,12 @@
 #version 460
 #extension GL_EXT_ray_tracing : require
+#extension GL_GOOGLE_include_directive : enable
 #extension GL_EXT_nonuniform_qualifier : enable
 
+#include "material.glsl"
+#include "raycommon.glsl"
+
 // Incoming Ray Payload
-struct HitPayload {
-  vec3 hitValue;
-};
 layout(location = 0) rayPayloadInEXT HitPayload rPayload;
 
 // Ray Hit attributes
@@ -14,29 +15,24 @@ hitAttributeEXT vec2 attribs;
 // Outgoing Ray Payload
 layout(location = 1) rayPayloadEXT bool isShadowed;
 
-struct Vertex {
-  vec3 Position;
-  vec3 Color;
-  vec3 Normal;
-  vec2 TexCoord;
-  int TextureIndex;
-};
 layout(binding = 0, set = 1) uniform accelerationStructureEXT topLevelAS;
 layout(binding = 2, set = 1) readonly buffer VertexArray { float Vertices[]; };
 layout(binding = 3, set = 1) readonly buffer IndexArray { uint Indices[]; };
 layout(binding = 4, set = 1) readonly buffer OffsetArray { uvec2[] Offsets; };
-layout(binding = 5, set = 1) readonly buffer TextureIDArray { int[] TextureIDs; };
+layout(binding = 5, set = 1) readonly buffer MaterialArray { Material[] Materials; };
 
 // Textures
 layout(set = 2, binding = 0) uniform sampler2D samplerTextures[];
 
+#include "scatter.glsl"
+
 vec2 Mix(vec2 a, vec2 b, vec2 c, vec3 barycentrics) {
 	return a * barycentrics.x + b * barycentrics.y + c * barycentrics.z;
-}
+};
 
 vec3 Mix(vec3 a, vec3 b, vec3 c, vec3 barycentrics) {
     return a * barycentrics.x + b * barycentrics.y + c * barycentrics.z;
-}
+};
 
 // Push constant structure for the ray tracer
 struct PushConstantRay {
@@ -49,6 +45,14 @@ layout(push_constant) uniform _PushConstantRay {
   PushConstantRay pcRay;
 };
 
+struct Vertex {
+  vec3 Position;
+  vec3 Color;
+  vec3 Normal;
+  vec2 TexCoord;
+  uint MaterialIndex;
+};
+
 Vertex UnpackVertex(uint index) {
 	const uint vertexSize = 12;
 	const uint offset = index * vertexSize;
@@ -59,7 +63,7 @@ Vertex UnpackVertex(uint index) {
   	v.Color = vec3(Vertices[offset + 3], Vertices[offset + 4], Vertices[offset + 5]);
 	v.Normal = vec3(Vertices[offset + 6], Vertices[offset + 7], Vertices[offset + 8]);
 	v.TexCoord = vec2(Vertices[offset + 9], Vertices[offset + 10]);
-	v.TextureIndex = floatBitsToInt(Vertices[offset + 11]);
+	v.MaterialIndex = floatBitsToInt(Vertices[offset + 11]);
 
 	return v;
 };
@@ -68,7 +72,7 @@ vec3 computeDiffuse(vec3 lightDir, vec3 normal) {
   // Lambertian
   float dotNL = max(dot(normal, lightDir), 0.0);
   vec3  c     = vec3(1.0) * dotNL;
-  vec3 ambient = vec3(0.02);
+  vec3 ambient = vec3(0.2);
 //   if(mat.illum >= 1) {
 //     c += mat.ambient;
 //   }
@@ -97,7 +101,7 @@ void main() {
 	const Vertex v0 = UnpackVertex(vertexOffset + Indices[indexOffset + gl_PrimitiveID * 3 + 0]);
 	const Vertex v1 = UnpackVertex(vertexOffset + Indices[indexOffset + gl_PrimitiveID * 3 + 1]);
 	const Vertex v2 = UnpackVertex(vertexOffset + Indices[indexOffset + gl_PrimitiveID * 3 + 2]);
-	const int textureID = TextureIDs[v0.TextureIndex];
+	const Material material = Materials[v0.MaterialIndex];
 
 	// Compute the ray hit point properties.
 	const vec3 barycentrics = vec3(1.0 - attribs.x - attribs.y, attribs.x, attribs.y);
@@ -114,12 +118,15 @@ void main() {
 	// Vector toward the light
 	vec3  L;
 	float lightIntensity = pcRay.lightIntensity;
-	float lightDistance  = 100000.0;
+	float lightDistance  = 10000.0;
 
 	vec3 lDir      = pcRay.lightPosition - worldPos;
 	lightDistance  = length(lDir);
 	lightIntensity = pcRay.lightIntensity / (lightDistance * lightDistance);
 	L              = normalize(lDir);
+
+	// ScatterPayload sPayload = Scatter(material, lDir, worldNormal, texCoord, gl_HitTEXT, rPayload.randomSeed);
+	// rPayload.hitValue = sPayload.ColorAndDistance.rgb * (material.diffuseTextureId == -1 ? color : vec3(1.0));
 
 	vec3 diffuse = computeDiffuse(L, worldNormal);
 
@@ -128,7 +135,7 @@ void main() {
 
 	// Tracing shadow ray only if the light is visible from the surface
 	if(dot(worldNormal, L) > 0) {
-		float tMin   = 0.1;
+		float tMin   = 0.001;
 		float tMax   = lightDistance;
 		vec3  origin = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
 		vec3  rayDir = L;
@@ -160,22 +167,16 @@ void main() {
 		}
 	}
 
-	if (textureID >= 0) {
-		rPayload.hitValue = lightIntensity * attenuation * (diffuse + specular) * texture(samplerTextures[textureID], texCoord).rgb;
-	} else {
-		rPayload.hitValue = color * lightIntensity * attenuation * (diffuse + specular);
+	// Reflection
+	if(material.materialModel == MaterialMetallic) {
+		vec3 origin = worldPos;
+		vec3 rayDir = reflect(gl_WorldRayDirectionEXT, worldNormal);
+		rPayload.attenuation *= attenuation;
+		rPayload.done      = 0;
+		rPayload.rayOrigin = origin;
+		rPayload.rayDir    = rayDir;
 	}
 
-	// Gamma correction
-    float gamma = 2.2;
-	rPayload.hitValue = pow(rPayload.hitValue, vec3(1.0/gamma));
-
-	// rPayload.hitValue = (diffuse + specular);
-
-	// rPayload.hitValue = texture(samplerTextures[nonuniformEXT(int(offsets.z))], texCoord).xyz;
-
-	// rPayload.hitValue = color;
-	// rPayload.hitValue = vec3(texCoord, 1.0);
-
-  	// rPayload.hitValue = vec3(0.0, 0.0, 0.0);
+	// rPayload.hitValue *= lightIntensity * attenuation;
+	rPayload.hitValue = lightIntensity * attenuation * (diffuse + specular) * (material.diffuseTextureId >= 0 ? texture(samplerTextures[nonuniformEXT(material.diffuseTextureId)], texCoord).rgb : color);
 }

@@ -1,10 +1,11 @@
 #version 460
 #extension GL_EXT_ray_tracing : require
+#extension GL_GOOGLE_include_directive : enable
+
+// Includes
+#include "raycommon.glsl"
 
 // Ray Payload
-struct HitPayload {
-  vec3 hitValue;
-};
 layout(location = 0) rayPayloadInEXT HitPayload rPayload;
 
 // Push constant structure for the ray tracer
