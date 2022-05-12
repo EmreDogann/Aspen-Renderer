@@ -4,7 +4,6 @@
 
 // Includes
 #include "raycommon.glsl"
-#include "random.glsl"
 
 struct PointLight {
   vec4 position;
@@ -20,6 +19,25 @@ layout(set = 0, binding = 0) uniform GlobalUbo {
     PointLight lights[10];
     vec3 ambientLightColor;
 } ubo;
+
+// Push constant structure for the ray tracer
+struct PushConstantRay {
+  vec4 clearColor;
+  vec3 lightPosition;
+  float lightIntensity;
+  int textureMapping;
+  int shadows;
+  float shadowBias;
+  float shadowOpacity;
+  int useReflections;
+  int useRefractions;
+  float minRange;
+	int totalBounces;
+};
+
+layout(push_constant) uniform _PushConstantRay {
+  PushConstantRay pcRay;
+};
 
 layout(binding = 0, set = 1) uniform accelerationStructureEXT topLevelAS;
 layout(binding = 1, set = 1, rgba8) uniform image2D image;
@@ -40,7 +58,7 @@ void main() {
     vec4 direction = ubo.inverseViewMatrix * vec4(normalize(target.xyz), 0);
 
     uint  rayFlags = gl_RayFlagsOpaqueEXT;
-    float tMin     = 0.001;
+    float tMin     = pcRay.minRange;
     float tMax     = 10000.0;
 
     // Initialize members of the payload:
@@ -50,7 +68,6 @@ void main() {
     rPayload.done        = 1;
     rPayload.rayOrigin   = origin.xyz;
     rPayload.rayDir      = direction.xyz;
-    rPayload.randomSeed = InitRandomSeed(InitRandomSeed(gl_LaunchIDEXT.x, gl_LaunchIDEXT.y), 3);
 
     vec3 hitValue = vec3(0.0);
     for(;;) {
@@ -70,7 +87,7 @@ void main() {
       hitValue += rPayload.hitValue * rPayload.attenuation;
 
       rPayload.depth++;
-      if(rPayload.done == 1 || rPayload.depth >= 10) {
+      if(rPayload.done == 1 || rPayload.depth >= pcRay.totalBounces) {
         break;
       }
 

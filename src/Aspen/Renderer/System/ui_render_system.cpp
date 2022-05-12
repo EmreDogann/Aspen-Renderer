@@ -186,7 +186,7 @@ namespace Aspen {
 				ImGuizmo::Enable(false);
 			}
 
-			if (uiState.gizmoVisible && uiState.selectedEntity && uiState.gizmoType != -1) {
+			if (uiState.gizmoVisible && uiState.selectedEntity && uiState.gizmoOperation != -1) {
 				ImGuizmo::SetOrthographic(false);
 				ImGuizmo::SetDrawlist();
 
@@ -205,24 +205,27 @@ namespace Aspen {
 				// Get entity's transform component
 				auto& objectTranform = uiState.selectedEntity.getComponent<TransformComponent>().transform();
 
-				// Snapping
-				float snapValue = 0.5f; // Snap to 0.5m for translation/scale.
-
-				// Snap to 45 degrees for rotation.
-				if (uiState.gizmoType == ImGuizmo::OPERATION::ROTATE) {
-					snapValue = 45.0f;
+				glm::vec3 snapValues;
+				switch (uiState.gizmoOperation) {
+					case ImGuizmo::TRANSLATE:
+						snapValues = glm::vec3(uiState.snappingAmounts[0]);
+						break;
+					case ImGuizmo::ROTATE:
+						snapValues = glm::vec3(uiState.snappingAmounts[1]);
+						break;
+					case ImGuizmo::SCALE:
+						snapValues = glm::vec3(uiState.snappingAmounts[2]);
+						break;
 				}
-
-				float snapValues[3] = {snapValue, snapValue, snapValue};
 
 				// Modify the transform matrix as needed.
 				ImGuizmo::Manipulate(glm::value_ptr(cameraView),
 				                     glm::value_ptr(cameraProjection),
-				                     static_cast<ImGuizmo::OPERATION>(uiState.gizmoType),
-				                     ImGuizmo::WORLD,
+				                     static_cast<ImGuizmo::OPERATION>(uiState.gizmoOperation),
+				                     static_cast<ImGuizmo::MODE>(uiState.gizmoMode),
 				                     glm::value_ptr(objectTranform),
 				                     nullptr,
-				                     uiState.snapping ? snapValues : nullptr);
+				                     uiState.snappingEnabled ? glm::value_ptr(snapValues) : nullptr);
 
 				if (ImGuizmo::IsUsing()) {
 					auto& objectComponent = uiState.selectedEntity.getComponent<TransformComponent>();
@@ -236,7 +239,6 @@ namespace Aspen {
 					objectComponent.rotation = glm::normalize(glm::quat(rotation));
 					objectComponent.scale = scale;
 					objectComponent.isTransformUpdated = true;
-					std::cout << objectComponent.translation.x << ", " << objectComponent.translation.y << ", " << objectComponent.translation.z << std::endl;
 				}
 			}
 			ImGui::End();
@@ -245,7 +247,7 @@ namespace Aspen {
 		// Settings Window
 		{
 			ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoMove |
-			                                ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoNav;
+			                                ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse;
 			ImGuiWindowFlags window_flags2 = ImGuiWindowFlags_MenuBar;
 
 			ImGui::SetNextWindowDockID(dock_right_id, ImGuiCond_Once);
@@ -315,33 +317,105 @@ namespace Aspen {
 					ImGui::SameLine();
 					changed |= ImGui::RadioButton("Ray Tracing", &appState.useRayTracer, 1);
 
-					static bool shadow_mapping = false;
-					changed |= ImGui::Checkbox("Shadow Mapping", &shadow_mapping);
-					{
-						if (!shadow_mapping) {
-							ImGui::BeginDisabled();
+					if (appState.useRayTracer) {
+						changed |= ImGui::DragInt("Max Bounces", &appState.rtTotalBounces);
+						changed |= ImGui::DragFloat("Min Distance", &appState.rayMinRange, 0.1f, 0.0f, 0.0f, "%.6f");
+						changed |= ImGui::Checkbox("Reflections?", &appState.useRTReflections);
+						changed |= ImGui::Checkbox("Refractions?", &appState.useRTRefractions);
+					}
+
+					changed |= ImGui::Checkbox("Shadow Mapping", &appState.useShadows);
+					if (appState.useShadows) {
+						float shadowBias;
+						float shadowOpacity;
+						if (appState.useRayTracer) {
+							shadowBias = appState.rtShadowBias;
+							shadowOpacity = appState.rtShadowOpacity;
+						} else {
+							shadowBias = appState.rasterShadowBias;
+							shadowOpacity = appState.rasterShadowOpacity;
 						}
 
-						ImGui::Text("Shadow Mapping stuff...");
+						changed |= ImGui::DragFloat("Shadow Bias", &shadowBias, 0.0001f, 0.0f, 0.0f, "%.6f");
+						changed |= ImGui::DragFloat("Shadow Opcaity", &shadowOpacity, 0.1f, 0.0f, 1.0f, "%.6f");
 
-						if (!shadow_mapping) {
-							ImGui::EndDisabled();
+						if (changed) {
+							if (appState.useRayTracer) {
+								appState.rtShadowBias = shadowBias;
+								appState.rtShadowOpacity = shadowOpacity;
+							} else {
+								appState.rasterShadowBias = shadowBias;
+								appState.rasterShadowOpacity = shadowOpacity;
+							}
 						}
 					}
 
-					static bool texture_mapping = false;
-					changed |= ImGui::Checkbox("Texture Mapping", &texture_mapping);
-					{
-						if (!texture_mapping) {
-							ImGui::BeginDisabled();
-						}
+					changed |= ImGui::Checkbox("Texture Mapping", &appState.useTextureMapping);
+				}
+				ImGui::TreePop();
+			}
 
-						ImGui::Text("Texture Mapping stuff...");
+			ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+			if ((uiState.gizmoVisible && uiState.selectedEntity) && ImGui::TreeNode("Transforms")) {
+				if (ImGui::RadioButton("Translate", uiState.gizmoOperation == ImGuizmo::TRANSLATE)) {
+					uiState.gizmoOperation = ImGuizmo::TRANSLATE;
+				}
 
-						if (!texture_mapping) {
-							ImGui::EndDisabled();
-						}
+				ImGui::SameLine();
+
+				if (ImGui::RadioButton("Rotate", uiState.gizmoOperation == ImGuizmo::ROTATE)) {
+					uiState.gizmoOperation = ImGuizmo::ROTATE;
+				}
+
+				ImGui::SameLine();
+
+				if (ImGui::RadioButton("Scale", uiState.gizmoOperation == ImGuizmo::SCALE)) {
+					uiState.gizmoOperation = ImGuizmo::SCALE;
+				}
+
+				// Get entity's transform component
+				auto& objectTranform = uiState.selectedEntity.getComponent<TransformComponent>();
+
+				bool wasValueChanged = false;
+				glm::vec3 translation, rotation, scale;
+				Math::decomposeTransform(objectTranform, translation, rotation, scale);
+				wasValueChanged |= ImGui::DragFloat3("Tr", glm::value_ptr(translation), 0.25f);
+				wasValueChanged |= ImGui::DragFloat3("Rt", glm::value_ptr(rotation), 0.25f);
+				wasValueChanged |= ImGui::DragFloat3("Sc", glm::value_ptr(scale), 0.25f);
+
+				if (wasValueChanged) {
+					objectTranform.translation = translation;
+					objectTranform.rotation = glm::normalize(glm::quat(rotation));
+					objectTranform.scale = scale;
+					objectTranform.isTransformUpdated = true;
+				}
+
+				if (uiState.gizmoOperation != ImGuizmo::SCALE) {
+					if (ImGui::RadioButton("Local", uiState.gizmoMode == ImGuizmo::LOCAL)) {
+						uiState.gizmoMode = ImGuizmo::LOCAL;
 					}
+
+					ImGui::SameLine();
+
+					if (ImGui::RadioButton("World", uiState.gizmoMode == ImGuizmo::WORLD)) {
+						uiState.gizmoMode = ImGuizmo::WORLD;
+					}
+				}
+
+				ImGui::Checkbox("Snapping?", &uiState.snappingEnabled);
+
+				ImGui::SameLine();
+
+				switch (uiState.gizmoOperation) {
+					case ImGuizmo::TRANSLATE:
+						ImGui::InputFloat("Position Snap", &uiState.snappingAmounts[0]);
+						break;
+					case ImGuizmo::ROTATE:
+						ImGui::InputFloat("Angle Snap", &uiState.snappingAmounts[1]);
+						break;
+					case ImGuizmo::SCALE:
+						ImGui::InputFloat("Scale Snap", &uiState.snappingAmounts[2]);
+						break;
 				}
 				ImGui::TreePop();
 			}
@@ -381,7 +455,7 @@ namespace Aspen {
 					ImGui::Separator();
 
 					ImGui::Text("Average over 120 frames: %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-					ImGui::Text("%d vertices, %d indices (%d triangles)", io.MetricsRenderVertices, io.MetricsRenderIndices, io.MetricsRenderIndices / 3);
+					ImGui::Text("%d vertices, %d indices (%d triangles)", io.MetricsRenderVertices + appState.totalVertexCount, io.MetricsRenderIndices + appState.totalIndexCount, io.MetricsRenderIndices + appState.totalIndexCount / 3);
 
 					if (ImGui::BeginPopupContextWindow()) {
 						if (ImGui::MenuItem("Custom", nullptr, corner == -1))
@@ -408,10 +482,4 @@ namespace Aspen {
 		// Render ImGui UI at the end of the render pass.
 		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), frameInfo.commandBuffer);
 	}
-
-	// void UIRenderSystem::renderUI(VkCommandBuffer commandBuffer) {
-	// 	// Bind the graphics pipieline.
-	// 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &offscreenDescriptorSets[0], 0, nullptr);
-	// 	pipeline.bind(commandBuffer, pipeline->getPresentPipeline());
-	// }
 } // namespace Aspen

@@ -2,7 +2,11 @@
 
 namespace Aspen {
 	struct SimplePushConstantData {
-		alignas(16) int imageIndex;
+		int imageIndex;
+		bool textureMapping;
+		int shadows;
+		float shadowBias;
+		alignas(16) float shadowOpacity;
 	};
 
 	SimpleRenderSystem::SimpleRenderSystem(Device& device, Renderer& renderer, std::vector<std::unique_ptr<DescriptorSetLayout>>& globalDescriptorSetLayout, std::shared_ptr<Framebuffer> resourcesDepthPrePass, std::shared_ptr<Framebuffer> resourcesShadow)
@@ -185,7 +189,7 @@ namespace Aspen {
 		renderInfo.framebuffer = resources->framebuffer;
 
 		std::vector<VkClearValue> clearValues{2};
-		clearValues[0].color = {0.01f, 0.01f, 0.01f, 1.0f};
+		clearValues[0].color = {0.02f, 0.02f, 0.02f, 1.0f};
 		clearValues[1].depthStencil = {1.0f, 0};
 		renderInfo.clearValues = clearValues;
 
@@ -221,6 +225,10 @@ namespace Aspen {
 			// transform.rotation.x = glm::mod(transform.rotation.x + 0.00003f, glm::two_pi<float>()); // Slowly rotate game objects.
 
 			SimplePushConstantData push{};
+			push.textureMapping = frameInfo.appState.useTextureMapping;
+			push.shadows = frameInfo.appState.useShadows;
+			push.shadowBias = frameInfo.appState.rasterShadowBias;
+			push.shadowOpacity = frameInfo.appState.rasterShadowOpacity;
 			if (mesh.texture.isTextureLoaded) {
 				push.imageIndex = textureIndex++;
 			} else {

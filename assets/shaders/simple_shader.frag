@@ -44,11 +44,11 @@ layout(set = 3, binding = 0) uniform sampler2D samplerTextures[];
 // Push Constants
 layout(push_constant) uniform Push {
     int imageIndex;
+    bool textureMapping;
+    int shadows;
+    float shadowBias;
+    float shadowOpacity;
 } push;
-
-// Constants
-#define SHADOW_BIAS 0.0001
-#define SHADOW_OPACITY 0.5
 
 // From https://stackoverflow.com/questions/10786951/omnidirectional-shadow-mapping-with-depth-cubemap
 // Convert the light-to-fragment vector to a depth value so it can be compared with a sampled depth value.
@@ -110,10 +110,14 @@ void main() {
     // float dist = length(lightVec);
 
 	// Check if fragment is in shadow
-    float bias = max(0.0001 * (1.0 - clamp(dot(surfaceNormal, (inLightPos - inWorldPosition)), 0, 1)), 0.0001);
-    float shadow = (sampledDist + bias > dist) ? 1.0 : 0.1;
+    float bias = max(push.shadowBias * (1.0 - clamp(dot(surfaceNormal, (inLightPos - inWorldPosition)), 0, 1)), push.shadowBias);
+    float shadow = 1.0;
 
-    if (push.imageIndex == -1) {
+    if (push.shadows == 1) {
+        shadow = (sampledDist + bias > dist) ? 1.0 : push.shadowOpacity;
+    }
+
+    if (push.imageIndex == -1 || !push.textureMapping) {
         outColor = vec4(inColor * (specularLighting + diffuseLighting) * shadow, 1.0); // RGBA
     } else {
         outColor = vec4(texture(samplerTextures[push.imageIndex], inUV).xyz * (specularLighting + diffuseLighting) * shadow, 1.0); // RGBA

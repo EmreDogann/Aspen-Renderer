@@ -893,9 +893,17 @@ namespace Aspen {
 		auto pointLightGroup = frameInfo.scene->getPointLights();
 		auto [pointLightProps, pointLightTransform] = pointLightGroup.get<PointLightComponent, TransformComponent>(pointLightGroup[0]);
 
-		push.clearColor = glm::vec4{0.1f, 0.1f, 0.1f, 1.0f};
+		push.clearColor = glm::vec4{0.02f, 0.02f, 0.02f, 1.0f};
 		push.lightPosition = pointLightTransform.translation;
 		push.lightIntensity = pointLightProps.lightIntensity;
+		push.textureMapping = frameInfo.appState.useTextureMapping;
+		push.shadows = frameInfo.appState.useShadows;
+		push.shadowBias = frameInfo.appState.rtShadowBias;
+		push.shadowOpacity = frameInfo.appState.rtShadowOpacity;
+		push.useReflections = frameInfo.appState.useRTReflections;
+		push.useRefractions = frameInfo.appState.useRTRefractions;
+		push.minRange = frameInfo.appState.rayMinRange;
+		push.totalBounces = frameInfo.appState.rtTotalBounces;
 
 		vkCmdPushConstants(frameInfo.commandBuffer, pipeline.getPipelineLayout(), VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR, 0, sizeof(PushConstantRay), &push);
 

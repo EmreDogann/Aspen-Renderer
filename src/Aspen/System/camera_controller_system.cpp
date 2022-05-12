@@ -72,7 +72,7 @@ namespace Aspen {
 	// }
 
 	void CameraControllerSystem::OnUpdate(CameraControllerArcball& controller, glm::vec2 viewportSize) {
-		if (Input::IsKeyPressed(Key::LeftAlt)) {
+		if (Input::IsKeyPressed(Key::LeftControl)) {
 			const glm::vec2& mouse{Input::GetMouseX(), Input::GetMouseY()};
 			glm::vec2 deltaAngle = glm::vec2{2 * glm::pi<float>() / viewportSize.x, glm::pi<float>() / viewportSize.y};
 			glm::vec2 delta = (mouse - controller.lastMousePosition) * controller.mouseSensitivity;

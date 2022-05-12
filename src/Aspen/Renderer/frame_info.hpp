@@ -3,16 +3,6 @@
 #include "Aspen/Scene/scene.hpp"
 
 namespace Aspen {
-	struct FrameInfo {
-		int frameIndex;
-		float frameTime;
-		std::vector<VkDescriptorSet> descriptorSet;
-		uint32_t dynamicOffset;
-		VkCommandBuffer commandBuffer;
-		Camera& camera;
-		std::shared_ptr<Scene>& scene;
-	};
-
 	struct RenderInfo {
 		VkFramebuffer framebuffer;
 		VkRenderPass renderPass;
@@ -38,7 +28,19 @@ namespace Aspen {
 		int TIME_HISTORY_COUNT = 4;
 		int UPDATE_MULTIPLICITY = 1;
 
-		int useRayTracer = 1;
+		int useRayTracer = 0;
+		bool useTextureMapping = true;
+
+		bool useShadows = true;
+		float rasterShadowBias = 0.00001;
+		float rtShadowBias = 0.05;
+		float rasterShadowOpacity = 0.1;
+		float rtShadowOpacity = 0.1;
+
+		bool useRTReflections = true;
+		bool useRTRefractions = true;
+		int rtTotalBounces = 10;
+		float rayMinRange = 0.001;
 
 		bool enable_vsync = true;
 		int fps_cap = 60;
@@ -60,5 +62,19 @@ namespace Aspen {
 		    // (1.0f / 60.0f + 2) / 3.0f,  // 180fps // I do not want to snap to anything higher than 120 in my engine, but I left the math in here anyway
 		    // (1.0f / 60.0f + 3) / 4.0f,  // 240fps
 		};
+
+		int totalVertexCount = 0;
+		int totalIndexCount = 0;
+	};
+
+	struct FrameInfo {
+		int frameIndex;
+		float frameTime;
+		std::vector<VkDescriptorSet> descriptorSet;
+		uint32_t dynamicOffset;
+		VkCommandBuffer commandBuffer;
+		Camera& camera;
+		std::shared_ptr<Scene>& scene;
+		ApplicationState appState;
 	};
 } // namespace Aspen

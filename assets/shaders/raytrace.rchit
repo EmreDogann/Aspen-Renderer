@@ -24,8 +24,6 @@ layout(binding = 5, set = 1) readonly buffer MaterialArray { Material[] Material
 // Textures
 layout(set = 2, binding = 0) uniform sampler2D samplerTextures[];
 
-#include "scatter.glsl"
-
 vec2 Mix(vec2 a, vec2 b, vec2 c, vec3 barycentrics) {
 	return a * barycentrics.x + b * barycentrics.y + c * barycentrics.z;
 };
@@ -36,9 +34,17 @@ vec3 Mix(vec3 a, vec3 b, vec3 c, vec3 barycentrics) {
 
 // Push constant structure for the ray tracer
 struct PushConstantRay {
-  vec4  clearColor;
-  vec3  lightPosition;
-  float lightIntensity;
+  	vec4 clearColor;
+	vec3 lightPosition;
+	float lightIntensity;
+	int textureMapping;
+	int shadows;
+	float shadowBias;
+	float shadowOpacity;
+	int useReflections;
+	int useRefractions;
+	float minRange;
+	int totalBounces;
 };
 
 layout(push_constant) uniform _PushConstantRay {
@@ -131,8 +137,8 @@ void main() {
   	float attenuation = 1;
 
 	// Tracing shadow ray only if the light is visible from the surface
-	if(dot(worldNormal, L) > 0) {
-		float tMin   = 0.05;
+	if(pcRay.shadows == 1 && dot(worldNormal, L) > 0) {
+		float tMin   = pcRay.shadowBias;
 		float tMax   = lightDistance;
 		vec3  origin = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
 		vec3  rayDir = L;
@@ -157,7 +163,7 @@ void main() {
 		);
 
 		if(isShadowed) {
-			attenuation = 0.3;
+			attenuation = pcRay.shadowOpacity;
 		} else {
 			// Specular
 			specular = computeSpecular(material, gl_WorldRayDirectionEXT, L, worldNormal);
@@ -165,14 +171,14 @@ void main() {
 	}
 
 	// Reflection
-	if(material.materialModel == MaterialMetallic) {
+	if(pcRay.useReflections == 1 && material.materialModel == MaterialMetallic) {
 		vec3 origin = worldPos;
 		vec3 rayDir = reflect(gl_WorldRayDirectionEXT, worldNormal);
 		rPayload.attenuation *= attenuation;
 		rPayload.done      = 0;
 		rPayload.rayOrigin = origin;
 		rPayload.rayDir    = rayDir;
-	} else if (material.materialModel == MaterialDielectric) {
+	} else if (pcRay.useRefractions == 1 && material.materialModel == MaterialDielectric) { // Refractions
 		const float dot = dot(gl_WorldRayDirectionEXT, worldNormal);
 		const vec3 outwardNormal = dot > 0 ? -worldNormal : worldNormal;
 		const float niOverNt = dot > 0 ? material.refractionIndex : 1 / material.refractionIndex;
@@ -185,5 +191,11 @@ void main() {
 		rPayload.rayDir    = refracted;
 	}
 
-	rPayload.hitValue = lightIntensity * attenuation * (diffuse + specular) * (material.diffuseTextureId >= 0 ? texture(samplerTextures[nonuniformEXT(material.diffuseTextureId)], texCoord).rgb : color);
+	rPayload.hitValue = lightIntensity * attenuation * (diffuse + specular);
+
+	if (pcRay.textureMapping == 1) {
+		rPayload.hitValue *= (material.diffuseTextureId >= 0 ? texture(samplerTextures[nonuniformEXT(material.diffuseTextureId)], texCoord).rgb : color);
+	} else {
+		rPayload.hitValue *= color;
+	}
 }

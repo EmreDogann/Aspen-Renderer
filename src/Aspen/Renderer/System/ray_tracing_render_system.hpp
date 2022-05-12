@@ -37,6 +37,14 @@ namespace Aspen {
 		glm::vec4 clearColor{};
 		glm::vec3 lightPosition{};
 		float lightIntensity;
+		int textureMapping;
+		int shadows;
+		float shadowBias;
+		float shadowOpacity;
+		int useReflections;
+		int useRefractions;
+		float minRange;
+		int totalBounces;
 	};
 
 	class RayTracingRenderSystem {

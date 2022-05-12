@@ -248,7 +248,8 @@ namespace Aspen {
 			    static_cast<uint32_t>(globalRenderSystem.getDynamicUboBuffers()[renderer.getFrameIndex()]->getAlignmentSize()),
 			    commandBuffer,
 			    cameraComponent.camera,
-			    m_Scene};
+			    m_Scene,
+			    appState};
 
 			// Update our UBO buffer.
 			globalRenderSystem.updateUBOs(frameInfo);
@@ -371,24 +372,24 @@ namespace Aspen {
 			if (keyEvent.GetRepeatCount() == 0) {
 				// Gizmo Shorcuts
 				switch (keyEvent.GetKeyCode()) {
-					case Key::LeftAlt:
+					case Key::LeftControl:
 						cameraEntity.getComponent<CameraControllerArcball>().lastMousePosition = Input::GetMousePosition();
 						uiState.gizmoActive = false;
 						break;
 					case Key::Q:
-						uiState.gizmoType = -1;
+						uiState.gizmoOperation = -1;
 						break;
 					case Key::T:
-						uiState.gizmoType = ImGuizmo::OPERATION::TRANSLATE;
+						uiState.gizmoOperation = ImGuizmo::OPERATION::TRANSLATE;
 						break;
 					case Key::R:
-						uiState.gizmoType = ImGuizmo::OPERATION::ROTATE;
+						uiState.gizmoOperation = ImGuizmo::OPERATION::ROTATE;
 						break;
 					case Key::Y:
-						uiState.gizmoType = ImGuizmo::OPERATION::SCALE;
+						uiState.gizmoOperation = ImGuizmo::OPERATION::SCALE;
 						break;
-					case Key::LeftControl:
-						uiState.snapping = true;
+					case Key::LeftShift:
+						uiState.snappingEnabled = true;
 						break;
 					case Key::Escape:
 						m_Running = false; // Set flag to close the application.
@@ -399,11 +400,11 @@ namespace Aspen {
 			auto& keyEvent = dynamic_cast<KeyReleasedEvent&>(e);
 			switch (keyEvent.GetKeyCode()) {
 				// Gizmo Shorcuts
-				case Key::LeftAlt:
+				case Key::LeftControl:
 					uiState.gizmoActive = true;
 					break;
-				case Key::LeftControl:
-					uiState.snapping = false;
+				case Key::LeftShift:
+					uiState.snappingEnabled = false;
 					break;
 			}
 		} else if (e.GetEventType() == EventType::MouseButtonPressed) {
@@ -585,6 +586,9 @@ namespace Aspen {
 				auto texID = m_Scene->addTexture(objectMesh.texture, "assets/textures/LaticeWall.png", VK_FORMAT_R8G8B8A8_SRGB, device.graphicsQueue());
 				std::cout << "Vase 1 Vertex Count: " << objectMesh.vertices.size() << std::endl;
 
+				appState.totalVertexCount += objectMesh.vertices.size();
+				appState.totalIndexCount += objectMesh.indices.size();
+
 				auto& objectMaterial = object.addComponent<MaterialComponent>();
 				objectMaterial.materialModel = MaterialComponent::MaterialType::Lambertian;
 				objectMaterial.diffuse = glm::vec4(1.0f);
@@ -602,11 +606,14 @@ namespace Aspen {
 			auto texID = m_Scene->addTexture(objectMesh.texture, "assets/textures/RustedPlates.png", VK_FORMAT_R8G8B8A8_SRGB, device.graphicsQueue());
 			std::cout << "Vase 2 Vertex Count: " << objectMesh.vertices.size() << std::endl;
 
+			appState.totalVertexCount += objectMesh.vertices.size();
+			appState.totalIndexCount += objectMesh.indices.size();
+
 			auto& objectMaterial = object.addComponent<MaterialComponent>();
 			objectMaterial.materialModel = MaterialComponent::MaterialType::Lambertian;
 			objectMaterial.diffuse = glm::vec4(1.0f);
 			objectMaterial.diffuseTextureId = texID;
-		} // namespace Aspen
+		}
 
 		// Create cube
 		{
@@ -622,6 +629,9 @@ namespace Aspen {
 				Model::createModelFromFile(device, objectMesh, "assets/models/cube.obj");
 				auto texID = m_Scene->addTexture(objectMesh.texture, "assets/textures/Wool.jpg", VK_FORMAT_R8G8B8A8_SRGB, device.graphicsQueue());
 				std::cout << "Cube 1 Vertex Count: " << objectMesh.vertices.size() << std::endl;
+
+				appState.totalVertexCount += objectMesh.vertices.size();
+				appState.totalIndexCount += objectMesh.indices.size();
 
 				auto& objectMaterial = object.addComponent<MaterialComponent>();
 				objectMaterial.materialModel = MaterialComponent::MaterialType::Lambertian;
@@ -640,6 +650,9 @@ namespace Aspen {
 			Model::createModelFromFile(device, objectMesh, "assets/models/cube.obj");
 			std::cout << "Cube 2 Vertex Count: " << objectMesh.vertices.size() << std::endl;
 
+			appState.totalVertexCount += objectMesh.vertices.size();
+			appState.totalIndexCount += objectMesh.indices.size();
+
 			auto& objectMaterial = object.addComponent<MaterialComponent>();
 			objectMaterial.materialModel = MaterialComponent::MaterialType::Lambertian;
 			objectMaterial.diffuse = glm::vec4(1.0f);
@@ -656,6 +669,9 @@ namespace Aspen {
 			auto& objectMesh = object.addComponent<MeshComponent>();
 			createCubeModel(device, {0.0f, 0.0f, 0.0f}, objectMesh);
 			std::cout << "Cornell Box Vertex Count: " << objectMesh.vertices.size() << std::endl;
+
+			appState.totalVertexCount += objectMesh.vertices.size();
+			appState.totalIndexCount += objectMesh.indices.size();
 
 			auto& objectMaterial = object.addComponent<MaterialComponent>();
 			objectMaterial.materialModel = MaterialComponent::MaterialType::Lambertian;
@@ -674,6 +690,9 @@ namespace Aspen {
 			Model::createModelFromFile(device, objectMesh, "assets/models/dragon-lowres2.obj");
 			auto texID = m_Scene->addTexture(objectMesh.texture, "assets/textures/Ceramic.png", VK_FORMAT_R8G8B8A8_SRGB, device.graphicsQueue());
 			std::cout << "Chinese Dragon Vertex Count: " << objectMesh.vertices.size() << std::endl;
+
+			appState.totalVertexCount += objectMesh.vertices.size();
+			appState.totalIndexCount += objectMesh.indices.size();
 
 			auto& objectMaterial = object.addComponent<MaterialComponent>();
 			objectMaterial.materialModel = MaterialComponent::MaterialType::Lambertian;
@@ -694,6 +713,9 @@ namespace Aspen {
 			Model::createModelFromFile(device, objectMesh, "assets/models/UV-Sphere.obj");
 			std::cout << "Sphere Vertex Count: " << objectMesh.vertices.size() << std::endl;
 
+			appState.totalVertexCount += objectMesh.vertices.size();
+			appState.totalIndexCount += objectMesh.indices.size();
+
 			auto& objectMaterial = object.addComponent<MaterialComponent>();
 			objectMaterial.materialModel = MaterialComponent::MaterialType::Metallic;
 			objectMaterial.fuzziness = 0.0f;
@@ -710,6 +732,9 @@ namespace Aspen {
 			auto& objectMesh = object.addComponent<MeshComponent>();
 			Model::createModelFromFile(device, objectMesh, "assets/models/teapot.obj");
 			std::cout << "Teapot Vertex Count: " << objectMesh.vertices.size() << std::endl;
+
+			appState.totalVertexCount += objectMesh.vertices.size();
+			appState.totalIndexCount += objectMesh.indices.size();
 
 			auto& objectMaterial = object.addComponent<MaterialComponent>();
 			objectMaterial.materialModel = MaterialComponent::MaterialType::Metallic;
@@ -728,6 +753,9 @@ namespace Aspen {
 			auto& objectMesh = object.addComponent<MeshComponent>();
 			Model::createModelFromFile(device, objectMesh, "assets/models/bunny.obj");
 			std::cout << "Bunny Vertex Count: " << objectMesh.vertices.size() << std::endl;
+
+			appState.totalVertexCount += objectMesh.vertices.size();
+			appState.totalIndexCount += objectMesh.indices.size();
 
 			auto& objectMaterial = object.addComponent<MaterialComponent>();
 			objectMaterial.materialModel = MaterialComponent::MaterialType::Dielectric;
