@@ -128,7 +128,7 @@ namespace Aspen {
 		MeshComponent() = default;
 	};
 
-	struct MaterialComponent {
+	struct alignas(16) MaterialComponent {
 		enum MaterialType {
 			Lambertian = 0,
 			Metallic = 1,
@@ -145,6 +145,9 @@ namespace Aspen {
 
 		// Metal fuzziness.
 		float fuzziness = 1.0f;
+
+		// Shinyness.
+		float specular = 1.0f;
 
 		// Dielectric refraction index.
 		float refractionIndex = 1.0f;

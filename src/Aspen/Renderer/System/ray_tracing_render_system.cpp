@@ -11,11 +11,14 @@ namespace Aspen {
 		vkDestroyImage(device.device(), storage_image.image, nullptr);
 		vkFreeMemory(device.device(), storage_image.memory, nullptr);
 
+		rtSBTBuffer.reset();
+
 		for (auto& blas : m_BLAS) {
 			blas.buffer.reset();
 			deviceProcedures.vkDestroyAccelerationStructureKHR(device.device(), blas.handle, nullptr);
 		}
 		m_TLAS.buffer.reset();
+		m_TLASInstances.rend();
 		deviceProcedures.vkDestroyAccelerationStructureKHR(device.device(), m_TLAS.handle, nullptr);
 	}
 
@@ -357,7 +360,7 @@ namespace Aspen {
 		BLASInput input;
 		input.ASGeometry.emplace_back(asGeom);
 		input.ASBuildOffsetInfo.emplace_back(offset);
-		// input.ASFlags |= VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
+		input.ASFlags |= VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
 
 		return input;
 	}
@@ -860,7 +863,7 @@ namespace Aspen {
 		renderInfo.framebuffer = resources->framebuffer;
 
 		std::vector<VkClearValue> clearValues{2};
-		clearValues[0].color = {0.5f, 0.0f, 0.0f, 1.0f};
+		clearValues[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
 		clearValues[1].depthStencil = {1.0f, 0};
 		renderInfo.clearValues = clearValues;
 
@@ -890,7 +893,7 @@ namespace Aspen {
 		auto pointLightGroup = frameInfo.scene->getPointLights();
 		auto [pointLightProps, pointLightTransform] = pointLightGroup.get<PointLightComponent, TransformComponent>(pointLightGroup[0]);
 
-		push.clearColor = glm::vec4{0.1f, 0.3f, 0.3f, 1.0f};
+		push.clearColor = glm::vec4{0.1f, 0.1f, 0.1f, 1.0f};
 		push.lightPosition = pointLightTransform.translation;
 		push.lightIntensity = pointLightProps.lightIntensity;
 

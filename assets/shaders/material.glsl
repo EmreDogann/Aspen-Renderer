@@ -10,6 +10,7 @@ struct Material {
 	vec4 diffuse;
 	int diffuseTextureId;
 	float fuzziness;
+	float specular;
 	float refractionIndex;
 	uint materialModel;
 };

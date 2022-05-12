@@ -68,21 +68,18 @@ Vertex UnpackVertex(uint index) {
 	return v;
 };
 
-vec3 computeDiffuse(vec3 lightDir, vec3 normal) {
+vec3 computeDiffuse(Material m, vec3 lightDir, vec3 normal) {
   // Lambertian
   float dotNL = max(dot(normal, lightDir), 0.0);
-  vec3  c     = vec3(1.0) * dotNL;
-  vec3 ambient = vec3(0.2);
-//   if(mat.illum >= 1) {
-//     c += mat.ambient;
-//   }
+  vec3  c     = m.diffuse.rgb * dotNL;
+  vec3 ambient = vec3(0.02);
   return c + ambient;
 }
 
-vec3 computeSpecular(vec3 viewDir, vec3 lightDir, vec3 normal) {
+vec3 computeSpecular(Material m, vec3 viewDir, vec3 lightDir, vec3 normal) {
   // Compute specular only if not in shadow
   const float kPi        = 3.14159265;
-  const float kShininess = 2.0;
+  const float kShininess = m.specular;
 
   // Specular
   const float kEnergyConservation = (2.0 + kShininess) / (2.0 * kPi);
@@ -128,14 +125,14 @@ void main() {
 	// ScatterPayload sPayload = Scatter(material, lDir, worldNormal, texCoord, gl_HitTEXT, rPayload.randomSeed);
 	// rPayload.hitValue = sPayload.ColorAndDistance.rgb * (material.diffuseTextureId == -1 ? color : vec3(1.0));
 
-	vec3 diffuse = computeDiffuse(L, worldNormal);
+	vec3 diffuse = computeDiffuse(material, L, worldNormal);
 
 	vec3  specular    = vec3(0);
   	float attenuation = 1;
 
 	// Tracing shadow ray only if the light is visible from the surface
 	if(dot(worldNormal, L) > 0) {
-		float tMin   = 0.001;
+		float tMin   = 0.05;
 		float tMax   = lightDistance;
 		vec3  origin = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
 		vec3  rayDir = L;
@@ -163,7 +160,7 @@ void main() {
 			attenuation = 0.3;
 		} else {
 			// Specular
-			specular = computeSpecular(gl_WorldRayDirectionEXT, L, worldNormal);
+			specular = computeSpecular(material, gl_WorldRayDirectionEXT, L, worldNormal);
 		}
 	}
 
@@ -175,8 +172,18 @@ void main() {
 		rPayload.done      = 0;
 		rPayload.rayOrigin = origin;
 		rPayload.rayDir    = rayDir;
+	} else if (material.materialModel == MaterialDielectric) {
+		const float dot = dot(gl_WorldRayDirectionEXT, worldNormal);
+		const vec3 outwardNormal = dot > 0 ? -worldNormal : worldNormal;
+		const float niOverNt = dot > 0 ? material.refractionIndex : 1 / material.refractionIndex;
+		const float cosine = dot > 0 ? material.refractionIndex * dot : -dot;
+
+		const vec3 refracted = refract(gl_WorldRayDirectionEXT, outwardNormal, niOverNt);
+		rPayload.attenuation *= attenuation;
+		rPayload.done      = 0;
+		rPayload.rayOrigin = worldPos;
+		rPayload.rayDir    = refracted;
 	}
 
-	// rPayload.hitValue *= lightIntensity * attenuation;
 	rPayload.hitValue = lightIntensity * attenuation * (diffuse + specular) * (material.diffuseTextureId >= 0 ? texture(samplerTextures[nonuniformEXT(material.diffuseTextureId)], texCoord).rgb : color);
 }
