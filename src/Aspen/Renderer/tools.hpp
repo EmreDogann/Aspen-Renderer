@@ -21,7 +21,6 @@
 // Default fence timeout in nanoseconds
 #define DEFAULT_FENCE_TIMEOUT 100000000000
 
-#if defined(_WIN32)
 // Macro to check and display Vulkan return results
 #define VK_CHECK(f)                                                                                                                                   \
 	{                                                                                                                                                 \
@@ -31,7 +30,6 @@
 			assert(res == VK_SUCCESS);                                                                                                                \
 		}                                                                                                                                             \
 	}
-#endif
 
 const std::string getAssetPath();
 

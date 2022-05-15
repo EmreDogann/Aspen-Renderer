@@ -3,7 +3,6 @@
 // Std
 #include <cassert>
 #include <chrono>
-#include <corecrt.h>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>

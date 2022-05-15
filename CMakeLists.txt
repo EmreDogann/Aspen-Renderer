@@ -123,11 +123,15 @@ if (WIN32)
   target_link_libraries(${PROJECT_NAME} glfw glm EnTT ImGui tinyobjloader ${Vulkan_LIBRARIES})
 elseif (UNIX)
     message(STATUS "CREATING BUILD FOR UNIX")
+    # Include target source as a include directory because that is where all our header files are located.
     target_include_directories(${PROJECT_NAME} PUBLIC
-      ${PROJECT_SOURCE_DIR}/src
-      ${Vulkan_INCLUDE_DIRS}
+    ${PROJECT_SOURCE_DIR}/src
+    ${Vulkan_INCLUDE_DIRS}
+    "include/imguizmo"
+    "include/stb_image"
     )
-    target_link_libraries(${PROJECT_NAME} glfw glm EnTT ${Vulkan_LIBRARIES})
+
+    target_link_libraries(${PROJECT_NAME} glfw glm EnTT ImGui tinyobjloader ${Vulkan_LIBRARIES})
 endif()
 
 
@@ -199,8 +203,8 @@ set(dest_dir "${PROJECT_SOURCE_DIR}/build/assets/models")
 add_custom_command(TARGET "Copy_Assets"
   POST_BUILD
   COMMAND ${CMAKE_COMMAND}
-    -Dsource_dir="${source_dir}"
-    -Ddest_dir="${dest_dir}"
+    -Dsource_dir=${source_dir}
+    -Ddest_dir=${dest_dir}
     -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/update_directory.cmake"
 )
 
@@ -209,7 +213,7 @@ set(dest_dir "${PROJECT_SOURCE_DIR}/build/assets/textures")
 add_custom_command(TARGET "Copy_Assets"
   POST_BUILD
   COMMAND ${CMAKE_COMMAND}
-    -Dsource_dir="${source_dir}"
-    -Ddest_dir="${dest_dir}"
+    -Dsource_dir=${source_dir}
+    -Ddest_dir=${dest_dir}
     -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/update_directory.cmake"
 )
