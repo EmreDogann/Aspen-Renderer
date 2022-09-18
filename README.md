@@ -3,7 +3,8 @@
 Apsen is a 3D Real-Time Ray Traced graphics renderer written in C++ using the Vulkan Graphics API.
 
 <p align="center">
-  <img src="https://media.giphy.com/media/L9yhcWRevPCFhAeJ6o/giphy.gif"/>
+  <!--<img src="https://media.giphy.com/media/L9yhcWRevPCFhAeJ6o/giphy.gif"/>-->
+  <img src="https://user-images.githubusercontent.com/48212096/190880329-cbc1816b-16e8-4b2a-9738-1d9b54cb09f2.png"/>
 </p>
 
 # About 
