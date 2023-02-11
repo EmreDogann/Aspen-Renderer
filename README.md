@@ -1,6 +1,6 @@
-# Aspen Renderer (WIP) [![License Apache 2.0](https://img.shields.io/github/license/EmreDogann/Aspen-Renderer)](https://github.com/EmreDogann/Aspen-Renderer/blob/master/LICENSE) ![Platform Windows](https://img.shields.io/badge/platform-Windows-informational)
+# Aspen Renderer [![License Apache 2.0](https://img.shields.io/github/license/EmreDogann/Aspen-Renderer)](https://github.com/EmreDogann/Aspen-Renderer/blob/master/LICENSE) ![Platform Windows](https://img.shields.io/badge/platform-Windows-informational)
 
-Apsen is a 3D Real-Time Ray Traced graphics renderer written in C++ using the Vulkan Graphics API.
+Apsen is a forward rendered 3D Real-Time Ray Traced graphics renderer written in C++ using Vulkan.
 
 <p align="center">
   <!--<img src="https://media.giphy.com/media/L9yhcWRevPCFhAeJ6o/giphy.gif"/>-->
@@ -10,7 +10,7 @@ Apsen is a 3D Real-Time Ray Traced graphics renderer written in C++ using the Vu
 # About 
 The objective of this project is to explore the Vulkan API and learn more about the underlying graphics hardware and pipeline systems in place to perform rasterization and ray tracing (on more recent GPUs) rendering.
 
-Currently, this is not intended to be an engine but just a graphics renderer using rasterization (and ray tracing as a future goal). With my current vision for this project, it will not be possible to make a full game by the end of it. However, in the future, that could change as the project evolves.
+This is not intended to be an engine, just a graphics renderer using rasterization and ray tracing.
 
 # Getting Started
 **Note: This project is currently targeting Windows platforms only.**
