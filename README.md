@@ -8,7 +8,7 @@ Apsen is a forward rendered 3D Real-Time Ray Traced graphics renderer written in
 </p>
 
 # About 
-The objective of this project is to explore the Vulkan API and learn more about the underlying graphics hardware and pipeline systems in place to perform rasterization and ray tracing (on more recent GPUs) rendering.
+This project was done to explore the Vulkan API and learn more about the underlying graphics hardware and pipeline systems in place to perform rasterization and ray tracing rendering.
 
 This is not intended to be an engine, just a graphics renderer using rasterization and ray tracing.
 
